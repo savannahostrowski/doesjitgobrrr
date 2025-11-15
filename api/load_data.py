@@ -134,21 +134,41 @@ async def load_benchmark_run(dir_name: str):
             print(f"Loaded BenchmarkRun {dir_name} with {len(benchmarks)} benchmarks.")
 
 
+async def fetch_latest_run():
+    """Fetch the latest non-JIT run"""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{PYPERF_BENCH_REPO}/contents/results",
+                                    headers={"Accept": "application/vnd.github.v3+json"}
+        )
+        response.raise_for_status()
+        dirs = response.json()
 
+        print(f"Found {len(dirs)} entries in results directory.")
+        for dir in dirs[:5]:
+            if dir["type"] == "dir":
+                print(f"  Directory: {dir['name']}")
+
+        latest_non_jit = None
+        for dir in sorted(dirs, key=lambda d: d["name"], reverse=True):
+            if dir["type"] != "dir":
+                continue
+            match = re.match(PATTERN, dir["name"])
+            if match and not dir["name"].endswith("-JIT"):
+                latest_non_jit = dir["name"]
+                print(f"Latest non-JIT benchmark run found: {latest_non_jit}")
+                break
+        return latest_non_jit
 
 
 async def main():
    from database import init_db
    await init_db()
-   pair = await fetch_latest_benchmark_pair()
-   if not pair:
-       print("No benchmark pair found.")
+   non_jit_dir = await fetch_latest_run()
+   if not non_jit_dir:
+       print("No benchmark found.")
        return
-   non_jit_dir, jit_dir = pair
    print(f"Loading non-JIT run: {non_jit_dir}")
-   print(f"Loading JIT run: {jit_dir}")
    await load_benchmark_run(non_jit_dir)
-   await load_benchmark_run(jit_dir)
 
    print("Data loaded.")
    

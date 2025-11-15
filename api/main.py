@@ -1,11 +1,15 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 from fastapi.middleware.cors import CORSMiddleware
 import pathlib
 import fastapi
 import httpx
+from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel import select, desc
 
-from database import init_db
+from models import Benchmark, BenchmarkRun
+from database import get_session, init_db
 
 
 GITHUB_REPO_URL = "https://api.github.com/repos/savannahostrowski/pyperf_bench"
@@ -46,77 +50,103 @@ async def health_check():
     return {"status": "ok"}
 
 @app.get("/api/latest")
-async def get_latest_comparison():
+async def get_latest_comparison(session: AsyncSession = fastapi.Depends(get_session)) -> dict[ str, Any]:
+    result = await session.exec(
+        select(BenchmarkRun).order_by(desc(BenchmarkRun.run_date)).limit(1)
+    )
+    latest_run: BenchmarkRun | None = result.one_or_none()
+
+    if not latest_run:
+        return {"error": "No benchmark runs found."}
+    
+    benchmark_result = await session.exec(
+        select(Benchmark).where(Benchmark.run_id == latest_run.id)
+    )
+    benchmarks = benchmark_result.all()
+
+    return_json = {}
+    for bench in benchmarks:
+        return_json[bench.name] = {
+            "mean": bench.mean,
+            "median": bench.median,
+            "stddev": bench.stddev,
+            "min_value": bench.min_value,
+            "max_value": bench.max_value,
+        }
+
     return {
-        "date": "2024-06-01",
-        "commit": "abc1234",
-        "python_version": "3.11.4",
-        "jit_run": {
-            "directory": "2024-06-01-jit",
-            "machine": "blueberry",
-        },
-        "non_jit_run": {
-            "directory": "2024-06-01-non-jit",
-            "machine": "blueberry",
-        },
-        "summary": {
-            "total_benchmarks": 25,
-            "jit_faster": 20,
-            "non_jit_faster": 5,
-            "no_change": 0,
-            "geometric_mean_speedup": 1.45,
-        },
-        "benchmarks":[
-            {
-                "name": "benchmark_1",
-                "jit_mean": 0.95,
-                "non_jit_mean": 1.20,
-                "speedup": 1.26,
-                "faster": "JIT",
-            },
-            {
-                "name": "benchmark_2",
-                "jit_mean": 2.50,
-                "non_jit_mean": 2.80,
-                "speedup": 1.12,
-                "faster": "JIT",
-            },
-        ]
+        "date": latest_run.run_date.isoformat(),
+        "commit": latest_run.commit_hash,
+        "python_version": latest_run.python_version,
+        "benchmarks": return_json,
     }
 
+
 @app.get("/api/historical")
-async def get_historical_comparison(days: int = 30):
+async def get_historical_comparison(days: int = 30,
+                                  session: AsyncSession = fastapi.Depends(get_session)) -> dict[str, Any]:
+        
+    result = await session.exec(
+        select(BenchmarkRun).order_by(desc(BenchmarkRun.run_date)).limit(days)
+    )
+    runs = result.all()
+    historical_data: list[dict[str, Any]] = []
+    for run in runs:
+        benchmark_result = await session.exec(
+            select(Benchmark).where(Benchmark.run_id == run.id)
+        )
+        benchmarks = benchmark_result.all()
+
+        benchmarks_json = {}
+        for bench in benchmarks:
+            benchmarks_json[bench.name] = {
+                "mean": bench.mean,
+                "median": bench.median,
+                "stddev": bench.stddev,
+                "min_value": bench.min_value,
+                "max_value": bench.max_value,
+            }
+
+        historical_data.append({
+            "date": run.run_date.isoformat(),
+            "commit": run.commit_hash,
+            "python_version": run.python_version,
+            "benchmarks": benchmarks_json,
+        })
+
     return {
         "days": days,
-        "results":[
-            {
-                "date": "2024-05-31",
-                "commit": "def5678",
-                "jit_geometric_mean": 1.38,
-                "non_jit_geometric_mean": 1.28,
-            },
-            {
-                "date": "2024-05-30",
-                "commit": "ghi9012",
-                "jit_geometric_mean": 1.42,
-                "non_jit_geometric_mean": 1.32,
-            },
-        ]
+        "historical_runs": historical_data
     }
 
 @app.get("/api/benchmarks/{name}/trend")
-async def get_benchmark_trend(name: str, days: int = 30):
+async def get_benchmark_trend(name: str, days: int = 30, session: AsyncSession = fastapi.Depends(get_session)) -> dict[str, Any]:
+    result = await session.exec(
+        select(BenchmarkRun).order_by(desc(BenchmarkRun.run_date)).limit(days)
+    )
+    runs = result.all()
+    trend_data: list[dict[str, Any]] = []
+    for run in runs:
+        benchmark_result = await session.exec(
+            select(Benchmark).where(
+                (Benchmark.run_id == run.id) & (Benchmark.name == name)
+            )
+        )
+        benchmark = benchmark_result.one_or_none()
+        if benchmark:
+            trend_data.append({
+                "date": run.run_date.isoformat(),
+                "mean": benchmark.mean,
+                "median": benchmark.median,
+                "stddev": benchmark.stddev,
+                "min_value": benchmark.min_value,
+                "max_value": benchmark.max_value,
+            })
+
     return {
         "benchmark_name": name,
         "days": days,
-        "jit_trend": [
-            {"date": "2024-05-31", "mean": 0.95, "stddev": 0.05},
-            {"date": "2024-05-30", "mean": 0.97, "stddev": 0.04},
-        ],
-        "non_jit_trend": [
-            {"date": "2024-05-31", "mean": 1.20, "stddev": 0.06},
-            {"date": "2024-05-30", "mean": 1.18, "stddev": 0.05},
-        ],
+        "trend": trend_data
     }
 
 if __name__ == "__main__":
