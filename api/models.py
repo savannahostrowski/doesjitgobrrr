@@ -1,12 +1,13 @@
-from datetime import datetime
 import statistics
+from datetime import datetime
 from typing import Any
-from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 
+from sqlmodel import JSON, Column, Field, Relationship, SQLModel
 
 
 class BenchmarkRun(SQLModel, table=True):
     """Represents a benchmark run with associated metadata and results."""
+
     __tablename__ = "benchmark_runs"
     id: int | None = Field(default=None, primary_key=True)
     directory_name: str = Field(index=True, nullable=False, unique=True)
@@ -15,12 +16,14 @@ class BenchmarkRun(SQLModel, table=True):
     commit_hash: str = Field(nullable=False, index=True)
     is_jit: bool = Field(nullable=False, index=True)
     machine: str = Field(nullable=False)
-    created_at: datetime = Field(default_factory=datetime.now,nullable=False)
+    created_at: datetime = Field(default_factory=datetime.now, nullable=False)
 
     benchmarks: list["Benchmark"] = Relationship(back_populates="benchmark_run")
 
+
 class Benchmark(SQLModel, table=True):
     """Represents individual benchmark results linked to a BenchmarkRun."""
+
     id: int | None = Field(default=None, primary_key=True)
     run_id: int = Field(foreign_key="benchmark_runs.id", nullable=False, index=True)
     name: str = Field(nullable=False, index=True)
@@ -33,15 +36,20 @@ class Benchmark(SQLModel, table=True):
 
     benchmark_run: BenchmarkRun = Relationship(back_populates="benchmarks")
 
+
 class ComparisonCache(SQLModel, table=True):
     """Caches comparison results between JIT and non-JIT benchmark runs."""
+
     id: int | None = Field(default=None, primary_key=True)
     jit_run_id: int = Field(foreign_key="benchmark_runs.id", nullable=False, index=True)
-    non_jit_run_id: int = Field(foreign_key="benchmark_runs.id", nullable=False, index=True)
+    non_jit_run_id: int = Field(
+        foreign_key="benchmark_runs.id", nullable=False, index=True
+    )
     total_benchmarks: int = Field(nullable=False)
     jit_faster_count: int = Field(nullable=False)
     geometric_mean_speedup: float = Field(nullable=False)
     benchmark_comparisons: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+
 
 def compute_benchmark_statistics(pyperf_benchmark: dict[str, Any]) -> dict[str, Any]:
     all_values: list[float] = []
@@ -55,9 +63,9 @@ def compute_benchmark_statistics(pyperf_benchmark: dict[str, Any]) -> dict[str, 
             "median": None,
             "stddev": None,
             "min_value": None,
-            "max_value": None
+            "max_value": None,
         }
-    
+
     return {
         "mean": statistics.mean(all_values),
         "median": statistics.median(all_values),
