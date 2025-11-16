@@ -126,6 +126,29 @@ const DetailView: Component<DetailViewProps> = (props) => {
           <li>
             <span class="label">Total Benchmarks:</span> {totalBenchmarks()}
           </li>
+          {jitRun() && jitRun()!.speedup && (
+            <li>
+              <span class="label">Geometric Mean:</span>{' '}
+              {(() => {
+                const speedup = jitRun()!.speedup!;
+                if (speedup > 1.0) {
+                  const percentFaster = ((speedup - 1) * 100).toFixed(1);
+                  return `${percentFaster}% faster`;
+                } else if (speedup < 1.0) {
+                  const percentSlower = ((1 - speedup) * 100).toFixed(1);
+                  return `${percentSlower}% slower`;
+                } else {
+                  return 'same speed';
+                }
+              })()}
+            </li>
+          )}
+          {jitRun() && jitRun()!.hpt?.percentile_99 && (
+            <li>
+              <span class="label">HPT 99th %ile:</span>{' '}
+              {jitRun()!.hpt!.percentile_99?.toFixed(2)}x
+            </li>
+          )}
           <li>
             <span class="label">Raw Data:</span>{' '}
             {getRawDataUrl() ? (

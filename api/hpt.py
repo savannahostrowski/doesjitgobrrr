@@ -51,13 +51,13 @@ def load_from_json(
 
 
 def load_data(data: Mapping[str, Any]) -> dict[str, NDArray[np.float64]]:
-    results = {}
+    results: dict[str, NDArray[np.float64]] = {}
     for benchmark in data["benchmarks"]:
         if "metadata" in benchmark:
             name = benchmark["metadata"]["name"]
         else:
             name = data["metadata"]["name"]
-        values = []
+        values: list[float] = []
         for run in benchmark["runs"]:
             values.extend(run.get("values", []))
         results[name] = np.array(values, dtype=np.float64)
@@ -129,10 +129,10 @@ def cdfnorm(x: float) -> float:
     a4 = -1.821255978
     a5 = 1.330274429
 
-    L = x
+    L: float = x
 
     if L < 0.0:
-        L *= -1.0
+        L *= -1.0 # pyright: ignore[reportConstantRedefinition]
 
     K = 1.0 / (1.0 + 0.2316419 * L)
     tmp = ((((a5 * K + a4) * K + a3) * K + a2) * K + a1) * K
@@ -173,7 +173,8 @@ def get_rank(
 
 
 def get_ranksum(rank: NDArray[np.int64], rep: NDArray[np.int64]) -> np.int64:
-    return np.sum(rank + (rep - 1) // 2)
+    rank_sum: np.int64 = np.sum(rank + (rep - 1) // 2)
+    return rank_sum
 
 
 def prepare_one_row(
@@ -316,7 +317,7 @@ def maxspeedup(
             return base_su
 
 
-def make_report(ref: PathLike, head: PathLike, alpha=0.1):
+def make_report(ref: PathLike, head: PathLike, alpha: float = 0.1):
     # The original code inverted the inputs from the standard in bench_runner,
     # and it's easier to just flip them here.
     a, b = head, ref

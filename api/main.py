@@ -13,7 +13,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 GITHUB_REPO_URL = "https://api.github.com/repos/savannahostrowski/pyperf_bench"
 
-
 @asynccontextmanager
 async def lifespan(app: fastapi.FastAPI) -> AsyncGenerator[None, None]:
     """FastAPI lifespan event to manage startup and shutdown tasks."""
@@ -108,7 +107,7 @@ async def get_historical_comparison(
         benchmarks = benchmark_result.all()
 
         benchmarks_json = {}
-        benchmark_means = []
+        benchmark_means: list[float] = []
         for bench in benchmarks:
             benchmarks_json[bench.name] = {
                 "mean": bench.mean,
@@ -120,29 +119,21 @@ async def get_historical_comparison(
             if bench.mean is not None and bench.mean > 0:
                 benchmark_means.append(bench.mean)
 
-        # Calculate geometric mean
-        geomean = None
-        if benchmark_means:
-            import math
-
-            log_sum = sum(math.log(x) for x in benchmark_means)
-            geomean = math.exp(log_sum / len(benchmark_means))
 
         date_key = run.run_date.date().isoformat()
         if date_key not in runs_by_date:
             runs_by_date[date_key] = {}
 
         run_type = "jit" if run.is_jit else "nonjit"
-        run_data = {
+        run_data: dict[str, Any] = {
             "date": run.run_date.isoformat(),
             "commit": run.commit_hash,
             "python_version": run.python_version,
             "is_jit": run.is_jit,
-            "geomean": geomean,
             "benchmarks": benchmarks_json,
         }
 
-        # Add HPT data for JIT runs
+        # Add HPT data and geometric mean speedup for JIT runs
         if run.is_jit:
             run_data["hpt"] = {
                 "reliability": run.hpt_reliability,
@@ -150,27 +141,21 @@ async def get_historical_comparison(
                 "percentile_95": run.hpt_percentile_95,
                 "percentile_99": run.hpt_percentile_99,
             }
+            # Use the pre-calculated geometric mean speedup from the database
+            run_data["speedup"] = run.geometric_mean_speedup
 
         runs_by_date[date_key][run_type] = run_data
 
-    # Build historical data with speedup ratios
+    # Build historical data
     historical_data: list[dict[str, Any]] = []
     for date_key, date_runs in runs_by_date.items():
         # Add non-JIT run if it exists
         if "nonjit" in date_runs:
             historical_data.append(date_runs["nonjit"])
 
-        # Add JIT run with speedup ratio if both runs exist
+        # Add JIT run if it exists (speedup already set from database)
         if "jit" in date_runs:
-            jit_run = date_runs["jit"]
-            if "nonjit" in date_runs and jit_run["geomean"] and date_runs["nonjit"]["geomean"]:
-                # Speedup = nonjit_time / jit_time
-                # > 1.0 means JIT is faster
-                # < 1.0 means JIT is slower
-                jit_run["speedup"] = date_runs["nonjit"]["geomean"] / jit_run["geomean"]
-            else:
-                jit_run["speedup"] = None
-            historical_data.append(jit_run)
+            historical_data.append(date_runs["jit"])
 
     return {"days": days, "historical_runs": historical_data}
 
@@ -209,4 +194,10 @@ async def get_benchmark_trend(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        reload_excludes=["data/*", "*.db"],
+    )
