@@ -9,6 +9,17 @@ on:
       - "frontend/**"
       - ".github/workflows/build-and-push.yml"
   workflow_dispatch:
+    inputs:
+      build_api:
+        description: 'Build API image'
+        required: false
+        default: true
+        type: boolean
+      build_frontend:
+        description: 'Build frontend image'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   docker:
@@ -40,7 +51,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push API
-        if: steps.filter.outputs.api == 'true' || github.event_name == 'workflow_dispatch'
+        if: steps.filter.outputs.api == 'true' || (github.event_name == 'workflow_dispatch' && inputs.build_api)
         uses: docker/build-push-action@v5
         with:
           context: ./api
