@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - "main"
+    paths:
+      - "api/**"
+      - "frontend/**"
+      - ".github/workflows/build-and-push.yml"
   workflow_dispatch:
 
 jobs:
@@ -12,6 +16,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Check for API changes
+        uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'api/**'
+            frontend:
+              - 'frontend/**'
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -26,19 +40,21 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push API
+        if: steps.filter.outputs.api == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./api
           file: ./api/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64
           push: true
           tags: savannahostrowski/doesjitgobrrr-api:latest
 
       - name: Build and push Frontend
+        if: steps.filter.outputs.frontend == 'true'
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64
           push: true
           tags: savannahostrowski/doesjitgobrrr-frontend:latest
