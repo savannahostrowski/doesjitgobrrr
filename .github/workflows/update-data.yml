@@ -3,7 +3,7 @@ name: Update Dashboard Data
 on:
   repository_dispatch:
     types: [benchmark_completed]
-  workflow_dispatch:  # Allow manual triggering
+  workflow_dispatch:
 
 jobs:
   update-data:
