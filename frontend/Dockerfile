@@ -12,6 +12,9 @@ RUN npm ci
 # Copy source code
 COPY . .
 
+# Set the production API URL (works for both domains)
+ENV VITE_API_URL=https://api.isthejitfasteryet.com
+
 # Build the application
 RUN npm run build
 
