@@ -201,11 +201,15 @@ async def get_benchmark_trend(
 
 if __name__ == "__main__":
     import uvicorn
+    import os
+
+    # Only enable reload in development
+    is_dev = os.getenv("ENVIRONMENT", "production") == "development"
 
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True,
-        reload_excludes=["data/*", "*.db"],
+        reload=is_dev,
+        reload_excludes=["data/*", "*.db"] if is_dev else None,
     )
