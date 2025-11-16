@@ -46,7 +46,7 @@ const About: Component = () => {
             >
               Raspberry Pi 5 (8GB RAM)
             </a>{' '}
-            sitting in Savannah's homelab with the following specifications:
+            sitting in my homelab with the following specifications:
           </p>
           <ul>
             <li>
