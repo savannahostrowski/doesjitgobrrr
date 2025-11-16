@@ -97,7 +97,10 @@ async def get_historical_comparison(
         select(BenchmarkRun).order_by(desc(BenchmarkRun.run_date)).limit(days)
     )
     runs = result.all()
-    historical_data: list[dict[str, Any]] = []
+
+    # Group runs by date to calculate speedup ratios
+    runs_by_date: dict[str, dict[str, Any]] = {}
+
     for run in runs:
         benchmark_result = await session.exec(
             select(Benchmark).where(Benchmark.run_id == run.id)
@@ -125,16 +128,38 @@ async def get_historical_comparison(
             log_sum = sum(math.log(x) for x in benchmark_means)
             geomean = math.exp(log_sum / len(benchmark_means))
 
-        historical_data.append(
-            {
-                "date": run.run_date.isoformat(),
-                "commit": run.commit_hash,
-                "python_version": run.python_version,
-                "is_jit": run.is_jit,
-                "geomean": geomean,
-                "benchmarks": benchmarks_json,
-            }
-        )
+        date_key = run.run_date.date().isoformat()
+        if date_key not in runs_by_date:
+            runs_by_date[date_key] = {}
+
+        run_type = "jit" if run.is_jit else "nonjit"
+        runs_by_date[date_key][run_type] = {
+            "date": run.run_date.isoformat(),
+            "commit": run.commit_hash,
+            "python_version": run.python_version,
+            "is_jit": run.is_jit,
+            "geomean": geomean,
+            "benchmarks": benchmarks_json,
+        }
+
+    # Build historical data with speedup ratios
+    historical_data: list[dict[str, Any]] = []
+    for date_key, date_runs in runs_by_date.items():
+        # Add non-JIT run if it exists
+        if "nonjit" in date_runs:
+            historical_data.append(date_runs["nonjit"])
+
+        # Add JIT run with speedup ratio if both runs exist
+        if "jit" in date_runs:
+            jit_run = date_runs["jit"]
+            if "nonjit" in date_runs and jit_run["geomean"] and date_runs["nonjit"]["geomean"]:
+                # Speedup = nonjit_time / jit_time
+                # > 1.0 means JIT is faster
+                # < 1.0 means JIT is slower
+                jit_run["speedup"] = date_runs["nonjit"]["geomean"] / jit_run["geomean"]
+            else:
+                jit_run["speedup"] = None
+            historical_data.append(jit_run)
 
     return {"days": days, "historical_runs": historical_data}
 

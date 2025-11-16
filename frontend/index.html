@@ -1,93 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Does JIT go brrr?</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-</head>
-<body>
-    <header>
-        <h1 id="header-title">Does JIT go brrr?</h1>
-        <p id="header-subtitle">Python JIT vs Non-JIT Benchmark Performance Dashboard</p>
-    </header>
-
-    <main>
-        <div id="loading" class="loading">
-            <p>Loading benchmark data...</p>
-        </div>
-
-        <div id="error" class="error hidden">
-            <p>Failed to load benchmark data. Please try again later.</p>
-        </div>
-
-        <!-- Chart View (Home) -->
-        <div id="chart-view" class="hidden">
-            <section class="chart-section">
-                <div class="chart-container">
-                    <canvas id="performance-chart"></canvas>
-                </div>
-            </section>
-        </div>
-
-        <!-- Detail View (Specific Run) -->
-        <div id="detail-view" class="hidden">
-            <section class="detail-controls">
-                <button id="back-button" class="back-button">← Back to Chart</button>
-            </section>
-
-            <section class="summary">
-                <h2>Benchmark Run Details</h2>
-                <div class="summary-grid">
-                    <div class="summary-item">
-                        <span class="label">Date:</span>
-                        <span id="run-date" class="value">-</span>
-                    </div>
-                    <div class="summary-item">
-                        <span class="label">Python Version:</span>
-                        <span id="python-version" class="value">-</span>
-                    </div>
-                    <div class="summary-item">
-                        <span class="label">Commit:</span>
-                        <span id="commit-hash" class="value">-</span>
-                    </div>
-                    <div class="summary-item">
-                        <span class="label">Total Benchmarks:</span>
-                        <span id="total-benchmarks" class="value">-</span>
-                    </div>
-                </div>
-            </section>
-
-            <section class="benchmarks">
-                <h2 id="results-title">Benchmark Results</h2>
-                <div class="table-controls">
-                    <input type="text" id="search" placeholder="Search benchmarks...">
-                </div>
-                <div class="table-wrapper">
-                    <table id="benchmark-table">
-                        <thead id="benchmark-thead">
-                            <tr>
-                                <th data-sort="name">Benchmark Name <span class="sort-indicator"></span></th>
-                                <th data-sort="nonjit_mean">Non-JIT Mean <span class="sort-indicator"></span></th>
-                                <th data-sort="jit_mean">JIT Mean <span class="sort-indicator"></span></th>
-                                <th data-sort="diff">Difference <span class="sort-indicator"></span></th>
-                                <th data-sort="speedup">Speedup <span class="sort-indicator"></span></th>
-                            </tr>
-                        </thead>
-                        <tbody id="benchmark-tbody">
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </div>
-    </main>
-
-    <footer>
-        <p>Data from <a href="https://github.com/savannahostrowski/pyperf_bench" target="_blank">pyperf_bench</a> repository</p>
-    </footer>
-
-    <script src="app.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>does JIT go brrr?</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/index.tsx"></script>
+  </body>
 </html>

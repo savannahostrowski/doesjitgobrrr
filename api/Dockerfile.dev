@@ -1,0 +1,21 @@
+FROM python:3.14-slim
+
+WORKDIR /app
+
+# Install uv
+RUN pip install uv
+
+# Copy only dependency files first
+COPY pyproject.toml .
+
+# Sync dependencies
+RUN uv sync
+
+# Create data directory
+RUN mkdir -p data
+
+# Expose port
+EXPOSE 8000
+
+# Run with uvicorn directly for hot-reloading
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
