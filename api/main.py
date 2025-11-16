@@ -133,7 +133,7 @@ async def get_historical_comparison(
             runs_by_date[date_key] = {}
 
         run_type = "jit" if run.is_jit else "nonjit"
-        runs_by_date[date_key][run_type] = {
+        run_data = {
             "date": run.run_date.isoformat(),
             "commit": run.commit_hash,
             "python_version": run.python_version,
@@ -141,6 +141,17 @@ async def get_historical_comparison(
             "geomean": geomean,
             "benchmarks": benchmarks_json,
         }
+
+        # Add HPT data for JIT runs
+        if run.is_jit:
+            run_data["hpt"] = {
+                "reliability": run.hpt_reliability,
+                "percentile_90": run.hpt_percentile_90,
+                "percentile_95": run.hpt_percentile_95,
+                "percentile_99": run.hpt_percentile_99,
+            }
+
+        runs_by_date[date_key][run_type] = run_data
 
     # Build historical data with speedup ratios
     historical_data: list[dict[str, Any]] = []

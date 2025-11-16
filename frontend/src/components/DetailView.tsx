@@ -24,26 +24,28 @@ const DetailView: Component<DetailViewProps> = (props) => {
       Object.keys(jit.benchmarks).forEach(name => allBenchmarks.add(name));
     }
 
-    return Array.from(allBenchmarks).map(name => {
-      const nonJitMean = nonJit?.benchmarks[name]?.mean ?? null;
-      const jitMean = jit?.benchmarks[name]?.mean ?? null;
+    return Array.from(allBenchmarks)
+      .map(name => {
+        const nonJitMean = nonJit?.benchmarks[name]?.mean ?? null;
+        const jitMean = jit?.benchmarks[name]?.mean ?? null;
 
-      let diff: number | null = null;
-      let speedup: number | null = null;
+        let diff: number | null = null;
+        let speedup: number | null = null;
 
-      if (nonJitMean !== null && jitMean !== null) {
-        diff = jitMean - nonJitMean;
-        speedup = nonJitMean / jitMean;
-      }
+        if (nonJitMean !== null && jitMean !== null) {
+          diff = jitMean - nonJitMean;
+          speedup = nonJitMean / jitMean;
+        }
 
-      return {
-        name,
-        nonjit_mean: nonJitMean,
-        jit_mean: jitMean,
-        diff,
-        speedup,
-      };
-    });
+        return {
+          name,
+          nonjit_mean: nonJitMean,
+          jit_mean: jitMean,
+          diff,
+          speedup,
+        };
+      })
+      .filter(row => row.nonjit_mean !== null && row.jit_mean !== null);
   };
 
   const totalBenchmarks = () => {

@@ -18,6 +18,12 @@ class BenchmarkRun(SQLModel, table=True):
     machine: str = Field(nullable=False)
     created_at: datetime = Field(default_factory=datetime.now, nullable=False)
 
+    # HPT (Hypothesis Testing) data - only populated for JIT runs
+    hpt_reliability: float | None = None  # Reliability score (e.g., 99.83%)
+    hpt_percentile_90: float | None = None  # 90th percentile speedup/slowdown
+    hpt_percentile_95: float | None = None  # 95th percentile speedup/slowdown
+    hpt_percentile_99: float | None = None  # 99th percentile speedup/slowdown
+
     benchmarks: list["Benchmark"] = Relationship(back_populates="benchmark_run")
 
 
