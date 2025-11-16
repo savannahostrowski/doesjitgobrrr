@@ -25,21 +25,30 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
     const dir = sortDirection();
 
     return [...props.data].sort((a, b) => {
-      let aVal = a[col];
-      let bVal = b[col];
+      const aVal = a[col];
+      const bVal = b[col];
 
-      if (aVal === null || aVal === undefined) return 1;
-      if (bVal === null || bVal === undefined) return -1;
+      // Handle null/undefined values - always sort them to the end
+      const aIsNull = aVal === null || aVal === undefined;
+      const bIsNull = bVal === null || bVal === undefined;
 
-      if (typeof aVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = (bVal as string).toLowerCase();
+      if (aIsNull && bIsNull) return 0;
+      if (aIsNull) return 1;
+      if (bIsNull) return -1;
+
+      // At this point, both values are non-null
+      let aComp: string | number = aVal;
+      let bComp: string | number = bVal;
+
+      if (typeof aComp === 'string') {
+        aComp = aComp.toLowerCase();
+        bComp = (bComp as string).toLowerCase();
       }
 
       if (dir === 'asc') {
-        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+        return aComp > bComp ? 1 : aComp < bComp ? -1 : 0;
       } else {
-        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+        return aComp < bComp ? 1 : aComp > bComp ? -1 : 0;
       }
     });
   };
@@ -64,7 +73,8 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
   const formatDiff = (benchmark: ComparisonRow) => {
     if (benchmark.diff === null) return { text: '-', class: 'neutral' };
 
-    if (Math.abs(benchmark.diff) < 0.0000001) {
+    // Only show ~0 for truly negligible differences (< 1 nanosecond)
+    if (Math.abs(benchmark.diff) < 0.000000001) {
       return { text: '~0 s', class: 'neutral' };
     } else if (benchmark.diff < 0) {
       return {
@@ -82,13 +92,19 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
   const formatSpeedup = (benchmark: ComparisonRow) => {
     if (benchmark.speedup === null) return { text: '-', class: 'neutral' };
 
-    if (benchmark.diff !== null && Math.abs(benchmark.diff) < 0.0000001) {
+    // Check if speedup is very close to 1.0 (within 0.5% tolerance)
+    if (Math.abs(benchmark.speedup - 1.0) < 0.005) {
       return { text: '1.00x', class: 'neutral' };
     }
 
-    const text = benchmark.speedup.toFixed(2) + 'x';
-    const className = benchmark.diff !== null && benchmark.diff < 0 ? 'faster' : 'slower';
-    return { text, class: className };
+    // If speedup < 1.0, JIT is slower - show as reciprocal (slowdown)
+    if (benchmark.speedup < 1.0) {
+      const slowdown = 1.0 / benchmark.speedup;
+      return { text: slowdown.toFixed(2) + 'x slower', class: 'slower' };
+    } else {
+      // If speedup > 1.0, JIT is faster
+      return { text: benchmark.speedup.toFixed(2) + 'x faster', class: 'faster' };
+    }
   };
 
   return (
@@ -124,7 +140,7 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
                 }}
                 onClick={() => handleSort('nonjit_mean')}
               >
-                Non-JIT Mean <span class="sort-indicator" />
+                Interpreter Mean <span class="sort-indicator" />
               </th>
               <th
                 data-sort="jit_mean"

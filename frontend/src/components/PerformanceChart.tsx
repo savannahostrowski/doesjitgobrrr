@@ -35,35 +35,109 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
     const tooltipBg = isDark ? 'rgba(26, 26, 26, 0.95)' : 'rgba(255, 255, 255, 0.95)';
     const tooltipBorder = isDark ? '#8b5cf6' : '#7c3aed';
 
-    // Filter JIT runs with speedup data, reverse for chronological order
+    // Filter JIT runs with HPT data, reverse for chronological order
     const jitRuns = props.data
-      .filter(r => r.is_jit && r.speedup !== null && r.speedup !== undefined)
+      .filter(r => r.is_jit && r.hpt?.percentile_99 !== null && r.hpt?.percentile_99 !== undefined)
       .reverse();
 
-    // Get latest speedup for dynamic title
-    const latestSpeedup = jitRuns.length > 0 ? jitRuns[jitRuns.length - 1].speedup : null;
-    let chartTitle = 'JIT Performance Over Time';
+    // Fixed chart title
+    const chartTitle = 'JIT Performance Compared to Interpreter';
 
-    if (latestSpeedup !== null && latestSpeedup !== undefined) {
-      const percentChange = Math.abs((latestSpeedup - 1) * 100);
-      if (latestSpeedup > 1.0) {
-        chartTitle = `JIT went brrr! It was ${percentChange.toFixed(1)}% faster`;
-      } else if (latestSpeedup < 1.0) {
-        chartTitle = `JIT did not go brrr! It was ${percentChange.toFixed(1)}% slower`;
-      } else {
-        chartTitle = 'JIT went brrr! It was the same';
+    // Get most recent date for subtitle
+    const mostRecentDate = jitRuns.length > 0
+      ? new Date(jitRuns[jitRuns.length - 1].date).toISOString().split('T')[0]
+      : null;
+
+    // Variable to track hover state
+    let isHoveringSubtitle = false;
+
+    // Custom plugin to handle subtitle clicks, hover, and rendering
+    const clickableSubtitlePlugin = {
+      id: 'clickableSubtitle',
+      afterEvent(chart: Chart, args: { event: ChartEvent }) {
+        const event = args.event;
+        if (!mostRecentDate) return;
+
+        const chartArea = chart.chartArea;
+        const subtitleY = chartArea.top - 15; // Approximate subtitle position
+        const subtitleHeight = 20;
+
+        // Check if click is in subtitle area
+        if (event.type === 'click' && event.x && event.y) {
+          const clickY = event.y;
+
+          if (clickY >= subtitleY - subtitleHeight && clickY <= subtitleY) {
+            // Navigate to the most recent run
+            window.location.href = `/run/${mostRecentDate}`;
+          }
+        }
+
+        // Handle cursor change and hover state on mousemove
+        if (event.type === 'mousemove' && event.x && event.y) {
+          const hoverY = event.y;
+          const wasHovering = isHoveringSubtitle;
+
+          if (hoverY >= subtitleY - subtitleHeight && hoverY <= subtitleY) {
+            isHoveringSubtitle = true;
+            chart.canvas.style.cursor = 'pointer';
+          } else {
+            isHoveringSubtitle = false;
+            // Only reset cursor if not over a data point
+            const activeElements = chart.getActiveElements();
+            if (activeElements.length === 0) {
+              chart.canvas.style.cursor = 'default';
+            }
+          }
+
+          // Trigger redraw if hover state changed
+          if (wasHovering !== isHoveringSubtitle) {
+            chart.update('none');
+          }
+        }
+      },
+      afterDraw(chart: Chart) {
+        if (!mostRecentDate) return;
+
+        const ctx = chart.ctx;
+        const chartArea = chart.chartArea;
+        const subtitleText = `View most recent run (${mostRecentDate}) →`;
+
+        // Set font
+        ctx.font = `normal 12px -apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif`;
+
+        // Set color with opacity
+        const baseColor = isDark ? 'rgba(196, 181, 253, 0.7)' : 'rgba(109, 40, 217, 0.7)';
+        ctx.fillStyle = baseColor;
+
+        // Calculate text position (centered)
+        const textWidth = ctx.measureText(subtitleText).width;
+        const x = (chart.width - textWidth) / 2;
+        const y = chartArea.top - 15;
+
+        // Draw text
+        ctx.fillText(subtitleText, x, y);
+
+        // Draw underline on hover
+        if (isHoveringSubtitle) {
+          ctx.beginPath();
+          ctx.strokeStyle = baseColor;
+          ctx.lineWidth = 1;
+          ctx.moveTo(x, y + 2);
+          ctx.lineTo(x + textWidth, y + 2);
+          ctx.stroke();
+        }
       }
-    }
+    };
 
     const config: ChartConfiguration = {
       type: 'line',
       data: {
         datasets: [
           {
-            label: 'JIT Speedup',
+            label: 'JIT Performance (HPT 99th)',
             data: jitRuns.map(r => ({
               x: new Date(r.date).getTime(),
-              y: r.speedup || 1.0,
+              y: r.hpt?.percentile_99 || 1.0,
             })),
             borderColor: '#a855f7',
             backgroundColor: 'rgba(168, 85, 247, 0.15)',
@@ -104,7 +178,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
               family: "-apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif"
             },
             color: titleColor,
-            padding: { top: 10, bottom: 20 }
+            padding: { top: 10, bottom: 30 }  // Extra bottom padding for custom subtitle
           },
           legend: {
             display: false,
@@ -139,17 +213,17 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
                 });
               },
               label: (context) => {
-                const speedup = context.parsed.y ?? 1.0;
-                let speedupText = '';
-                if (speedup >= 1.0) {
-                  const percentFaster = ((speedup - 1) * 100).toFixed(1);
-                  speedupText = `${percentFaster}% faster`;
+                const hpt99 = context.parsed.y ?? 1.0;
+                let performanceText = '';
+                if (hpt99 >= 1.0) {
+                  const percentSlower = ((hpt99 - 1) * 100).toFixed(1);
+                  performanceText = `${percentSlower}% slower`;
                 } else {
-                  const percentSlower = ((1 - speedup) * 100).toFixed(1);
-                  speedupText = `${percentSlower}% slower`;
+                  const percentFaster = ((1 - hpt99) * 100).toFixed(1);
+                  performanceText = `${percentFaster}% faster`;
                 }
                 return [
-                  ` JIT: ${speedupText}`,
+                  ` JIT (99th percentile): ${performanceText}`,
                   ' Click to view details',
                 ];
               },
@@ -190,8 +264,8 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           },
           y: {
             type: 'linear',
-            min: 0.95,  // -5%
-            max: 1.05,  // +5%
+            min: 0.95,
+            max: 1.05,
             title: {
               display: true,
               text: 'Performance Change',
@@ -216,17 +290,18 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
               callback: (value) => {
                 const v = value as number;
                 if (v >= 1.0) {
-                  const percentFaster = ((v - 1) * 100).toFixed(0);
-                  return `+${percentFaster}%`;
-                } else {
-                  const percentSlower = ((1 - v) * 100).toFixed(0);
+                  const percentSlower = ((v - 1) * 100).toFixed(0);
                   return `-${percentSlower}%`;
+                } else {
+                  const percentFaster = ((1 - v) * 100).toFixed(0);
+                  return `+${percentFaster}%`;
                 }
               },
             },
           },
         },
       },
+      plugins: [clickableSubtitlePlugin],
     };
 
     chartInstance = new Chart(canvasRef, config);
@@ -237,8 +312,13 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
   });
 
   createEffect(() => {
-    // React to data or theme changes
-    if (chartInstance && (props.data || theme())) {
+    // Track props.data and theme() to properly react to changes
+    // Accessing these reactive values registers them as dependencies
+    props.data;
+    theme();
+
+    // Only destroy and recreate if chart already exists
+    if (chartInstance) {
       chartInstance.destroy();
       createChart();
     }
@@ -250,47 +330,14 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
     }
   });
 
-  // Get the most recent date for the link
-  const getMostRecentDate = () => {
-    const jitRuns = props.data
-      .filter(r => r.is_jit && r.speedup !== null && r.speedup !== undefined)
-      .reverse();
-
-    if (jitRuns.length > 0) {
-      const latestRun = jitRuns[jitRuns.length - 1];
-      return new Date(latestRun.date).toISOString().split('T')[0];
-    }
-    return null;
-  };
-
-  const mostRecentDate = getMostRecentDate();
-
   return (
     <div class="chart-section">
       <div class="chart-container">
         <canvas ref={canvasRef} style={{ cursor: 'pointer' }} />
-        {mostRecentDate && (
-          <div style={{
-            'text-align': 'center',
-            'margin-top': '1rem',
-            'font-size': '0.9rem',
-            'opacity': '0.8'
-          }}>
-            <a
-              href={`/run/${mostRecentDate}`}
-              style={{
-                'color': 'var(--accent-tertiary)',
-                'text-decoration': 'none',
-                'font-weight': '600'
-              }}
-              onMouseOver={(e) => e.currentTarget.style.textDecoration = 'underline'}
-              onMouseOut={(e) => e.currentTarget.style.textDecoration = 'none'}
-            >
-              View most recent run →
-            </a>
-          </div>
-        )}
       </div>
+      <p class="chart-subtext">
+        <a href="/about">Learn more about these benchmark runs</a>
+      </p>
     </div>
   );
 };

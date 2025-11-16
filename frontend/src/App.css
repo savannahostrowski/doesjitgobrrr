@@ -556,6 +556,25 @@ footer a:hover {
   transition: all 0.3s ease;
 }
 
+.chart-subtext {
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+.chart-subtext a {
+  color: var(--accent-tertiary);
+  opacity: 0.7;
+  text-decoration: none;
+  font-family: -apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif;
+  transition: all 0.2s;
+}
+
+.chart-subtext a:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
 .detail-header {
   display: flex;
   align-items: center;

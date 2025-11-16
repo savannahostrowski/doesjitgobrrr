@@ -6,6 +6,13 @@ export interface BenchmarkResult {
   max_value: number;
 }
 
+export interface HPTData {
+  reliability: number | null;
+  percentile_90: number | null;
+  percentile_95: number | null;
+  percentile_99: number | null;
+}
+
 export interface BenchmarkRun {
   date: string;
   commit: string;
@@ -13,6 +20,7 @@ export interface BenchmarkRun {
   is_jit: boolean;
   geomean: number | null;
   speedup: number | null;  // Speedup ratio for JIT runs (nonjit_time / jit_time)
+  hpt?: HPTData;  // HPT statistical comparison data (only for JIT runs)
   benchmarks: Record<string, BenchmarkResult>;
 }
 
