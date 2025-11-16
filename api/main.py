@@ -37,6 +37,8 @@ app.add_middleware(
         "https://www.doesjitgobrrr.com",
         "https://isthejitfasteryet.com",
         "https://www.isthejitfasteryet.com",
+        "https://api.doesjitgobrrr.com",
+        "https://api.isthejitfasteryet.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
