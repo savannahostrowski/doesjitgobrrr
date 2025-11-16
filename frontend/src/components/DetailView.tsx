@@ -69,6 +69,29 @@ const DetailView: Component<DetailViewProps> = (props) => {
     });
   };
 
+  const getRawDataUrl = () => {
+    const run = jitRun() || nonJitRun();
+    if (!run) return null;
+
+    // Format date as YYYYMMDD
+    const date = new Date(run.date);
+    const formattedDate = date.toISOString().split('T')[0].replace(/-/g, '');
+
+    // Extract version (e.g., "3.15.0a1+")
+    const version = run.python_version;
+
+    // Get short commit hash (first 7 chars)
+    const shortCommit = run.commit.substring(0, 7);
+
+    // Determine JIT or noJIT
+    const jitFlag = run.is_jit ? 'JIT' : 'noJIT';
+
+    // Build directory name: bm-{date}-{version}-{commit}-{JIT/noJIT}
+    const dirName = `bm-${formattedDate}-${version}-${shortCommit}-${jitFlag}`;
+
+    return `https://github.com/savannahostrowski/pyperf_bench/tree/main/results/${dirName}`;
+  };
+
   return (
     <>
       <div class="back-button-container">
@@ -102,6 +125,20 @@ const DetailView: Component<DetailViewProps> = (props) => {
           </li>
           <li>
             <span class="label">Total Benchmarks:</span> {totalBenchmarks()}
+          </li>
+          <li>
+            <span class="label">Raw Data:</span>{' '}
+            {getRawDataUrl() ? (
+              <a
+                href={getRawDataUrl()!}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View on GitHub →
+              </a>
+            ) : (
+              '-'
+            )}
           </li>
         </ul>
       </section>
