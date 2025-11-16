@@ -40,7 +40,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push API
-        if: steps.filter.outputs.api == 'true'
+        if: steps.filter.outputs.api == 'true' || github.event_name == 'workflow_dispatch'
         uses: docker/build-push-action@v5
         with:
           context: ./api
@@ -50,7 +50,7 @@ jobs:
           tags: savannahostrowski/doesjitgobrrr-api:latest
 
       - name: Build and push Frontend
-        if: steps.filter.outputs.frontend == 'true'
+        if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
