@@ -3,9 +3,6 @@
 __pycache__/
 .ruff_cache
 
-# Database
-data/
-
 
 # MacOS
 .DS_Store
