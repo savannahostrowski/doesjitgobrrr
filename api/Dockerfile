@@ -12,9 +12,8 @@ COPY *.py .
 # Sync dependencies
 RUN uv sync
 
-# Create data directory and copy database
-RUN mkdir -p data
-COPY data/benchmarks.db data/benchmarks.db
+# Copy data directory (includes database)
+COPY data/ data/
 
 # Expose port
 EXPOSE 8000
