@@ -254,9 +254,11 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
                 family: "-apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif"
               }
             },
+            border: {
+              display: false,
+            },
             grid: {
               color: gridColor,
-              drawBorder: false,
             },
             ticks: {
               color: textColor,
@@ -280,9 +282,11 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
                 family: "-apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif"
               }
             },
+            border: {
+              display: false,
+            },
             grid: {
               color: gridColor,
-              drawBorder: false,
             },
             ticks: {
               color: textColor,

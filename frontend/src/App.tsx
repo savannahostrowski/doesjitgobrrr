@@ -1,5 +1,5 @@
 import { type Component, createResource, Show } from 'solid-js';
-import { Router, Route, useNavigate, useParams, useLocation, type RouteSectionProps } from '@solidjs/router';
+import { Router, Route, useNavigate, useParams, type RouteSectionProps } from '@solidjs/router';
 import { ThemeProvider } from './ThemeContext';
 import Header from './components/Header';
 import PerformanceChart from './components/PerformanceChart';
