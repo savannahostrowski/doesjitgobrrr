@@ -5,7 +5,7 @@ const About: Component = () => {
   const navigate = useNavigate();
 
   return (
-    <>
+    <div class="about-page-wrapper">
       <div class="back-button-container">
         <button class="back-button" onClick={() => navigate('/')}>
           ← Back to Home
@@ -13,8 +13,6 @@ const About: Component = () => {
       </div>
 
       <section class="about-section">
-        <h2>About "does JIT go brrr?"</h2>
-
         <div class="about-content">
           <h3>What is this website?</h3>
           <p>
@@ -57,7 +55,7 @@ const About: Component = () => {
           </p>
         </div>
       </section>
-    </>
+    </div>
   );
 };
 

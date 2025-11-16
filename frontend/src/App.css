@@ -89,6 +89,42 @@ body {
   transition: all 0.3s ease;
 }
 
+.hamburger {
+  display: none;
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  z-index: 1001;
+  flex-direction: column;
+  gap: 0.25rem;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.hamburger:hover {
+  background: var(--shadow-accent);
+}
+
+.hamburger:focus {
+  outline: none;
+}
+
+.hamburger:active {
+  background: var(--shadow-accent);
+}
+
+.hamburger-line {
+  width: 24px;
+  height: 3px;
+  background: var(--accent-tertiary);
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+
 .header-nav {
   position: absolute;
   top: 1.5rem;
@@ -96,6 +132,10 @@ body {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+}
+
+.github-link {
+  display: none;
 }
 
 .theme-toggle {
@@ -494,20 +534,20 @@ footer a:hover {
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 100%;
+  padding: 2rem 0;
   flex: 1;
 }
 
 .chart-section {
   width: 66.67%;
-  margin: 0 auto;
+  margin: 2rem auto;
 }
 
 .chart-container {
   position: relative;
-  height: 50vh;
-  min-height: 350px;
-  max-height: 500px;
+  height: 60vh;
+  min-height: 450px;
+  max-height: calc(100vh - 16rem);
   background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
   border-radius: 16px;
   padding: 1.5rem;
@@ -551,7 +591,7 @@ footer a:hover {
 
 .about-section {
   max-width: 800px;
-  margin: 1.5rem auto;
+  margin: 3rem auto;
 }
 
 .about-section h2 {
@@ -569,10 +609,18 @@ footer a:hover {
   font-weight: 700;
 }
 
+.about-content h3:first-child {
+  margin-top: 0;
+}
+
 .about-content p {
   color: var(--text-secondary);
   line-height: 1.7;
   margin-bottom: 1rem;
+}
+
+.about-content p:last-child {
+  margin-bottom: 0;
 }
 
 .about-content ul {
@@ -610,13 +658,111 @@ footer a:hover {
   text-shadow: 0 0 10px var(--shadow-accent);
 }
 
-@media (max-width: 768px) {
-  .header h1 {
-    font-size: 2rem;
+@media (min-width: 1240px) {
+  .about-page-wrapper {
+    position: relative;
+    padding: 2rem;
+  }
+
+  .about-page-wrapper .back-button-container {
+    position: absolute;
+    top: 2rem;
+    padding: 0;
+  }
+
+  .about-section {
+    margin: 0 auto;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1239px) {
+  .about-section {
+    margin: 2rem auto;
+  }
+}
+
+@media (max-width: 1024px) {
+  .hamburger {
+    display: flex;
   }
 
   .header {
-    padding: 2rem 1rem;
+    padding: 1.5rem 1rem;
+  }
+
+  .header h1 {
+    font-size: 1.75rem;
+    margin-top: 1rem;
+  }
+
+  .header p {
+    font-size: 0.875rem;
+  }
+
+  .header-nav {
+    position: fixed;
+    top: 0;
+    left: -100%;
+    width: 70%;
+    max-width: 280px;
+    height: 100vh;
+    background: var(--bg-secondary);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 5rem 0 2rem 0;
+    border-right: 2px solid var(--border-primary);
+    box-shadow: 4px 0 20px var(--shadow-color);
+    transition: left 0.3s ease;
+    z-index: 1000;
+  }
+
+  .header-nav.menu-open {
+    left: 0;
+  }
+
+  .nav-link {
+    padding: 1rem 1.5rem;
+    border-radius: 0;
+    border-bottom: 1px solid var(--accent-secondary);
+    text-align: left;
+    font-size: 1.1rem;
+  }
+
+  .github-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: auto;
+    padding: 1.5rem;
+    color: var(--accent-se);
+    text-decoration: none;
+    transition: all 0.2s;
+    border-top: 1px solid var(--accent-secondary);
+  }
+
+  .github-link:hover {
+    color: var(--accent-light);
+    background: var(--shadow-accent);
+  }
+
+  .github-link svg {
+    transition: transform 0.2s;
+  }
+
+  .github-link:hover svg {
+    transform: scale(1.1);
+  }
+
+  .theme-toggle {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    margin: 0;
+    padding: 0.5rem;
+    font-size: 1.25rem;
+    border: none;
+    border-radius: 8px;
   }
 
   .header-content {
@@ -626,6 +772,10 @@ footer a:hover {
 
   .header-text {
     width: 100%;
+  }
+
+  .back-button-container {
+    padding: 1rem 1.5rem 0 1.5rem;
   }
 
   .back-button {
@@ -648,8 +798,12 @@ footer a:hover {
   }
 
   th, td {
-    padding: 1rem 0.75rem;
-    font-size: 0.9rem;
+    padding: 0.75rem 0.5rem;
+    font-size: 0.875rem;
+  }
+
+  td:nth-child(n+2) {
+    font-size: 0.8rem;
   }
 
   .table-controls {
@@ -660,15 +814,43 @@ footer a:hover {
   .table-controls input[type="text"] {
     min-width: 100%;
     max-width: 100%;
+    font-size: 1rem;
   }
 
   .chart-section {
-    max-width: 95%;
     width: 95%;
     margin: 0 auto;
   }
 
   .chart-container {
     padding: 1rem;
+  }
+
+  .detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1.5rem;
+    margin: 1rem;
+  }
+
+  .detail-title h2 {
+    font-size: 1.5rem;
+  }
+
+  .detail-subtitle {
+    font-size: 1rem;
+  }
+
+  .about-section {
+    margin: 2rem 3rem;
+    max-width: 100%;
+  }
+
+  .about-section h2 {
+    font-size: 1.5rem;
+  }
+
+  .about-content h3 {
+    font-size: 1.1rem;
   }
 }
