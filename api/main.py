@@ -30,7 +30,13 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://localhost:8084",  # Frontend in Docker
         "https://*.github.io",
+        "https://*.savannah.dev",  # Cloudflare tunnel
+        "https://doesjitgobrrr.com",
+        "https://www.doesjitgobrrr.com",
+        "https://isthejitfasteryet.com",
+        "https://www.isthejitfasteryet.com",
     ],
     allow_credentials=True,
     allow_methods=["*"],
