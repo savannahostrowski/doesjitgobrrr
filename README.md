@@ -1,6 +1,8 @@
 # 🏎️ Does JIT Go Brrr?
 
-A real-time performance dashboard tracking Python's JIT compiler performance against non-JIT builds. View live at [doesjitgobrrr.com](https://doesjitgobrrr.com) or [isthejitfasteryet.com](https://isthejitfasteryet.com).
+A performance dashboard tracking Python's JIT compiler performance against non-JIT builds. 
+
+View live at [doesjitgobrrr.com](https://doesjitgobrrr.com) or [isthejitfasteryet.com](https://isthejitfasteryet.com).
 
 ## What is this?
 
