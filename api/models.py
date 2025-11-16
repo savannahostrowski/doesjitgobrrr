@@ -2,13 +2,13 @@ import statistics
 from datetime import datetime
 from typing import Any
 
-from sqlmodel import JSON, Column, Field, Relationship, SQLModel
+from sqlmodel import JSON, Column, Field, Relationship, SQLModel # pyright: ignore[reportUnknownVariableType]
 
 
 class BenchmarkRun(SQLModel, table=True):
     """Represents a benchmark run with associated metadata and results."""
 
-    __tablename__ = "benchmark_runs"
+    __tablename__ = "benchmark_runs" # pyright: ignore[reportAssignmentType]
     id: int | None = Field(default=None, primary_key=True)
     directory_name: str = Field(index=True, nullable=False, unique=True)
     run_date: datetime = Field(index=True, nullable=False)
@@ -23,6 +23,10 @@ class BenchmarkRun(SQLModel, table=True):
     hpt_percentile_90: float | None = None  # 90th percentile speedup/slowdown
     hpt_percentile_95: float | None = None  # 95th percentile speedup/slowdown
     hpt_percentile_99: float | None = None  # 99th percentile speedup/slowdown
+
+    # Geometric mean speedup - only populated for JIT runs (ratio of nonjit/jit)
+    # > 1.0 means JIT is faster, < 1.0 means JIT is slower
+    geometric_mean_speedup: float | None = None
 
     benchmarks: list["Benchmark"] = Relationship(back_populates="benchmark_run")
 

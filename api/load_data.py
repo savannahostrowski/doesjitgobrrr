@@ -15,32 +15,99 @@ from models import Benchmark, BenchmarkRun, compute_benchmark_statistics
 
 PYPERF_BENCH_REPO = "https://api.github.com/repos/savannahostrowski/pyperf_bench"
 RAW_BASE_URL = "https://raw.githubusercontent.com/savannahostrowski/pyperf_bench/main"
-# Filter for benchmark result directories
-# Pattern: bm-YYYYMMDD-VERSION-HASH[-JIT]
+# Filter for benchmark result directories. Pattern: bm-YYYYMMDD-VERSION-HASH[-JIT]
 PATTERN = r"bm-(\d{8})-([\d\.a-z\+]+)-([a-f0-9]+)(?:-JIT)?"
 
+async def compute_geometric_mean_speedup(jit_dir: str) -> float | None:
+    """
+    Extract geometric mean speedup from bench_runner's comparison markdown file.
+    Returns geometric mean of the ratio (nonjit_mean / jit_mean).
+    > 1.0 means JIT is faster, < 1.0 means JIT is slower.
 
-async def compute_hpt_comparison(non_jit_dir: str, jit_dir: str) -> dict[str, float] | None:
+    This uses bench_runner's pre-calculated geometric mean to ensure consistency.
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            # Get the JIT directory contents to find the markdown file
+            jit_contents = await client.get(
+                f"{PYPERF_BENCH_REPO}/contents/results/{jit_dir}",
+                headers={"Accept": "application/vnd.github.v3+json"}
+            )
+            jit_contents.raise_for_status()
+
+            # Find the vs-base.md file
+            markdown_url = None
+            for file in jit_contents.json():
+                if file["name"].endswith("-vs-base.md"):
+                    markdown_url = file["download_url"]
+                    break
+
+            if not markdown_url:
+                print(f"Could not find vs-base.md file in {jit_dir}")
+                return None
+
+            # Download and parse the markdown file
+            markdown_response = await client.get(markdown_url)
+            markdown_response.raise_for_status()
+            markdown_text = markdown_response.text
+
+            # Parse the geometric mean from the markdown
+            # Format: "- overall geometric mean: 1.082x slower" or "1.05x faster"
+            for line in markdown_text.split('\n'):
+                if 'overall geometric mean:' in line.lower():
+                    # Extract the value and direction
+                    match_geomean = re.search(r'(\d+\.\d+)x\s+(slower|faster)', line)
+                    if match_geomean:
+                        value = float(match_geomean.group(1))
+                        direction = match_geomean.group(2)
+
+                        # Convert bench_runner's display format to ratio
+                        # bench_runner displays using: 1.0 + (1.0 - gm) for slower
+                        # So "1.082x slower" means: 1.082 = 1.0 + (1.0 - gm)
+                        # Therefore: gm = 1.0 - (1.082 - 1.0) = 0.918
+                        if direction == 'slower':
+                            ratio = 1.0 - (value - 1.0)
+                        else:  # faster
+                            # For faster, bench_runner displays the ratio directly
+                            ratio = value
+
+                        print(f"Geometric mean from bench_runner: {value}x {direction} -> ratio {ratio:.3f}")
+                        return ratio
+
+            print("Could not find geometric mean in markdown file")
+            return None
+
+        except Exception as e:
+            print(f"Error extracting geometric mean: {e}")
+            return None
+
+
+async def compute_hpt_comparison(interpreter_dir: str, jit_dir: str) -> dict[str, float] | None:
     """
     Download JSON files for both runs and compute HPT comparison.
     Returns dict with reliability and percentiles, or None if comparison fails.
     """
+    def get_valid_file(file: dict[str, Any]) -> bool:
+        """Check if the file name matches the expected pattern."""
+        return (file["name"].endswith(".json")
+                    and not file["name"].endswith("-vs-base.json")
+                    and "pystats" not in file["name"])
+
     async with httpx.AsyncClient() as client:
         # Find JSON files for both runs
-        non_jit_json_url = None
+        interpreter_json_url = None
         jit_json_url = None
 
-        # Get non-JIT JSON file
-        non_jit_contents = await client.get(
-            f"{PYPERF_BENCH_REPO}/contents/results/{non_jit_dir}",
+        # Get interpreter JSON file
+        interpreter_contents = await client.get(
+            f"{PYPERF_BENCH_REPO}/contents/results/{interpreter_dir}",
             headers={"Accept": "application/vnd.github.v3+json"}
         )
-        non_jit_contents.raise_for_status()
-        for file in non_jit_contents.json():
-            if (file["name"].endswith(".json")
-                and not file["name"].endswith("-vs-base.json")
-                and "pystats" not in file["name"]):
-                non_jit_json_url = file["download_url"]
+        interpreter_contents.raise_for_status()
+
+        for file in interpreter_contents.json():
+            if get_valid_file(file):
+                interpreter_json_url = file["download_url"]
                 break
 
         # Get JIT JSON file
@@ -50,35 +117,33 @@ async def compute_hpt_comparison(non_jit_dir: str, jit_dir: str) -> dict[str, fl
         )
         jit_contents.raise_for_status()
         for file in jit_contents.json():
-            if (file["name"].endswith(".json")
-                and not file["name"].endswith("-vs-base.json")
-                and "pystats" not in file["name"]):
+            if get_valid_file(file):
                 jit_json_url = file["download_url"]
                 break
 
-        if not non_jit_json_url or not jit_json_url:
+        if not interpreter_json_url or not jit_json_url:
             print("Could not find JSON files for HPT comparison")
             return None
 
         # Download both JSON files to temporary files
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
-            non_jit_path = tmp_path / "non_jit.json"
+            interpreter_path = tmp_path / "interpreter.json"
             jit_path = tmp_path / "jit.json"
 
-            # Download non-JIT JSON
-            non_jit_response = await client.get(non_jit_json_url)
-            non_jit_response.raise_for_status()
-            non_jit_path.write_text(non_jit_response.text)
+            # Download interpreter JSON
+            interpreter_response = await client.get(interpreter_json_url)
+            interpreter_response.raise_for_status()
+            interpreter_path.write_text(interpreter_response.text)
 
             # Download JIT JSON
             jit_response = await client.get(jit_json_url)
             jit_response.raise_for_status()
             jit_path.write_text(jit_response.text)
 
-            # Run HPT comparison (ref=non-jit, head=jit)
+            # Run HPT comparison
             try:
-                report = hpt.make_report(str(non_jit_path), str(jit_path))
+                report = hpt.make_report(str(interpreter_path), str(jit_path))
 
                 # Parse the report to extract percentiles
                 # Report format: "99.83% likely to be slow"
@@ -87,26 +152,26 @@ async def compute_hpt_comparison(non_jit_dir: str, jit_dir: str) -> dict[str, fl
                 # "99% likely to have a slowdown of 1.03x"
 
                 lines = report.strip().split('\n')
-                hpt_data = {}
+                hpt_data: dict[str, float] = {}
+
+                def extract_value(line: str, pattern: str) -> float | None:
+                    """Extract a numeric value from a line using a regex pattern."""
+                    match = re.search(pattern, line)
+                    return float(match.group(1)) if match else None
 
                 for line in lines:
                     if 'Reliability score:' in line:
-                        # Extract percentage
-                        match = re.search(r'(\d+\.?\d*)%', line)
-                        if match:
-                            hpt_data['reliability'] = float(match.group(1))
+                        if value := extract_value(line, r'(\d+\.?\d*)%'):
+                            hpt_data['reliability'] = value
                     elif '90% likely to have' in line:
-                        match = re.search(r'(\d+\.?\d*)x', line)
-                        if match:
-                            hpt_data['percentile_90'] = float(match.group(1))
+                        if value := extract_value(line, r'(\d+\.?\d*)x'):
+                            hpt_data['percentile_90'] = value
                     elif '95% likely to have' in line:
-                        match = re.search(r'(\d+\.?\d*)x', line)
-                        if match:
-                            hpt_data['percentile_95'] = float(match.group(1))
+                        if value := extract_value(line, r'(\d+\.?\d*)x'):
+                            hpt_data['percentile_95'] = value
                     elif '99% likely to have' in line:
-                        match = re.search(r'(\d+\.?\d*)x', line)
-                        if match:
-                            hpt_data['percentile_99'] = float(match.group(1))
+                        if value := extract_value(line, r'(\d+\.?\d*)x'):
+                            hpt_data['percentile_99'] = value
 
                 print(f"HPT comparison complete: {hpt_data}")
                 return hpt_data
@@ -116,7 +181,54 @@ async def compute_hpt_comparison(non_jit_dir: str, jit_dir: str) -> dict[str, fl
                 return None
 
 
-async def fetch_latest_benchmark_pair() -> tuple[str, str] | None:
+async def get_fork_from_directory(client: httpx.AsyncClient, dir_name: str) -> str | None:
+    """
+    Get the fork name from a benchmark directory by checking the JSON filename.
+
+    Returns the fork name (e.g., "python", "brandtbucher") or None if unable to parse.
+    """
+    try:
+        dir_response = await client.get(
+            f"{PYPERF_BENCH_REPO}/contents/results/{dir_name}",
+            headers={"Accept": "application/vnd.github.v3+json"}
+        )
+        dir_response.raise_for_status()
+        files = dir_response.json()
+
+        # Find the benchmark JSON file
+        json_file = None
+        for file in files:
+            if (file["type"] == "file"
+                and file["name"].endswith(".json")
+                and "vs-base" not in file["name"]
+                and "pystats" not in file["name"]):
+                json_file = file
+                break
+
+        if not json_file:
+            return None
+
+        # Parse fork from filename
+        # Format: bm-{date}-{machine}-{arch}-{fork}-{ref}-{version}-{commit}.json
+        filename_parts = json_file["name"].split("-")
+        if len(filename_parts) >= 6:
+            return filename_parts[4]  # The fork is the 5th part (0-indexed: 4)
+
+        return None
+    except Exception as e:
+        print(f"Error getting fork for {dir_name}: {e}")
+        return None
+
+
+async def fetch_all_benchmark_pairs() -> list[tuple[str, str]]:
+    """
+    Fetch all complete benchmark pairs (interpreter and JIT) from the repository.
+    Only returns pairs where:
+    - Both interpreter and JIT runs exist for the same commit
+    - Both runs are from the 'python' fork (not other forks like brandtbucher, faster-cpython, etc.)
+
+    Returns list of (interpreter_dir, jit_dir) tuples, sorted by date (oldest first).
+    """
     async with httpx.AsyncClient() as client:
         response = await client.get(
             f"{PYPERF_BENCH_REPO}/contents/results",
@@ -126,9 +238,6 @@ async def fetch_latest_benchmark_pair() -> tuple[str, str] | None:
         dirs = response.json()
 
         print(f"Found {len(dirs)} entries in results directory.")
-        for dir in dirs[:5]:
-            if dir["type"] == "dir":
-                print(f"  Directory: {dir['name']}")
 
         groups: dict[str, dict[str, Any]] = {}
         for dir in dirs:
@@ -141,7 +250,7 @@ async def fetch_latest_benchmark_pair() -> tuple[str, str] | None:
 
                 if key not in groups:
                     groups[key] = {
-                        "non_jit": None,
+                        "interpreter": None,
                         "jit": None,
                         "date": date,
                     }
@@ -149,24 +258,40 @@ async def fetch_latest_benchmark_pair() -> tuple[str, str] | None:
                 if dir["name"].endswith("-JIT"):
                     groups[key]["jit"] = dir["name"]
                 else:
-                    groups[key]["non_jit"] = dir["name"]
+                    groups[key]["interpreter"] = dir["name"]
 
-        for key in sorted(groups.keys(), reverse=True):
+        # Filter to only complete pairs from 'python' fork, sorted by date (oldest first)
+        complete_pairs: list[tuple[str, str]] = []
+        for key in sorted(groups.keys()):
             group = groups[key]
-            if group["non_jit"] and group["jit"]:
-                print(
-                    f"Found latest benchmark pair: {group['non_jit']} and {group['jit']}"
-                )
-                return group["non_jit"], group["jit"]
-        return None
+            if group["interpreter"] and group["jit"]:
+                # Check if both directories are from the 'python' fork
+                interpreter_fork = await get_fork_from_directory(client, group["interpreter"])
+                jit_fork = await get_fork_from_directory(client, group["jit"])
+
+                if interpreter_fork == "python" and jit_fork == "python":
+                    complete_pairs.append((group["interpreter"], group["jit"]))
+                else:
+                    print(f"Skipping pair {group['interpreter']} / {group['jit']} (fork: {interpreter_fork}/{jit_fork}, only ingesting 'python' fork)")
+
+        print(f"Found {len(complete_pairs)} complete benchmark pairs from 'python' fork")
+        return complete_pairs
 
 
-async def load_benchmark_run(dir_name: str, hpt_data: dict[str, float] | None = None):
+async def load_benchmark_run(
+    dir_name: str,
+    hpt_data: dict[str, float] | None = None,
+    geometric_mean_speedup: float | None = None,
+):
     """Load a benchmark run from the given directory name into the database.
 
     Args:
         dir_name: The directory name of the benchmark run
         hpt_data: Optional HPT comparison data (only for JIT runs)
+        geometric_mean_speedup: Optional pre-calculated geometric mean speedup (only for JIT runs)
+
+    Note: Fork filtering is done during fetch phase, so this function assumes
+    the directory is from the 'python' fork.
     """
     match = re.match(PATTERN, dir_name)
     if not match:
@@ -194,6 +319,7 @@ async def load_benchmark_run(dir_name: str, hpt_data: dict[str, float] | None = 
         if not json_file:
             print(f"No JSON benchmark file found in directory {dir_name}.")
             return
+
         json_url = json_file["download_url"]
         json_response = await client.get(json_url)
         json_response.raise_for_status()
@@ -203,11 +329,10 @@ async def load_benchmark_run(dir_name: str, hpt_data: dict[str, float] | None = 
         machine = machine_match.group(1) if machine_match else "unknown"
 
         async with async_session_maker() as session:
-            result = await session.execute(
+            existing = await session.exec(
                 select(BenchmarkRun).where(BenchmarkRun.directory_name == dir_name)
             )
-            existing = result.first()
-            if existing:
+            if existing.first():
                 print(f"BenchmarkRun for {dir_name} already exists in the database.")
                 return
             benchmark_run = BenchmarkRun(
@@ -221,6 +346,7 @@ async def load_benchmark_run(dir_name: str, hpt_data: dict[str, float] | None = 
                 hpt_percentile_90=hpt_data.get("percentile_90") if hpt_data else None,
                 hpt_percentile_95=hpt_data.get("percentile_95") if hpt_data else None,
                 hpt_percentile_99=hpt_data.get("percentile_99") if hpt_data else None,
+                geometric_mean_speedup=geometric_mean_speedup,
             )
             session.add(benchmark_run)
             await session.flush()  # To get the ID assigned
@@ -250,7 +376,7 @@ async def load_benchmark_run(dir_name: str, hpt_data: dict[str, float] | None = 
 
 
 async def fetch_latest_run():
-    """Fetch the latest non-JIT run"""
+    """Fetch the latest interpreter run"""
     async with httpx.AsyncClient() as client:
         response = await client.get(
             f"{PYPERF_BENCH_REPO}/contents/results",
@@ -259,16 +385,16 @@ async def fetch_latest_run():
         response.raise_for_status()
         dirs = response.json()
 
-        latest_non_jit = None
+        latest_interpreter = None
         for dir in sorted(dirs, key=lambda d: d["name"], reverse=True):
             if dir["type"] != "dir":
                 continue
             match = re.match(PATTERN, dir["name"])
             if match and not dir["name"].endswith("-JIT"):
-                latest_non_jit = dir["name"]
-                print(f"Latest non-JIT benchmark run found: {latest_non_jit}")
+                latest_interpreter = dir["name"]
+                print(f"Latest interpreter benchmark run found: {latest_interpreter}")
                 break
-        return latest_non_jit
+        return latest_interpreter
 
 
 async def main():
@@ -276,27 +402,35 @@ async def main():
 
     await init_db()
 
-    # Fetch the latest benchmark pair (non-JIT and JIT)
-    pair = await fetch_latest_benchmark_pair()
-    if not pair:
-        print("No benchmark pair found.")
+    # Fetch all complete benchmark pairs (both interpreter and JIT)
+    pairs = await fetch_all_benchmark_pairs()
+    if not pairs:
+        print("No complete benchmark pairs found.")
         return
 
-    non_jit_dir, jit_dir = pair
+    print(f"\nProcessing {len(pairs)} benchmark pairs...")
 
-    # Load non-JIT run first
-    print(f"Loading non-JIT run: {non_jit_dir}")
-    await load_benchmark_run(non_jit_dir)
+    for i, (interpreter_dir, jit_dir) in enumerate(pairs, 1):
+        print(f"\n[{i}/{len(pairs)}] Processing pair: {interpreter_dir} and {jit_dir}")
 
-    # Compute HPT comparison between non-JIT and JIT
-    print(f"Computing HPT comparison between {non_jit_dir} and {jit_dir}")
-    hpt_data = await compute_hpt_comparison(non_jit_dir, jit_dir)
+        # Load interpreter run first
+        print(f"  Loading interpreter run: {interpreter_dir}")
+        await load_benchmark_run(interpreter_dir)
 
-    # Load JIT run with HPT data
-    print(f"Loading JIT run: {jit_dir}")
-    await load_benchmark_run(jit_dir, hpt_data=hpt_data)
+        # Compute geometric mean speedup between interpreter and JIT
+        print("  Computing geometric mean speedup...")
+        geometric_mean_speedup = await compute_geometric_mean_speedup(jit_dir)
 
-    print("Data loaded.")
+        # Compute HPT comparison between interpreter and JIT
+        print("  Computing HPT comparison...")
+        hpt_data = await compute_hpt_comparison(interpreter_dir, jit_dir)
+
+        # Load JIT run with HPT data and geometric mean speedup
+        print(f"  Loading JIT run: {jit_dir}")
+        await load_benchmark_run(jit_dir, hpt_data=hpt_data, geometric_mean_speedup=geometric_mean_speedup)
+
+    print(f"\nCompleted! Processed {len(pairs)} benchmark pairs.")
+
 
 
 if __name__ == "__main__":

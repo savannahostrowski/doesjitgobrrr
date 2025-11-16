@@ -38,13 +38,37 @@ const About: Component = () => {
           </p>
           <h3>Hardware</h3>
           <p>
-            All benchmarks are run on a dedicated Raspberry Pi 5 sitting in Savannah's
-            homelab with the following specifications:
+            All benchmarks are run on a dedicated{' '}
+            <a
+              href="https://www.raspberrypi.com/products/raspberry-pi-5/?variant=raspberry-pi-5-8gb"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Raspberry Pi 5 (8GB RAM)
+            </a>{' '}
+            sitting in Savannah's homelab with the following specifications:
           </p>
           <ul>
-            <li><strong>RAM:</strong> 8GB</li>
-            <li><strong>Storage:</strong> 256GB SSD</li>
-            <li><strong>Cooling:</strong> External cooling system</li>
+            <li>
+              <strong>Storage:</strong>{' '}
+              <a
+                href="https://www.raspberrypi.com/products/ssd/?variant=ssd-256"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                256GB SSD
+              </a>
+            </li>
+            <li>
+              <strong>Cooling:</strong>{' '}
+              <a
+                href="https://www.raspberrypi.com/products/cooler/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                External Cooler
+              </a>
+            </li>
             <li><strong>OS:</strong> Debian GNU/Linux 12 (bookworm)</li>
           </ul>
 

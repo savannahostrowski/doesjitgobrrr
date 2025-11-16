@@ -19,21 +19,26 @@ const Header: Component<HeaderProps> = (props) => {
       return 'Python JIT vs Non-JIT Benchmark Performance Dashboard';
     }
 
-    // Find the latest JIT run with HPT data
-    const latestJit = props.runs.find(r => r.is_jit && r.hpt?.percentile_99 !== null && r.hpt?.percentile_99 !== undefined);
+    // Find the latest JIT run with speedup data (geometric mean)
+    const latestJit = props.runs.find(r => r.is_jit && r.speedup !== null && r.speedup !== undefined);
 
-    if (latestJit?.hpt?.percentile_99) {
-      const hpt99 = latestJit.hpt.percentile_99;
-      const percentChange = Math.abs((hpt99 - 1) * 100);
+    if (latestJit?.speedup) {
+      const speedup = latestJit.speedup;
 
-      if (hpt99 < 1.0) {
-        // HPT < 1.0 means JIT is faster
-        return `JIT went brrrr! On the latest run, it was ${percentChange.toFixed(1)}% faster on average 🚀`;
-      } else if (hpt99 > 1.0) {
-        // HPT > 1.0 means JIT is slower
-        return `JIT did not go brrr! On the latest run, it was ${percentChange.toFixed(1)}% slower 🐢`;
+      // speedup = nonjit_geomean / jit_geomean
+      // speedup > 1.0 means JIT is faster
+      // speedup < 1.0 means JIT is slower
+
+      if (speedup > 1.0) {
+        // JIT is faster
+        const percentFaster = ((speedup - 1) * 100).toFixed(1);
+        return `JIT went brrrr! On the latest run, it was ${percentFaster}% faster on average 🚀`;
+      } else if (speedup < 1.0) {
+        // JIT is slower
+        const percentSlower = ((1 - speedup) * 100).toFixed(1);
+        return `JIT did not go brrr! On the latest run, it was ${percentSlower}% slower on average 🐢`;
       } else {
-        // HPT = 1.0 means same performance
+        // Same performance
         return 'Same performance! 🤝';
       }
     }

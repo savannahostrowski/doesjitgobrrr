@@ -35,13 +35,13 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
     const tooltipBg = isDark ? 'rgba(26, 26, 26, 0.95)' : 'rgba(255, 255, 255, 0.95)';
     const tooltipBorder = isDark ? '#8b5cf6' : '#7c3aed';
 
-    // Filter JIT runs with HPT data, reverse for chronological order
+    // Filter JIT runs with speedup data, reverse for chronological order
     const jitRuns = props.data
-      .filter(r => r.is_jit && r.hpt?.percentile_99 !== null && r.hpt?.percentile_99 !== undefined)
+      .filter(r => r.is_jit && r.speedup !== null && r.speedup !== undefined)
       .reverse();
 
     // Fixed chart title
-    const chartTitle = 'JIT Performance Compared to Interpreter';
+    const chartTitle = 'JIT Performance Compared to Interpreter (Geometric Mean)';
 
     // Get most recent date for subtitle
     const mostRecentDate = jitRuns.length > 0
@@ -134,10 +134,10 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
       data: {
         datasets: [
           {
-            label: 'JIT Performance (HPT 99th)',
+            label: 'JIT Performance (Geometric Mean)',
             data: jitRuns.map(r => ({
               x: new Date(r.date).getTime(),
-              y: r.hpt?.percentile_99 || 1.0,
+              y: r.speedup || 1.0,
             })),
             borderColor: '#a855f7',
             backgroundColor: 'rgba(168, 85, 247, 0.15)',
@@ -213,17 +213,21 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
                 });
               },
               label: (context) => {
-                const hpt99 = context.parsed.y ?? 1.0;
+                const speedup = context.parsed.y ?? 1.0;
                 let performanceText = '';
-                if (hpt99 >= 1.0) {
-                  const percentSlower = ((hpt99 - 1) * 100).toFixed(1);
+                if (speedup > 1.0) {
+                  // JIT is faster
+                  const percentFaster = ((speedup - 1) * 100).toFixed(1);
+                  performanceText = `${percentFaster}% faster`;
+                } else if (speedup < 1.0) {
+                  // JIT is slower
+                  const percentSlower = ((1 - speedup) * 100).toFixed(1);
                   performanceText = `${percentSlower}% slower`;
                 } else {
-                  const percentFaster = ((1 - hpt99) * 100).toFixed(1);
-                  performanceText = `${percentFaster}% faster`;
+                  performanceText = 'same speed';
                 }
                 return [
-                  ` JIT (99th percentile): ${performanceText}`,
+                  ` JIT (geometric mean): ${performanceText}`,
                   ' Click to view details',
                 ];
               },
@@ -264,8 +268,8 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           },
           y: {
             type: 'linear',
-            min: 0.95,
-            max: 1.05,
+            min: 0.85,
+            max: 1.15,
             title: {
               display: true,
               text: 'Performance Change',
