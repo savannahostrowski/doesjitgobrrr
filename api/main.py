@@ -20,6 +20,7 @@ GITHUB_REPO_URL = "https://api.github.com/repos/savannahostrowski/pyperf_bench"
 # Security for admin endpoints
 security = HTTPBearer()
 
+
 def verify_admin_token(credentials: HTTPAuthorizationCredentials = Security(security)):
     """Verify the admin token for protected endpoints."""
     admin_token = get_admin_token()
@@ -28,6 +29,7 @@ def verify_admin_token(credentials: HTTPAuthorizationCredentials = Security(secu
     if credentials.credentials != admin_token:
         raise HTTPException(status_code=403, detail="Invalid admin token")
     return credentials
+
 
 @asynccontextmanager
 async def lifespan(app: fastapi.FastAPI) -> AsyncGenerator[None, None]:
@@ -143,7 +145,6 @@ async def get_historical_comparison(
             if bench.mean is not None and bench.mean > 0:
                 benchmark_means.append(bench.mean)
 
-
         date_key = run.run_date.date().isoformat()
         if date_key not in runs_by_date:
             runs_by_date[date_key] = {}
@@ -241,11 +242,14 @@ def reload_data_task():
 @app.post("/api/admin/reload-data")
 async def reload_data(
     background_tasks: BackgroundTasks,
-    credentials: HTTPAuthorizationCredentials = Security(verify_admin_token)
+    credentials: HTTPAuthorizationCredentials = Security(verify_admin_token),
 ):
     """Admin endpoint to trigger data reload from GitHub."""
     background_tasks.add_task(reload_data_task)
-    return {"status": "Data reload triggered", "message": "Reload is running in the background"}
+    return {
+        "status": "Data reload triggered",
+        "message": "Reload is running in the background",
+    }
 
 
 if __name__ == "__main__":
