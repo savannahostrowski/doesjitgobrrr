@@ -41,7 +41,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
       .reverse();
 
     // Fixed chart title
-    const chartTitle = 'JIT Performance Compared to Interpreter (Geometric Mean)';
+    const chartTitle = 'JIT vs. Interpreter Benchmark Execution Time (Geometric Mean)';
 
     // Get most recent date for subtitle
     const mostRecentDate = jitRuns.length > 0
@@ -137,7 +137,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
             label: 'JIT Performance (Geometric Mean)',
             data: jitRuns.map(r => ({
               x: new Date(r.date).getTime(),
-              y: r.speedup || 1.0,
+              y: 2.0 - (r.speedup || 1.0), // Invert so slower (0.918) plots higher
             })),
             borderColor: '#a855f7',
             backgroundColor: 'rgba(168, 85, 247, 0.15)',
@@ -159,6 +159,9 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
         interaction: {
           mode: 'nearest',
           intersect: true,
+        },
+        onHover: (_event: ChartEvent, activeElements: ActiveElement[], chart: Chart) => {
+          chart.canvas.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
         },
         onClick: (_event: ChartEvent, activeElements: ActiveElement[]) => {
           if (activeElements.length > 0) {
@@ -213,7 +216,9 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
                 });
               },
               label: (context) => {
-                const speedup = context.parsed.y ?? 1.0;
+                // Convert back from inverted value
+                const invertedY = context.parsed.y ?? 1.0;
+                const speedup = 2.0 - invertedY;
                 let performanceText = '';
                 if (speedup > 1.0) {
                   // JIT is faster
@@ -274,7 +279,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
             max: 1.15,
             title: {
               display: true,
-              text: 'Performance Change',
+              text: 'Performance Difference',
               color: titleColor,
               font: {
                 size: 14,
@@ -297,13 +302,23 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
               maxTicksLimit: 8,
               callback: (value) => {
                 const v = value as number;
+                let label = '';
                 if (v >= 1.0) {
                   const percentSlower = ((v - 1) * 100).toFixed(0);
-                  return `-${percentSlower}%`;
+                  label = `+${percentSlower}%`;
+                  // Add "slower" label at the bottom (after reverse)
+                  if (v === 1.15) {
+                    label += ' (slower)';
+                  }
                 } else {
                   const percentFaster = ((1 - v) * 100).toFixed(0);
-                  return `+${percentFaster}%`;
+                  label = `-${percentFaster}%`;
+                  // Add "faster" label at the top (after reverse)
+                  if (v === 0.85) {
+                    label += ' (faster)';
+                  }
                 }
+                return label;
               },
             },
           },
