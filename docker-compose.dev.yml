@@ -1,4 +1,20 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=benchmarks
+      - POSTGRES_USER=benchmarks
+      - POSTGRES_PASSWORD=benchmarks
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U benchmarks"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./api
@@ -7,10 +23,13 @@ services:
       - "8000:8000"
     volumes:
       - ./api:/app
-      - ./api/data:/app/data
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:///./data/benchmarks.db
+      - DATABASE_URL=postgresql+asyncpg://benchmarks:benchmarks@db:5432/benchmarks
       - PYTHONUNBUFFERED=1
+      - ENVIRONMENT=development
+    depends_on:
+      db:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -29,3 +48,6 @@ services:
       - /app/node_modules
     depends_on:
       - backend
+
+volumes:
+  postgres_data:
