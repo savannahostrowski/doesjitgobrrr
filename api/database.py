@@ -1,12 +1,26 @@
 import os
+from pathlib import Path
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://benchmarks:benchmarks@localhost:5432/benchmarks"
-)
+def get_postgres_password() -> str:
+    """Get PostgreSQL password from Docker secret or environment variable."""
+    secret_file = Path("/run/secrets/postgres_password")
+    if secret_file.exists():
+        return secret_file.read_text().strip()
+    return os.getenv("POSTGRES_PASSWORD", "benchmarks")
+
+def get_database_url() -> str:
+    """Construct database URL with password from secret or environment."""
+    if database_url := os.getenv("DATABASE_URL"):
+        return database_url
+
+    password = get_postgres_password()
+    host = os.getenv("POSTGRES_HOST", "localhost")
+    return f"postgresql+asyncpg://benchmarks:{password}@{host}:5432/benchmarks"
+
+DATABASE_URL = get_database_url()
 
 engine = create_async_engine(
     DATABASE_URL, echo=True
