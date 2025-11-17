@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+
 def get_postgres_password() -> str:
     """Get PostgreSQL password from Docker secret or environment variable."""
     secret_file = Path("/run/secrets/postgres_password")
@@ -11,12 +12,14 @@ def get_postgres_password() -> str:
         return secret_file.read_text().strip()
     return os.getenv("POSTGRES_PASSWORD", "benchmarks")
 
+
 def get_admin_token() -> str | None:
     """Get admin token from Docker secret or environment variable."""
     secret_file = Path("/run/secrets/admin_token")
     if secret_file.exists():
         return secret_file.read_text().strip()
     return os.getenv("ADMIN_TOKEN")
+
 
 def get_database_url() -> str:
     """Construct database URL with password from secret or environment."""
@@ -27,13 +30,14 @@ def get_database_url() -> str:
     host = os.getenv("POSTGRES_HOST", "localhost")
     return f"postgresql+asyncpg://benchmarks:{password}@{host}:5432/benchmarks"
 
+
 DATABASE_URL = get_database_url()
 
-engine = create_async_engine(
-    DATABASE_URL, echo=True
-)
+engine = create_async_engine(DATABASE_URL, echo=True)
 
-async_session_maker = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+async_session_maker = async_sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
+)
 
 
 async def init_db():

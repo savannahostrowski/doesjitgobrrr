@@ -2,13 +2,13 @@ import statistics
 from datetime import datetime
 from typing import Any
 
-from sqlmodel import JSON, Column, Field, Relationship, SQLModel # pyright: ignore[reportUnknownVariableType]
+from sqlmodel import JSON, Column, Field, Relationship, SQLModel  # pyright: ignore[reportUnknownVariableType]
 
 
 class BenchmarkRun(SQLModel, table=True):
     """Represents a benchmark run with associated metadata and results."""
 
-    __tablename__ = "benchmark_runs" # pyright: ignore[reportAssignmentType]
+    __tablename__ = "benchmark_runs"  # pyright: ignore[reportAssignmentType]
     id: int | None = Field(default=None, primary_key=True)
     directory_name: str = Field(index=True, nullable=False, unique=True)
     run_date: datetime = Field(index=True, nullable=False)

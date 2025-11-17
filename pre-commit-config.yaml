@@ -1,0 +1,42 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      # Run the linter
+      - id: ruff
+        args: [--fix]
+        files: '^api/.*\.py$'
+      # Run the formatter
+      - id: ruff-format
+        files: '^api/.*\.py$'
+
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest
+        entry: bash -c 'cd api && uv run --frozen --group dev pytest'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [commit]
+      - id: pyright
+        name: pyright
+        entry: bash -c 'cd api && uv run python -m pyright .'
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [commit]
+      - id: frontend-typecheck
+        name: frontend typecheck
+        entry: bash -c 'cd frontend && npm run typecheck'
+        language: system
+        pass_filenames: false
+        files: '^frontend/src/.*\.(ts|tsx)$'
+        stages: [commit]
+      - id: frontend-lint
+        name: frontend lint
+        entry: bash -c 'cd frontend && npm run lint'
+        language: system
+        pass_filenames: false
+        files: '^frontend/src/.*\.(ts|tsx)$'
+        stages: [commit]
