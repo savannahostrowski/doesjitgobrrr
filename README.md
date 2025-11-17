@@ -1,12 +1,9 @@
 # 🏎️ does JIT go brrr?
 
-A performance dashboard tracking Python's JIT compiler performance against non-JIT builds. 
+A performance dashboard tracking CPython's JIT vs. Interpreter benchmarks.
 
 View live at [doesjitgobrrr.com](https://doesjitgobrrr.com) or [isthejitfasteryet.com](https://isthejitfasteryet.com).
 
-## What is this?
-
-This project automatically tracks and visualizes the performance improvements from Python's experimental JIT compiler by running nightly benchmarks on dedicated hardware and displaying the results in an interactive dashboard.
 
 ## Development
 
