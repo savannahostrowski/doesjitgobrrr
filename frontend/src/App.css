@@ -527,7 +527,6 @@ footer {
   background: var(--bg-primary);
   border-top: 2px solid var(--border-primary);
   margin-top: auto;
-  transition: all 0.3s ease;
 }
 
 footer a {
