@@ -11,34 +11,17 @@ This project automatically tracks and visualizes the performance improvements fr
 ## Development
 
 ### Prerequisites
-- Node.js 20+
-- Python 3.14+
-- Docker (optional)
+- Docker and Docker Compose
+- Node.js 20+ (for frontend development)
+- Python 3.13+ with uv (for API development)
 
-### Local Development
+### Local Development with Docker Compose
 
-**Frontend:**
+The easiest way to run the full stack locally:
+
 ```bash
-cd frontend
-npm install
-npm run dev
-# Visit http://localhost:5173
-```
-
-**Backend:**
-```bash
-cd api
-uv sync
-uv run main.py
-# API at http://localhost:8000
-# API docs at http://localhost:8000/docs
-```
-
-### Environment Variables
-
-**Frontend (.env):**
-```bash
-VITE_API_URL=http://localhost:8000
+# Start all services (PostgreSQL, API, Frontend)
+docker-compose -f docker-compose.dev.yml up
 ```
 
 ## Deployment
@@ -48,14 +31,6 @@ VITE_API_URL=http://localhost:8000
 Pre-built multi-platform images are available on Docker Hub:
 - `savannahostrowski/doesjitgobrrr-api:latest`
 - `savannahostrowski/doesjitgobrrr-frontend:latest`
-
-### Docker Swarm
-
-The production deployment runs on a 3-node Raspberry Pi 5 cluster with Docker Swarm:
-
-```bash
-docker stack deploy --compose-file docker-compose.yml arrakis
-```
 
 ## Data Loading
 
