@@ -329,12 +329,28 @@ async def load_benchmark_run(
         machine = machine_match.group(1) if machine_match else "unknown"
 
         async with async_session_maker() as session:
-            existing = await session.exec(
+            existing_result = await session.exec(
                 select(BenchmarkRun).where(BenchmarkRun.directory_name == dir_name)
             )
-            if existing.first():
-                print(f"BenchmarkRun for {dir_name} already exists in the database.")
+            existing_run = existing_result.first()
+
+            # If run exists and is a JIT run with missing speedup data, update it
+            if existing_run:
+                if is_jit and existing_run.geometric_mean_speedup is None and geometric_mean_speedup is not None:
+                    print(f"Updating geometric mean speedup for existing run {dir_name}")
+                    existing_run.geometric_mean_speedup = geometric_mean_speedup
+                    if hpt_data:
+                        existing_run.hpt_reliability = hpt_data.get("reliability")
+                        existing_run.hpt_percentile_90 = hpt_data.get("percentile_90")
+                        existing_run.hpt_percentile_95 = hpt_data.get("percentile_95")
+                        existing_run.hpt_percentile_99 = hpt_data.get("percentile_99")
+                    session.add(existing_run)
+                    await session.commit()
+                    print(f"Updated BenchmarkRun {dir_name} with speedup {geometric_mean_speedup}")
+                else:
+                    print(f"BenchmarkRun for {dir_name} already exists in the database.")
                 return
+
             benchmark_run = BenchmarkRun(
                 directory_name=dir_name,
                 run_date=run_date,
