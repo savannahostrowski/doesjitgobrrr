@@ -18,7 +18,7 @@ jobs:
         env:
           POSTGRES_DB: benchmarks
           POSTGRES_USER: benchmarks
-          POSTGRES_PASSWORD: benchmarks
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -54,11 +54,11 @@ jobs:
           uv run python load_data.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DATABASE_URL: postgresql+asyncpg://benchmarks:benchmarks@localhost:5432/benchmarks
+          DATABASE_URL: postgresql+asyncpg://benchmarks:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/benchmarks
 
       - name: Export database dump
         run: |
-          PGPASSWORD=benchmarks pg_dump -h localhost -U benchmarks -d benchmarks -f api/data/benchmarks.sql
+          PGPASSWORD=${{ secrets.POSTGRES_PASSWORD }} pg_dump -h localhost -U benchmarks -d benchmarks -f api/data/benchmarks.sql
 
       - name: Commit database dump
         run: |
