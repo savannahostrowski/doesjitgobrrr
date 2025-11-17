@@ -10,6 +10,7 @@ import httpx
 from database import get_admin_token, get_session, init_db
 from fastapi import BackgroundTasks, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from models import Benchmark, BenchmarkRun
 from sqlmodel import desc, select
@@ -116,8 +117,9 @@ async def get_latest_comparison(
 
 @app.get("/api/historical")
 async def get_historical_comparison(
-    days: int = 30, session: AsyncSession = fastapi.Depends(get_session)
-) -> dict[str, Any]:
+    days: int = 30,
+    session: AsyncSession = fastapi.Depends(get_session),
+) -> JSONResponse:
     result = await session.exec(
         select(BenchmarkRun).order_by(desc(BenchmarkRun.run_date)).limit(days)
     )
@@ -182,7 +184,14 @@ async def get_historical_comparison(
         if "jit" in date_runs:
             historical_data.append(date_runs["jit"])
 
-    return {"days": days, "historical_runs": historical_data}
+    return JSONResponse(
+        content={"days": days, "historical_runs": historical_data},
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 @app.get("/api/benchmarks/{name}/trend")
