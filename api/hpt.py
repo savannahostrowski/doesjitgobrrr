@@ -132,7 +132,7 @@ def cdfnorm(x: float) -> float:
     L: float = x
 
     if L < 0.0:
-        L *= -1.0 # pyright: ignore[reportConstantRedefinition]
+        L *= -1.0  # pyright: ignore[reportConstantRedefinition]
 
     K = 1.0 / (1.0 + 0.2316419 * L)
     tmp = ((((a5 * K + a4) * K + a3) * K + a2) * K + a1) * K
