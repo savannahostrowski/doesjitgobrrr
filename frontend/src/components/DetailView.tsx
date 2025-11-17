@@ -95,7 +95,7 @@ const DetailView: Component<DetailViewProps> = (props) => {
   return (
     <>
       <div class="back-button-container">
-        <button class="back-button" onClick={props.onBack}>
+        <button class="back-button" onClick={() => props.onBack()}>
           ← Back to Home
         </button>
       </div>

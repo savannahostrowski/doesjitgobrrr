@@ -12,14 +12,15 @@ const ThemeContext = createContext<ThemeContextType>();
 export const ThemeProvider: Component<ParentProps> = (props) => {
   const [theme, setTheme] = createSignal<Theme>('dark');
 
+  // Set initial theme immediately
+  document.documentElement.setAttribute('data-theme', 'dark');
+
   const toggleTheme = () => {
     const newTheme = theme() === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
+    // Update immediately in the toggle handler
     document.documentElement.setAttribute('data-theme', newTheme);
   };
-
-  // Set initial theme
-  document.documentElement.setAttribute('data-theme', theme());
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>

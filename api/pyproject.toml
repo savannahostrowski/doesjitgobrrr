@@ -20,3 +20,6 @@ dev = [
     "pytest-asyncio>=1.3.0",
     "ruff>=0.14.5",
 ]
+
+[tool.pyright]
+typeCheckingMode = "strict"

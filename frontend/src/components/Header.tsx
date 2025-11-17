@@ -54,9 +54,9 @@ const Header: Component<HeaderProps> = (props) => {
         aria-label="Toggle menu"
         aria-expanded={menuOpen()}
       >
-        <span class="hamburger-line"></span>
-        <span class="hamburger-line"></span>
-        <span class="hamburger-line"></span>
+        <span class="hamburger-line" />
+        <span class="hamburger-line" />
+        <span class="hamburger-line" />
       </button>
 
       <nav class={`header-nav ${menuOpen() ? 'menu-open' : ''}`}>
