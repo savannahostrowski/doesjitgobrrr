@@ -33,7 +33,12 @@ def get_database_url() -> str:
 
 DATABASE_URL = get_database_url()
 
-engine = create_async_engine(DATABASE_URL, echo=True)
+engine = create_async_engine(
+    DATABASE_URL,
+    echo=True,
+    pool_pre_ping=True,  # Test connections before using them to avoid stale connections
+    pool_recycle=3600,  # Recycle connections after 1 hour
+)
 
 async_session_maker = async_sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
