@@ -14,8 +14,8 @@ RUN pip install uv
 COPY pyproject.toml .
 COPY *.py .
 
-# Sync dependencies
-RUN uv sync
+# Sync dependencies (production only, no dev dependencies)
+RUN uv sync --no-dev
 
 # Expose port
 EXPOSE 8000
