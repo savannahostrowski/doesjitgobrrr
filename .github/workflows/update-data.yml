@@ -8,62 +8,11 @@ on:
 jobs:
   update-data:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: write
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: benchmarks
-          POSTGRES_USER: benchmarks
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install uv
+      - name: Trigger production data reload
         run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Install dependencies
-        run: |
-          cd api
-          uv sync
-
-      - name: Load benchmark data
-        run: |
-          cd api
-          uv run python load_data.py
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DATABASE_URL: postgresql+asyncpg://benchmarks:${{ secrets.POSTGRES_PASSWORD }}@localhost:5432/benchmarks
-
-      - name: Export database dump
-        run: |
-          PGPASSWORD=${{ secrets.POSTGRES_PASSWORD }} pg_dump -h localhost -U benchmarks -d benchmarks -f api/data/benchmarks.sql
-
-      - name: Commit database dump
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add api/data/benchmarks.sql
-          git diff --staged --quiet || git commit -m "Update benchmark data from nightly run"
-          git push
+          curl -X POST https://api.doesjitgobrrr.com/api/admin/reload-data \
+            -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -v

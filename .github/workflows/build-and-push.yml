@@ -59,6 +59,8 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: savannahostrowski/doesjitgobrrr-api:latest
+          cache-from: type=registry,ref=savannahostrowski/doesjitgobrrr-api:buildcache
+          cache-to: type=registry,ref=savannahostrowski/doesjitgobrrr-api:buildcache,mode=max
 
       - name: Build and push Frontend
         if: steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
