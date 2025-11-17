@@ -17,12 +17,21 @@ export default [
         ecmaVersion: 'latest',
         sourceType: 'module',
       },
+      globals: {
+        // Browser globals
+        document: 'readonly',
+        window: 'readonly',
+        fetch: 'readonly',
+        HTMLCanvasElement: 'readonly',
+        console: 'readonly',
+      },
     },
     rules: {
       ...tseslint.configs.recommended.rules,
       ...solid.configs.recommended.rules,
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-expressions': 'off',
     },
   },
   {

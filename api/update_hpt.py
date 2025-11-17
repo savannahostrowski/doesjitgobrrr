@@ -13,11 +13,11 @@ async def update_hpt():
     }
     
     async with async_session_maker() as session:
-        result = await session.execute(
+        result = await session.exec(
             select(BenchmarkRun)
             .where(BenchmarkRun.directory_name == 'bm-20251115-3.15.0a1+-ed73c90-JIT')
         )
-        run = result.scalar_one_or_none()
+        run = result.one_or_none()
         
         if run:
             run.hpt_reliability = hpt_data['reliability']
