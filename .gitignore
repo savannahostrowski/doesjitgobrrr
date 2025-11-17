@@ -34,3 +34,4 @@ dist-ssr
 *.sw?
 
 production-compose.yml
+DEPLOYMENT.md

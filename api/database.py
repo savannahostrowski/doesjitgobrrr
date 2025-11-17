@@ -11,6 +11,13 @@ def get_postgres_password() -> str:
         return secret_file.read_text().strip()
     return os.getenv("POSTGRES_PASSWORD", "benchmarks")
 
+def get_admin_token() -> str | None:
+    """Get admin token from Docker secret or environment variable."""
+    secret_file = Path("/run/secrets/admin_token")
+    if secret_file.exists():
+        return secret_file.read_text().strip()
+    return os.getenv("ADMIN_TOKEN")
+
 def get_database_url() -> str:
     """Construct database URL with password from secret or environment."""
     if database_url := os.getenv("DATABASE_URL"):

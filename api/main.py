@@ -1,17 +1,33 @@
+import os
 import pathlib
+import subprocess
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
 
 import fastapi
 import httpx
-from database import get_session, init_db
+from database import get_admin_token, get_session, init_db
+from fastapi import BackgroundTasks, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from models import Benchmark, BenchmarkRun
 from sqlmodel import desc, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 GITHUB_REPO_URL = "https://api.github.com/repos/savannahostrowski/pyperf_bench"
+
+# Security for admin endpoints
+security = HTTPBearer()
+
+def verify_admin_token(credentials: HTTPAuthorizationCredentials = Security(security)):
+    """Verify the admin token for protected endpoints."""
+    admin_token = get_admin_token()
+    if not admin_token:
+        raise HTTPException(status_code=500, detail="Admin token not configured")
+    if credentials.credentials != admin_token:
+        raise HTTPException(status_code=403, detail="Invalid admin token")
+    return credentials
 
 @asynccontextmanager
 async def lifespan(app: fastapi.FastAPI) -> AsyncGenerator[None, None]:
@@ -197,6 +213,39 @@ async def get_benchmark_trend(
             )
 
     return {"benchmark_name": name, "days": days, "trend": trend_data}
+
+
+def reload_data_task():
+    """Background task to reload benchmark data."""
+    try:
+        result = subprocess.run(
+            ["uv", "run", "python", "load_data.py"],
+            cwd="/app",
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 minute timeout
+        )
+        if result.returncode == 0:
+            print("Data reload completed successfully")
+            print(result.stdout)
+        else:
+            print(f"Data reload failed with return code {result.returncode}")
+            print(f"STDOUT: {result.stdout}")
+            print(f"STDERR: {result.stderr}")
+    except subprocess.TimeoutExpired:
+        print("Data reload timed out after 5 minutes")
+    except Exception as e:
+        print(f"Error during data reload: {e}")
+
+
+@app.post("/api/admin/reload-data")
+async def reload_data(
+    background_tasks: BackgroundTasks,
+    credentials: HTTPAuthorizationCredentials = Security(verify_admin_token)
+):
+    """Admin endpoint to trigger data reload from GitHub."""
+    background_tasks.add_task(reload_data_task)
+    return {"status": "Data reload triggered", "message": "Reload is running in the background"}
 
 
 if __name__ == "__main__":
