@@ -27,6 +27,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://benchmarks:benchmarks@db:5432/benchmarks
       - PYTHONUNBUFFERED=1
       - ENVIRONMENT=development
+      - ADMIN_TOKEN=dev-test-token-123
     depends_on:
       db:
         condition: service_healthy
