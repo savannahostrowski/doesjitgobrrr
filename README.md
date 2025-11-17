@@ -1,4 +1,4 @@
-# 🏎️ Does JIT Go Brrr?
+# 🏎️ does JIT go brrr?
 
 A performance dashboard tracking Python's JIT compiler performance against non-JIT builds. 
 
