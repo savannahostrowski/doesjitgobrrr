@@ -362,8 +362,19 @@ async def load_benchmark_run(
             )
             existing_run = existing_result.first()
 
-            # If run exists and is a JIT run with missing speedup data, update it
+            # If run exists, update it if needed
             if existing_run:
+                needs_update = False
+
+                # Update commit hash if it's short (< 20 chars) and we have a longer one
+                if len(existing_run.commit_hash) < 20 and len(full_commit_hash) >= 20:
+                    print(
+                        f"Updating commit hash for {dir_name}: {existing_run.commit_hash} → {full_commit_hash}"
+                    )
+                    existing_run.commit_hash = full_commit_hash
+                    needs_update = True
+
+                # Update geometric mean speedup if missing
                 if (
                     is_jit
                     and existing_run.geometric_mean_speedup is None
@@ -378,11 +389,12 @@ async def load_benchmark_run(
                         existing_run.hpt_percentile_90 = hpt_data.get("percentile_90")
                         existing_run.hpt_percentile_95 = hpt_data.get("percentile_95")
                         existing_run.hpt_percentile_99 = hpt_data.get("percentile_99")
+                    needs_update = True
+
+                if needs_update:
                     session.add(existing_run)
                     await session.commit()
-                    print(
-                        f"Updated BenchmarkRun {dir_name} with speedup {geometric_mean_speedup}"
-                    )
+                    print(f"BenchmarkRun for {dir_name} updated.")
                 else:
                     print(
                         f"BenchmarkRun for {dir_name} already exists in the database."
