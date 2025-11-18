@@ -348,6 +348,14 @@ async def load_benchmark_run(
         machine_match = re.search(r"-([^-]+)-[^-]+-python-", json_file["name"])
         machine = machine_match.group(1) if machine_match else "unknown"
 
+        # Extract longer commit hash from JSON filename
+        # Filename format: bm-{date}-{machine}-{arch}-python-{COMMIT_HASH}-{version}-{short_hash}.json
+        # The commit hash is typically 20+ characters
+        full_commit_hash = commit_hash  # Default to short hash from directory
+        hash_match = re.search(r"-python-([a-f0-9]{20,})-", json_file["name"])
+        if hash_match:
+            full_commit_hash = hash_match.group(1)
+
         async with async_session_maker() as session:
             existing_result = await session.exec(
                 select(BenchmarkRun).where(BenchmarkRun.directory_name == dir_name)
@@ -385,7 +393,7 @@ async def load_benchmark_run(
                 directory_name=dir_name,
                 run_date=run_date,
                 python_version=version,
-                commit_hash=commit_hash,
+                commit_hash=full_commit_hash,
                 is_jit=is_jit,
                 machine=machine,
                 hpt_reliability=hpt_data.get("reliability") if hpt_data else None,
