@@ -58,7 +58,9 @@ async def update_commit_hash(run: BenchmarkRun) -> bool:
                 run.commit_hash = full_commit_hash
                 return True
             else:
-                print(f"Could not find longer commit hash in filename: {json_file['name']}")
+                print(
+                    f"Could not find longer commit hash in filename: {json_file['name']}"
+                )
                 return False
 
         except Exception as e:
