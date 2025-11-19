@@ -54,10 +54,10 @@ const DetailViewRoute: Component<{ data: BenchmarkRun[] }> = (props) => {
   );
 };
 
-const Layout: Component<RouteSectionProps & { runs: BenchmarkRun[] }> = (props) => {
+const Layout: Component<RouteSectionProps> = (props) => {
   return (
     <>
-      <Header runs={props.runs} />
+      <Header />
       <main>
         {props.children}
       </main>
@@ -80,6 +80,19 @@ const Layout: Component<RouteSectionProps & { runs: BenchmarkRun[] }> = (props) 
 const App: Component = () => {
   const [historicalData] = createResource(() => fetchHistoricalData(100));
 
+  // Flatten machines data into a single array
+  const allRuns = () => {
+    const data = historicalData();
+    if (!data?.machines) return [];
+
+    const runs: BenchmarkRun[] = [];
+    for (const machineRuns of Object.values(data.machines)) {
+      runs.push(...machineRuns);
+    }
+
+    return runs;
+  };
+
   return (
     <ThemeProvider>
       <div class="app">
@@ -87,7 +100,7 @@ const App: Component = () => {
           when={!historicalData.loading && !historicalData.error}
           fallback={
             <>
-              <Header runs={[]} />
+              <Header />
               <main>
                 <Show when={historicalData.loading}>
                   <div class="loading">
@@ -103,9 +116,9 @@ const App: Component = () => {
             </>
           }
         >
-          <Router root={(props) => <Layout runs={historicalData()?.historical_runs || []} {...props} />}>
-            <Route path="/" component={() => <ChartView data={historicalData()?.historical_runs || []} />} />
-            <Route path="/run/:date" component={() => <DetailViewRoute data={historicalData()?.historical_runs || []} />} />
+          <Router root={(props) => <Layout {...props} />}>
+            <Route path="/" component={() => <ChartView data={allRuns()} />} />
+            <Route path="/run/:date" component={() => <DetailViewRoute data={allRuns()} />} />
             <Route path="/about" component={About} />
           </Router>
         </Show>

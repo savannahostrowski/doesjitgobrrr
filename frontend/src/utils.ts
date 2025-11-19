@@ -22,3 +22,12 @@ export function formatNumber(num: number | null | undefined): string {
   }
   return num.toFixed(6);
 }
+
+export function getArchitecture(machine: string): string {
+  // ripley is x86_64, others default to aarch64
+  // This can be expanded as more machines are added
+  if (machine === 'ripley') {
+    return 'x86_64';
+  }
+  return 'aarch64';
+}
