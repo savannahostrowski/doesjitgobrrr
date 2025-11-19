@@ -36,7 +36,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
     const tooltipBg = isDark ? 'rgba(26, 26, 26, 0.95)' : 'rgba(255, 255, 255, 0.95)';
     const tooltipBorder = isDark ? '#8b5cf6' : '#7c3aed';
 
-    // Group JIT runs by machine
+    // Group JIT runs by machine, taking only the latest run per day
     const jitRunsByMachine = new Map<string, typeof props.data>();
     props.data
       .filter(r => r.is_jit && r.speedup !== null && r.speedup !== undefined)
@@ -48,9 +48,25 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
         jitRunsByMachine.get(machine)!.push(run);
       });
 
-    // Reverse each machine's runs for chronological order
+    // Deduplicate by date - keep only the latest run per day for each machine
     jitRunsByMachine.forEach((runs, machine) => {
-      jitRunsByMachine.set(machine, runs.reverse());
+      const runsByDate = new Map<string, BenchmarkRun>();
+
+      runs.forEach(run => {
+        const dateStr = new Date(run.date).toISOString().split('T')[0];
+        const existing = runsByDate.get(dateStr);
+
+        // Keep the run with the latest timestamp for this date
+        if (!existing || new Date(run.date) > new Date(existing.date)) {
+          runsByDate.set(dateStr, run);
+        }
+      });
+
+      // Convert back to array and sort chronologically
+      const deduplicated = Array.from(runsByDate.values())
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      jitRunsByMachine.set(machine, deduplicated);
     });
 
     // Fixed chart title - use array for multi-line on mobile
