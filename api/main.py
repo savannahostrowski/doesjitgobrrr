@@ -121,12 +121,14 @@ async def get_historical_comparison(
     session: AsyncSession = fastapi.Depends(get_session),
 ) -> JSONResponse:
     result = await session.exec(
-        select(BenchmarkRun).order_by(desc(BenchmarkRun.run_date)).limit(days)
+        select(BenchmarkRun)
+        .order_by(desc(BenchmarkRun.run_date))
+        .limit(days * 2)  # Increased to account for multiple machines
     )
     runs = result.all()
 
-    # Group runs by date to calculate speedup ratios
-    runs_by_date: dict[str, dict[str, Any]] = {}
+    # Group runs by date and machine to calculate speedup ratios
+    runs_by_date_machine: dict[str, dict[str, dict[str, Any]]] = {}
 
     for run in runs:
         benchmark_result = await session.exec(
@@ -148,8 +150,12 @@ async def get_historical_comparison(
                 benchmark_means.append(bench.mean)
 
         date_key = run.run_date.date().isoformat()
-        if date_key not in runs_by_date:
-            runs_by_date[date_key] = {}
+        machine_key = run.machine
+
+        if date_key not in runs_by_date_machine:
+            runs_by_date_machine[date_key] = {}
+        if machine_key not in runs_by_date_machine[date_key]:
+            runs_by_date_machine[date_key][machine_key] = {}
 
         run_type = "jit" if run.is_jit else "nonjit"
         run_data: dict[str, Any] = {
@@ -157,6 +163,7 @@ async def get_historical_comparison(
             "commit": run.commit_hash,
             "python_version": run.python_version,
             "is_jit": run.is_jit,
+            "machine": run.machine,
             "benchmarks": benchmarks_json,
         }
 
@@ -171,21 +178,29 @@ async def get_historical_comparison(
             # Use the pre-calculated geometric mean speedup from the database
             run_data["speedup"] = run.geometric_mean_speedup
 
-        runs_by_date[date_key][run_type] = run_data
+        runs_by_date_machine[date_key][machine_key][run_type] = run_data
 
-    # Build historical data
-    historical_data: list[dict[str, Any]] = []
-    for date_key, date_runs in runs_by_date.items():
-        # Add non-JIT run if it exists
-        if "nonjit" in date_runs:
-            historical_data.append(date_runs["nonjit"])
+    # Build historical data grouped by machine
+    historical_data_by_machine: dict[str, list[dict[str, Any]]] = {}
 
-        # Add JIT run if it exists (speedup already set from database)
-        if "jit" in date_runs:
-            historical_data.append(date_runs["jit"])
+    for date_key, machines in runs_by_date_machine.items():
+        for machine, date_runs in machines.items():
+            if machine not in historical_data_by_machine:
+                historical_data_by_machine[machine] = []
+
+            # Add non-JIT run if it exists
+            if "nonjit" in date_runs:
+                historical_data_by_machine[machine].append(date_runs["nonjit"])
+
+            # Add JIT run if it exists (speedup already set from database)
+            if "jit" in date_runs:
+                historical_data_by_machine[machine].append(date_runs["jit"])
 
     return JSONResponse(
-        content={"days": days, "historical_runs": historical_data},
+        content={
+            "days": days,
+            "machines": historical_data_by_machine,
+        },
         headers={
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
