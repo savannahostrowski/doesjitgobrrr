@@ -5,6 +5,8 @@ import Header from './components/Header';
 import PerformanceChart from './components/PerformanceChart';
 import DetailView from './components/DetailView';
 import About from './components/About';
+import LoadingSpinner from './components/LoadingSpinner';
+import ErrorState from './components/ErrorState';
 import { fetchHistoricalData } from './api';
 import type { BenchmarkRun } from './types';
 import './App.css';
@@ -78,7 +80,7 @@ const Layout: Component<RouteSectionProps> = (props) => {
 };
 
 const App: Component = () => {
-  const [historicalData] = createResource(() => fetchHistoricalData(100));
+  const [historicalData, { refetch }] = createResource(() => fetchHistoricalData(100));
 
   // Flatten machines data into a single array
   const allRuns = () => {
@@ -101,14 +103,10 @@ const App: Component = () => {
               <Header />
               <main>
                 <Show when={historicalData.loading}>
-                  <div class="loading">
-                    <p>Loading benchmark data...</p>
-                  </div>
+                  <LoadingSpinner />
                 </Show>
                 <Show when={historicalData.error}>
-                  <div class="error">
-                    <p>Failed to load benchmark data. Please try again later.</p>
-                  </div>
+                  <ErrorState onRetry={() => refetch()} />
                 </Show>
               </main>
             </>

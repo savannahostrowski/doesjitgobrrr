@@ -245,18 +245,6 @@ main {
   flex-direction: column;
 }
 
-.loading, .error {
-  text-align: center;
-  padding: 4rem 2rem;
-  font-size: 1.3rem;
-  font-weight: 500;
-  animation: fadeIn 0.3s ease-in;
-}
-
-.error {
-  color: #dc2626;
-}
-
 @keyframes fadeIn {
   from {
     opacity: 0;

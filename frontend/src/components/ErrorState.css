@@ -1,0 +1,126 @@
+.error-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  padding: 4rem 2rem;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.error-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.error-icon-wrapper {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+  border-radius: 50%;
+  animation: shake 0.5s ease-in-out;
+  box-shadow: 0 4px 12px var(--shadow-accent);
+}
+
+.error-icon {
+  width: 36px;
+  height: 36px;
+  color: var(--error);
+  stroke-width: 2;
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-8px);
+  }
+  75% {
+    transform: translateX(8px);
+  }
+}
+
+.error-text {
+  font-size: 1.3rem;
+  font-weight: 500;
+  color: var(--error);
+  margin: 0;
+  text-align: center;
+}
+
+.retry-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  outline: none;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  color: white;
+  box-shadow: 0 4px 12px var(--shadow-accent);
+}
+
+.retry-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--shadow-accent);
+  filter: brightness(1.1);
+}
+
+.retry-button:active {
+  transform: translateY(0);
+}
+
+.retry-icon {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1024px) {
+  .error-state {
+    min-height: 40vh;
+    padding: 3rem 1.5rem;
+  }
+
+  .error-icon-wrapper {
+    width: 56px;
+    height: 56px;
+  }
+
+  .error-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .error-text {
+    font-size: 1.1rem;
+  }
+
+  .retry-button {
+    padding: 0.875rem 1.75rem;
+    width: 100%;
+    max-width: 300px;
+    justify-content: center;
+  }
+}
