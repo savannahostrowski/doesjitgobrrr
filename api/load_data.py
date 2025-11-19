@@ -327,118 +327,124 @@ async def load_benchmark_run(
         response.raise_for_status()
         files = response.json()
 
-        json_file = None
+        # Find ALL benchmark JSON files (not just the first one)
+        json_files = []
         for file in files:
             if (
                 file["name"].endswith(".json")
                 and not file["name"].endswith("-vs-base.json")
                 and "pystats" not in file["name"]
             ):
-                json_file = file
-                break
-        if not json_file:
-            print(f"No JSON benchmark file found in directory {dir_name}.")
+                json_files.append(file)
+
+        if not json_files:
+            print(f"No JSON benchmark files found in directory {dir_name}.")
             return
 
-        json_url = json_file["download_url"]
-        json_response = await client.get(json_url)
-        json_response.raise_for_status()
-        benchmark_data = json_response.json()
+        # Process each JSON file (one per machine)
+        for json_file in json_files:
+            json_url = json_file["download_url"]
+            json_response = await client.get(json_url)
+            json_response.raise_for_status()
+            benchmark_data = json_response.json()
 
-        machine_match = re.search(r"-([^-]+)-[^-]+-python-", json_file["name"])
-        machine = machine_match.group(1) if machine_match else "unknown"
+            machine_match = re.search(r"-([^-]+)-[^-]+-python-", json_file["name"])
+            machine = machine_match.group(1) if machine_match else "unknown"
 
-        # Extract longer commit hash from JSON filename
-        # Filename format: bm-{date}-{machine}-{arch}-python-{COMMIT_HASH}-{version}-{short_hash}.json
-        # The commit hash is typically 20+ characters
-        full_commit_hash = commit_hash  # Default to short hash from directory
-        hash_match = re.search(r"-python-([a-f0-9]{20,})-", json_file["name"])
-        if hash_match:
-            full_commit_hash = hash_match.group(1)
+            # Extract longer commit hash from JSON filename
+            # Filename format: bm-{date}-{machine}-{arch}-python-{COMMIT_HASH}-{version}-{short_hash}.json
+            # The commit hash is typically 20+ characters
+            full_commit_hash = commit_hash  # Default to short hash from directory
+            hash_match = re.search(r"-python-([a-f0-9]{20,})-", json_file["name"])
+            if hash_match:
+                full_commit_hash = hash_match.group(1)
 
-        async with async_session_maker() as session:
-            existing_result = await session.exec(
-                select(BenchmarkRun).where(BenchmarkRun.directory_name == dir_name)
-            )
-            existing_run = existing_result.first()
+            # Create a unique directory name per machine
+            machine_dir_name = f"{dir_name}-{machine}"
 
-            # If run exists, update it if needed
-            if existing_run:
-                needs_update = False
-
-                # Update commit hash if it's short (< 20 chars) and we have a longer one
-                if len(existing_run.commit_hash) < 20 and len(full_commit_hash) >= 20:
-                    print(
-                        f"Updating commit hash for {dir_name}: {existing_run.commit_hash} → {full_commit_hash}"
-                    )
-                    existing_run.commit_hash = full_commit_hash
-                    needs_update = True
-
-                # Update geometric mean speedup if missing
-                if (
-                    is_jit
-                    and existing_run.geometric_mean_speedup is None
-                    and geometric_mean_speedup is not None
-                ):
-                    print(
-                        f"Updating geometric mean speedup for existing run {dir_name}"
-                    )
-                    existing_run.geometric_mean_speedup = geometric_mean_speedup
-                    if hpt_data:
-                        existing_run.hpt_reliability = hpt_data.get("reliability")
-                        existing_run.hpt_percentile_90 = hpt_data.get("percentile_90")
-                        existing_run.hpt_percentile_95 = hpt_data.get("percentile_95")
-                        existing_run.hpt_percentile_99 = hpt_data.get("percentile_99")
-                    needs_update = True
-
-                if needs_update:
-                    session.add(existing_run)
-                    await session.commit()
-                    print(f"BenchmarkRun for {dir_name} updated.")
-                else:
-                    print(
-                        f"BenchmarkRun for {dir_name} already exists in the database."
-                    )
-                return
-
-            benchmark_run = BenchmarkRun(
-                directory_name=dir_name,
-                run_date=run_date,
-                python_version=version,
-                commit_hash=full_commit_hash,
-                is_jit=is_jit,
-                machine=machine,
-                hpt_reliability=hpt_data.get("reliability") if hpt_data else None,
-                hpt_percentile_90=hpt_data.get("percentile_90") if hpt_data else None,
-                hpt_percentile_95=hpt_data.get("percentile_95") if hpt_data else None,
-                hpt_percentile_99=hpt_data.get("percentile_99") if hpt_data else None,
-                geometric_mean_speedup=geometric_mean_speedup,
-            )
-            session.add(benchmark_run)
-            await session.flush()  # To get the ID assigned
-
-            if not benchmark_run.id:
-                print(f"Failed to create BenchmarkRun for {dir_name}.")
-                return
-
-            benchmarks = benchmark_data.get("benchmarks", [])
-            for pyperf_benchmark in benchmarks:
-                bench_metadata = pyperf_benchmark.get("metadata", {})
-                stats = compute_benchmark_statistics(pyperf_benchmark)
-
-                benchmark = Benchmark(
-                    run_id=benchmark_run.id,
-                    name=bench_metadata.get("name", "unknown"),
-                    mean=stats["mean"],
-                    median=stats["median"],
-                    stddev=stats["stddev"],
-                    min_value=stats["min_value"],
-                    max_value=stats["max_value"],
-                    raw_data=pyperf_benchmark,
+            async with async_session_maker() as session:
+                existing_result = await session.exec(
+                    select(BenchmarkRun).where(BenchmarkRun.directory_name == machine_dir_name)
                 )
-                session.add(benchmark)
-            await session.commit()
-            print(f"Loaded BenchmarkRun {dir_name} with {len(benchmarks)} benchmarks.")
+                existing_run = existing_result.first()
+
+                # If run exists, update it if needed
+                if existing_run:
+                    needs_update = False
+
+                    # Update commit hash if it's short (< 20 chars) and we have a longer one
+                    if len(existing_run.commit_hash) < 20 and len(full_commit_hash) >= 20:
+                        print(
+                            f"Updating commit hash for {machine_dir_name}: {existing_run.commit_hash} → {full_commit_hash}"
+                        )
+                        existing_run.commit_hash = full_commit_hash
+                        needs_update = True
+
+                    # Update geometric mean speedup if missing
+                    if (
+                        is_jit
+                        and existing_run.geometric_mean_speedup is None
+                        and geometric_mean_speedup is not None
+                    ):
+                        print(
+                            f"Updating geometric mean speedup for existing run {machine_dir_name}"
+                        )
+                        existing_run.geometric_mean_speedup = geometric_mean_speedup
+                        if hpt_data:
+                            existing_run.hpt_reliability = hpt_data.get("reliability")
+                            existing_run.hpt_percentile_90 = hpt_data.get("percentile_90")
+                            existing_run.hpt_percentile_95 = hpt_data.get("percentile_95")
+                            existing_run.hpt_percentile_99 = hpt_data.get("percentile_99")
+                        needs_update = True
+
+                    if needs_update:
+                        session.add(existing_run)
+                        await session.commit()
+                        print(f"BenchmarkRun for {machine_dir_name} updated.")
+                    else:
+                        print(
+                            f"BenchmarkRun for {machine_dir_name} already exists in the database."
+                        )
+                    continue  # Move to next JSON file
+
+                benchmark_run = BenchmarkRun(
+                    directory_name=machine_dir_name,
+                    run_date=run_date,
+                    python_version=version,
+                    commit_hash=full_commit_hash,
+                    is_jit=is_jit,
+                    machine=machine,
+                    hpt_reliability=hpt_data.get("reliability") if hpt_data else None,
+                    hpt_percentile_90=hpt_data.get("percentile_90") if hpt_data else None,
+                    hpt_percentile_95=hpt_data.get("percentile_95") if hpt_data else None,
+                    hpt_percentile_99=hpt_data.get("percentile_99") if hpt_data else None,
+                    geometric_mean_speedup=geometric_mean_speedup,
+                )
+                session.add(benchmark_run)
+                await session.flush()  # To get the ID assigned
+
+                if not benchmark_run.id:
+                    print(f"Failed to create BenchmarkRun for {machine_dir_name}.")
+                    continue
+
+                benchmarks = benchmark_data.get("benchmarks", [])
+                for pyperf_benchmark in benchmarks:
+                    bench_metadata = pyperf_benchmark.get("metadata", {})
+                    stats = compute_benchmark_statistics(pyperf_benchmark)
+
+                    benchmark = Benchmark(
+                        run_id=benchmark_run.id,
+                        name=bench_metadata.get("name", "unknown"),
+                        mean=stats["mean"],
+                        median=stats["median"],
+                        stddev=stats["stddev"],
+                        min_value=stats["min_value"],
+                        max_value=stats["max_value"],
+                        raw_data=pyperf_benchmark,
+                    )
+                    session.add(benchmark)
+                await session.commit()
+                print(f"Loaded BenchmarkRun {machine_dir_name} ({machine}) with {len(benchmarks)} benchmarks.")
 
 
 async def fetch_latest_run():
