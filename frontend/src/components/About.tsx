@@ -36,19 +36,24 @@ const About: Component = () => {
             </a>. The data that powers this site can be found in <a href="https://github.com/savannahostrowski/pyperf_bench" target="_blank" rel="noopener noreferrer">this repo</a>.
             The code for this website is also open source and can be found <a href="https://github.com/savannahostrowski/doesjitgobrrr" target="_blank" rel="noopener noreferrer">here</a>.
           </p>
-          <h3>Hardware</h3>
+          <h3>Machines</h3>
           <p>
-            All benchmarks are run on a dedicated{' '}
-            <a
-              href="https://www.raspberrypi.com/products/raspberry-pi-5/?variant=raspberry-pi-5-8gb"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Raspberry Pi 5 (8GB RAM)
-            </a>{' '}
-            sitting in my homelab with the following specifications:
+            All benchmarks are run on dedicated hardware sitting in my homelab with the following specifications:
           </p>
+
+          <h4>blueberry (aarch64)</h4>
           <ul>
+            <li>
+              <strong>Device:</strong>{' '}
+              <a
+                href="https://www.raspberrypi.com/products/raspberry-pi-5/?variant=raspberry-pi-5-8gb"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Raspberry Pi 5
+              </a>
+            </li>
+            <li><strong>RAM:</strong> 8GB</li>
             <li>
               <strong>Storage:</strong>{' '}
               <a
@@ -70,6 +75,15 @@ const About: Component = () => {
               </a>
             </li>
             <li><strong>OS:</strong> Debian GNU/Linux 12 (bookworm)</li>
+            <li><strong>Name:</strong> "blueberry" because it's a Pi!</li>
+          </ul>
+
+          <h4>ripley (x86_64)</h4>
+          <ul>
+            <li><strong>CPU:</strong> Intel(R) Core(TM) i5-8400 CPU @ 2.80GHz (6 cores)</li>
+            <li><strong>RAM:</strong> 8GB</li>
+            <li><strong>OS:</strong> Ubuntu 24.04</li>
+            <li><strong>Name:</strong> "ripley" because Alien is one of my favourite movies of all time!</li>
           </ul>
 
           <h3>Contact</h3>
