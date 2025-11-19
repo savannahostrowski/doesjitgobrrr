@@ -222,23 +222,8 @@ const DetailView: Component<DetailViewProps> = (props) => {
   };
 
   const getRawDataUrl = (run: BenchmarkRun) => {
-    // Format date as YYYYMMDD
-    const date = new Date(run.date);
-    const formattedDate = date.toISOString().split('T')[0].replace(/-/g, '');
-
-    // Extract version (e.g., "3.15.0a1+")
-    const version = run.python_version;
-
-    // Get short commit hash (first 7 chars)
-    const shortCommit = run.commit.substring(0, 7);
-
-    // Determine JIT or noJIT
-    const jitFlag = run.is_jit ? 'JIT' : 'noJIT';
-
-    // Build directory name: bm-{date}-{version}-{commit}-{JIT/noJIT}
-    const dirName = `bm-${formattedDate}-${version}-${shortCommit}-${jitFlag}`;
-
-    return `https://github.com/savannahostrowski/pyperf_bench/tree/main/results/${dirName}`;
+    // Use the directory name directly from the database
+    return `https://github.com/savannahostrowski/pyperf_bench/tree/main/results/${run.directory_name}`;
   };
 
   const getSpeedupForMachine = (machine: string) => {

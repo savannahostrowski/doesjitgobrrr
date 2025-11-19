@@ -127,8 +127,8 @@ async def get_historical_comparison(
     )
     runs = result.all()
 
-    # Group runs by date and machine to calculate speedup ratios
-    runs_by_date_machine: dict[str, dict[str, dict[str, Any]]] = {}
+    # Build list of all runs grouped by machine
+    historical_data_by_machine: dict[str, list[dict[str, Any]]] = {}
 
     for run in runs:
         benchmark_result = await session.exec(
@@ -137,7 +137,6 @@ async def get_historical_comparison(
         benchmarks = benchmark_result.all()
 
         benchmarks_json = {}
-        benchmark_means: list[float] = []
         for bench in benchmarks:
             benchmarks_json[bench.name] = {
                 "mean": bench.mean,
@@ -146,24 +145,15 @@ async def get_historical_comparison(
                 "min_value": bench.min_value,
                 "max_value": bench.max_value,
             }
-            if bench.mean is not None and bench.mean > 0:
-                benchmark_means.append(bench.mean)
 
-        date_key = run.run_date.date().isoformat()
-        machine_key = run.machine
-
-        if date_key not in runs_by_date_machine:
-            runs_by_date_machine[date_key] = {}
-        if machine_key not in runs_by_date_machine[date_key]:
-            runs_by_date_machine[date_key][machine_key] = {}
-
-        run_type = "jit" if run.is_jit else "nonjit"
         run_data: dict[str, Any] = {
             "date": run.run_date.isoformat(),
             "commit": run.commit_hash,
             "python_version": run.python_version,
             "is_jit": run.is_jit,
             "machine": run.machine,
+            "directory_name": run.directory_name,
+            "created_at": run.created_at.isoformat(),
             "benchmarks": benchmarks_json,
         }
 
@@ -178,23 +168,11 @@ async def get_historical_comparison(
             # Use the pre-calculated geometric mean speedup from the database
             run_data["speedup"] = run.geometric_mean_speedup
 
-        runs_by_date_machine[date_key][machine_key][run_type] = run_data
+        machine_key = run.machine
+        if machine_key not in historical_data_by_machine:
+            historical_data_by_machine[machine_key] = []
 
-    # Build historical data grouped by machine
-    historical_data_by_machine: dict[str, list[dict[str, Any]]] = {}
-
-    for date_key, machines in runs_by_date_machine.items():
-        for machine, date_runs in machines.items():
-            if machine not in historical_data_by_machine:
-                historical_data_by_machine[machine] = []
-
-            # Add non-JIT run if it exists
-            if "nonjit" in date_runs:
-                historical_data_by_machine[machine].append(date_runs["nonjit"])
-
-            # Add JIT run if it exists (speedup already set from database)
-            if "jit" in date_runs:
-                historical_data_by_machine[machine].append(date_runs["jit"])
+        historical_data_by_machine[machine_key].append(run_data)
 
     return JSONResponse(
         content={

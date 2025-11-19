@@ -19,6 +19,8 @@ export interface BenchmarkRun {
   python_version: string;
   is_jit: boolean;
   machine: string;
+  directory_name: string;
+  created_at: string;
   geomean: number | null;
   speedup: number | null;  // Speedup ratio for JIT runs (nonjit_time / jit_time)
   hpt?: HPTData;  // HPT statistical comparison data (only for JIT runs)

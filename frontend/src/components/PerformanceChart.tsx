@@ -56,8 +56,8 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
         const dateStr = new Date(run.date).toISOString().split('T')[0];
         const existing = runsByDate.get(dateStr);
 
-        // Keep the run with the latest timestamp for this date
-        if (!existing || new Date(run.date) > new Date(existing.date)) {
+        // Keep the run with the latest created_at timestamp for this date
+        if (!existing || new Date(run.created_at) > new Date(existing.created_at)) {
           runsByDate.set(dateStr, run);
         }
       });
@@ -258,7 +258,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
         responsive: true,
         maintainAspectRatio: false,
         interaction: {
-          mode: 'index',
+          mode: 'x',
           intersect: false,
         },
         onHover: (_event: ChartEvent, activeElements: ActiveElement[], chart: Chart) => {
@@ -332,9 +332,13 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
                 });
               },
               label: (context) => {
-                // Convert back from inverted value
-                const invertedY = context.parsed.y ?? 1.0;
-                const speedup = 2.0 - invertedY;
+                // Get the actual speedup from the stored run data
+                const datasetData = context.dataset.data as Array<{x: number, y: number, run: BenchmarkRun}>;
+                const dataPoint = datasetData[context.dataIndex];
+                if (!dataPoint || !dataPoint.run) {
+                  return '';
+                }
+                const speedup = dataPoint.run.speedup || 1.0;
                 const machine = context.dataset.label?.split(' ')[0] || 'unknown';
 
                 let performanceText = '';

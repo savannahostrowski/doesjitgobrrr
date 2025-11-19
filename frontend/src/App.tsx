@@ -31,10 +31,39 @@ const DetailViewRoute: Component<{ data: BenchmarkRun[] }> = (props) => {
 
   const runsOnDate = () => {
     const dateStr = params.date;
-    return props.data.filter(r => {
+    // Filter runs for this date
+    const runsForDate = props.data.filter(r => {
       const runDate = new Date(r.date).toISOString().split('T')[0];
       return runDate === dateStr;
     });
+
+    // If no runs, return empty
+    if (runsForDate.length === 0) return [];
+
+    // Find the latest commit (most recent created_at timestamp) for this date
+    // Group by commit to find which commit is latest
+    const commitGroups = new Map<string, BenchmarkRun[]>();
+    runsForDate.forEach(run => {
+      if (!commitGroups.has(run.commit)) {
+        commitGroups.set(run.commit, []);
+      }
+      commitGroups.get(run.commit)!.push(run);
+    });
+
+    // Find the latest commit by looking at created_at timestamp
+    // (runs are created in chronological order, so latest created_at = latest commit)
+    let latestCommit = '';
+    let latestTime = new Date(0);
+    commitGroups.forEach((runs, commit) => {
+      const runTime = new Date(runs[0].created_at);
+      if (runTime > latestTime) {
+        latestTime = runTime;
+        latestCommit = commit;
+      }
+    });
+
+    // Return only runs from the latest commit
+    return commitGroups.get(latestCommit) || [];
   };
 
   const handleBack = () => {

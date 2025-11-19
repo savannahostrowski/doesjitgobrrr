@@ -2,6 +2,7 @@ import statistics
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import JSON, Column, Field, Relationship, SQLModel  # pyright: ignore[reportUnknownVariableType]
 
 
@@ -9,13 +10,19 @@ class BenchmarkRun(SQLModel, table=True):
     """Represents a benchmark run with associated metadata and results."""
 
     __tablename__ = "benchmark_runs"  # pyright: ignore[reportAssignmentType]
+
+    # Composite unique constraint: same directory can have multiple machines
+    __table_args__ = (  # pyright: ignore[reportAssignmentType]
+        UniqueConstraint("directory_name", "machine", name="uq_directory_machine"),
+    )
+
     id: int | None = Field(default=None, primary_key=True)
-    directory_name: str = Field(index=True, nullable=False, unique=True)
+    directory_name: str = Field(index=True, nullable=False)
     run_date: datetime = Field(index=True, nullable=False)
     python_version: str = Field(nullable=False)
     commit_hash: str = Field(nullable=False, index=True)
     is_jit: bool = Field(nullable=False, index=True)
-    machine: str = Field(nullable=False)
+    machine: str = Field(nullable=False, index=True)
     created_at: datetime = Field(default_factory=datetime.now, nullable=False)
 
     # HPT (Hypothesis Testing) data - only populated for JIT runs

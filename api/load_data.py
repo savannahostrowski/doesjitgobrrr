@@ -1,4 +1,5 @@
 import asyncio
+import os
 import re
 import tempfile
 from datetime import datetime
@@ -18,71 +19,92 @@ RAW_BASE_URL = "https://raw.githubusercontent.com/savannahostrowski/pyperf_bench
 # Filter for benchmark result directories. Pattern: bm-YYYYMMDD-VERSION-HASH[-JIT]
 PATTERN = r"bm-(\d{8})-([\d\.a-z\+]+)-([a-f0-9]+)(?:-JIT)?"
 
+# Get GitHub token from environment if available
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
-async def compute_geometric_mean_speedup(jit_dir: str) -> float | None:
+
+def get_github_headers() -> dict[str, str]:
+    """Get headers for GitHub API requests with optional authentication."""
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    if GITHUB_TOKEN:
+        headers["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+    return headers
+
+
+async def compute_geometric_mean_per_machine(jit_dir: str) -> dict[str, float]:
     """
-    Extract geometric mean speedup from bench_runner's comparison markdown file.
-    Returns geometric mean of the ratio (nonjit_mean / jit_mean).
-    > 1.0 means JIT is faster, < 1.0 means JIT is slower.
+    Extract per-machine geometric mean speedups from the README.md file.
+    Returns a dict mapping machine name to geometric mean ratio.
 
-    This uses bench_runner's pre-calculated geometric mean to ensure consistency.
+    The README has sections like:
+    linux aarch64 (blueberry)
+    ...
+    Geometric mean: 1.027x slower
+
+    linux x86_64 (ripley)
+    ...
+    Geometric mean: 1.005x faster
     """
     async with httpx.AsyncClient() as client:
         try:
-            # Get the JIT directory contents to find the markdown file
+            # Get the JIT directory contents to find README.md
             jit_contents = await client.get(
                 f"{PYPERF_BENCH_REPO}/contents/results/{jit_dir}",
-                headers={"Accept": "application/vnd.github.v3+json"},
+                headers=get_github_headers(),
             )
             jit_contents.raise_for_status()
 
-            # Find the vs-base.md file
-            markdown_url = None
+            # Find README.md file
+            readme_url = None
             for file in jit_contents.json():
-                if file["name"].endswith("-vs-base.md"):
-                    markdown_url = file["download_url"]
+                if file["name"].upper() == "README.MD":
+                    readme_url = file["download_url"]
                     break
 
-            if not markdown_url:
-                print(f"Could not find vs-base.md file in {jit_dir}")
-                return None
+            if not readme_url:
+                print(f"Could not find README.md file in {jit_dir}")
+                return {}
 
-            # Download and parse the markdown file
-            markdown_response = await client.get(markdown_url)
-            markdown_response.raise_for_status()
-            markdown_text = markdown_response.text
+            # Download and parse the README
+            readme_response = await client.get(readme_url)
+            readme_response.raise_for_status()
+            readme_text = readme_response.text
 
-            # Parse the geometric mean from the markdown
-            # Format: "- overall geometric mean: 1.082x slower" or "1.05x faster"
-            for line in markdown_text.split("\n"):
-                if "overall geometric mean:" in line.lower():
-                    # Extract the value and direction
-                    match_geomean = re.search(r"(\d+\.\d+)x\s+(slower|faster)", line)
-                    if match_geomean:
-                        value = float(match_geomean.group(1))
-                        direction = match_geomean.group(2)
+            # Parse per-machine geometric means
+            # Look for pattern: "linux <arch> (machine_name)" followed by "Geometric mean: X.XXXx slower/faster"
+            machine_geomeans = {}
+            current_machine = None
 
-                        # Convert bench_runner's display format to ratio
-                        # bench_runner displays using: 1.0 + (1.0 - gm) for slower
-                        # So "1.082x slower" means: 1.082 = 1.0 + (1.0 - gm)
-                        # Therefore: gm = 1.0 - (1.082 - 1.0) = 0.918
+            for line in readme_text.split("\n"):
+                # Match machine header: "linux aarch64 (blueberry)", "darwin arm64 (macbook)", etc.
+                # Pattern: <os> <arch> (machine_name)
+                machine_match = re.search(r"(?:linux|darwin|windows)\s+[\w_]+\s+\((\w+)\)", line, re.IGNORECASE)
+                if machine_match:
+                    current_machine = machine_match.group(1)
+                    continue
+
+                # Match geometric mean line within a machine section
+                if current_machine and "geometric mean:" in line.lower():
+                    geomean_match = re.search(r"(\d+\.\d+)x\s+(slower|faster)", line, re.IGNORECASE)
+                    if geomean_match:
+                        value = float(geomean_match.group(1))
+                        direction = geomean_match.group(2).lower()
+
+                        # Convert to ratio (nonjit_time / jit_time)
                         if direction == "slower":
                             ratio = 1.0 - (value - 1.0)
                         else:  # faster
-                            # For faster, bench_runner displays the ratio directly
                             ratio = value
 
-                        print(
-                            f"Geometric mean from bench_runner: {value}x {direction} -> ratio {ratio:.3f}"
-                        )
-                        return ratio
+                        machine_geomeans[current_machine] = ratio
+                        print(f"  {current_machine}: {value}x {direction} -> ratio {ratio:.3f}")
+                        current_machine = None  # Reset after finding geomean
 
-            print("Could not find geometric mean in markdown file")
-            return None
+            return machine_geomeans
 
         except Exception as e:
-            print(f"Error extracting geometric mean: {e}")
-            return None
+            print(f"Error extracting per-machine geometric means: {e}")
+            return {}
 
 
 async def compute_hpt_comparison(
@@ -109,7 +131,7 @@ async def compute_hpt_comparison(
         # Get interpreter JSON file
         interpreter_contents = await client.get(
             f"{PYPERF_BENCH_REPO}/contents/results/{interpreter_dir}",
-            headers={"Accept": "application/vnd.github.v3+json"},
+            headers=get_github_headers(),
         )
         interpreter_contents.raise_for_status()
 
@@ -121,7 +143,7 @@ async def compute_hpt_comparison(
         # Get JIT JSON file
         jit_contents = await client.get(
             f"{PYPERF_BENCH_REPO}/contents/results/{jit_dir}",
-            headers={"Accept": "application/vnd.github.v3+json"},
+            headers=get_github_headers(),
         )
         jit_contents.raise_for_status()
         for file in jit_contents.json():
@@ -200,7 +222,7 @@ async def get_fork_from_directory(
     try:
         dir_response = await client.get(
             f"{PYPERF_BENCH_REPO}/contents/results/{dir_name}",
-            headers={"Accept": "application/vnd.github.v3+json"},
+            headers=get_github_headers(),
         )
         dir_response.raise_for_status()
         files = dir_response.json()
@@ -244,7 +266,7 @@ async def fetch_all_benchmark_pairs() -> list[tuple[str, str]]:
     async with httpx.AsyncClient() as client:
         response = await client.get(
             f"{PYPERF_BENCH_REPO}/contents/results",
-            headers={"Accept": "application/vnd.github.v3+json"},
+            headers=get_github_headers(),
         )
         response.raise_for_status()
         dirs = response.json()
@@ -299,14 +321,14 @@ async def fetch_all_benchmark_pairs() -> list[tuple[str, str]]:
 async def load_benchmark_run(
     dir_name: str,
     hpt_data: dict[str, float] | None = None,
-    geometric_mean_speedup: float | None = None,
+    geometric_mean_per_machine: dict[str, float] | None = None,
 ):
     """Load a benchmark run from the given directory name into the database.
 
     Args:
         dir_name: The directory name of the benchmark run
         hpt_data: Optional HPT comparison data (only for JIT runs)
-        geometric_mean_speedup: Optional pre-calculated geometric mean speedup (only for JIT runs)
+        geometric_mean_per_machine: Optional dict mapping machine name to geometric mean speedup (only for JIT runs)
 
     Note: Fork filtering is done during fetch phase, so this function assumes
     the directory is from the 'python' fork.
@@ -322,7 +344,7 @@ async def load_benchmark_run(
     async with httpx.AsyncClient() as client:
         contents_url = f"{PYPERF_BENCH_REPO}/contents/results/{dir_name}"
         response = await client.get(
-            contents_url, headers={"Accept": "application/vnd.github.v3+json"}
+            contents_url, headers=get_github_headers()
         )
         response.raise_for_status()
         files = response.json()
@@ -359,12 +381,13 @@ async def load_benchmark_run(
             if hash_match:
                 full_commit_hash = hash_match.group(1)
 
-            # Create a unique directory name per machine
-            machine_dir_name = f"{dir_name}-{machine}"
-
             async with async_session_maker() as session:
+                # Query by both directory_name and machine (composite unique key)
                 existing_result = await session.exec(
-                    select(BenchmarkRun).where(BenchmarkRun.directory_name == machine_dir_name)
+                    select(BenchmarkRun).where(
+                        BenchmarkRun.directory_name == dir_name,
+                        BenchmarkRun.machine == machine
+                    )
                 )
                 existing_run = existing_result.first()
 
@@ -375,21 +398,23 @@ async def load_benchmark_run(
                     # Update commit hash if it's short (< 20 chars) and we have a longer one
                     if len(existing_run.commit_hash) < 20 and len(full_commit_hash) >= 20:
                         print(
-                            f"Updating commit hash for {machine_dir_name}: {existing_run.commit_hash} → {full_commit_hash}"
+                            f"Updating commit hash for {dir_name} ({machine}): {existing_run.commit_hash} → {full_commit_hash}"
                         )
                         existing_run.commit_hash = full_commit_hash
                         needs_update = True
 
-                    # Update geometric mean speedup if missing
+                    # Update geometric mean speedup (get from per-machine dict)
+                    # Always update if we have new data, not just when it's None
+                    machine_geometric_mean = geometric_mean_per_machine.get(machine) if geometric_mean_per_machine else None
                     if (
                         is_jit
-                        and existing_run.geometric_mean_speedup is None
-                        and geometric_mean_speedup is not None
+                        and machine_geometric_mean is not None
+                        and existing_run.geometric_mean_speedup != machine_geometric_mean
                     ):
                         print(
-                            f"Updating geometric mean speedup for existing run {machine_dir_name}"
+                            f"Updating geometric mean speedup for existing run {dir_name} ({machine}): {existing_run.geometric_mean_speedup} → {machine_geometric_mean}"
                         )
-                        existing_run.geometric_mean_speedup = geometric_mean_speedup
+                        existing_run.geometric_mean_speedup = machine_geometric_mean
                         if hpt_data:
                             existing_run.hpt_reliability = hpt_data.get("reliability")
                             existing_run.hpt_percentile_90 = hpt_data.get("percentile_90")
@@ -400,15 +425,18 @@ async def load_benchmark_run(
                     if needs_update:
                         session.add(existing_run)
                         await session.commit()
-                        print(f"BenchmarkRun for {machine_dir_name} updated.")
+                        print(f"BenchmarkRun for {dir_name} ({machine}) updated.")
                     else:
                         print(
-                            f"BenchmarkRun for {machine_dir_name} already exists in the database."
+                            f"BenchmarkRun for {dir_name} ({machine}) already exists in the database."
                         )
                     continue  # Move to next JSON file
 
+                # Get this machine's geometric mean from the per-machine dict
+                machine_geometric_mean = geometric_mean_per_machine.get(machine) if geometric_mean_per_machine else None
+
                 benchmark_run = BenchmarkRun(
-                    directory_name=machine_dir_name,
+                    directory_name=dir_name,
                     run_date=run_date,
                     python_version=version,
                     commit_hash=full_commit_hash,
@@ -418,13 +446,13 @@ async def load_benchmark_run(
                     hpt_percentile_90=hpt_data.get("percentile_90") if hpt_data else None,
                     hpt_percentile_95=hpt_data.get("percentile_95") if hpt_data else None,
                     hpt_percentile_99=hpt_data.get("percentile_99") if hpt_data else None,
-                    geometric_mean_speedup=geometric_mean_speedup,
+                    geometric_mean_speedup=machine_geometric_mean,
                 )
                 session.add(benchmark_run)
                 await session.flush()  # To get the ID assigned
 
                 if not benchmark_run.id:
-                    print(f"Failed to create BenchmarkRun for {machine_dir_name}.")
+                    print(f"Failed to create BenchmarkRun for {dir_name} ({machine}).")
                     continue
 
                 benchmarks = benchmark_data.get("benchmarks", [])
@@ -444,7 +472,7 @@ async def load_benchmark_run(
                     )
                     session.add(benchmark)
                 await session.commit()
-                print(f"Loaded BenchmarkRun {machine_dir_name} ({machine}) with {len(benchmarks)} benchmarks.")
+                print(f"Loaded BenchmarkRun {dir_name} ({machine}) with {len(benchmarks)} benchmarks.")
 
 
 async def fetch_latest_run():
@@ -452,7 +480,7 @@ async def fetch_latest_run():
     async with httpx.AsyncClient() as client:
         response = await client.get(
             f"{PYPERF_BENCH_REPO}/contents/results",
-            headers={"Accept": "application/vnd.github.v3+json"},
+            headers=get_github_headers(),
         )
         response.raise_for_status()
         dirs = response.json()
@@ -489,18 +517,18 @@ async def main():
         print(f"  Loading interpreter run: {interpreter_dir}")
         await load_benchmark_run(interpreter_dir)
 
-        # Compute geometric mean speedup between interpreter and JIT
-        print("  Computing geometric mean speedup...")
-        geometric_mean_speedup = await compute_geometric_mean_speedup(jit_dir)
+        # Compute per-machine geometric mean speedups from README
+        print("  Computing per-machine geometric mean speedups...")
+        geometric_mean_per_machine = await compute_geometric_mean_per_machine(jit_dir)
 
         # Compute HPT comparison between interpreter and JIT
         print("  Computing HPT comparison...")
         hpt_data = await compute_hpt_comparison(interpreter_dir, jit_dir)
 
-        # Load JIT run with HPT data and geometric mean speedup
+        # Load JIT run with HPT data and per-machine geometric mean speedups
         print(f"  Loading JIT run: {jit_dir}")
         await load_benchmark_run(
-            jit_dir, hpt_data=hpt_data, geometric_mean_speedup=geometric_mean_speedup
+            jit_dir, hpt_data=hpt_data, geometric_mean_per_machine=geometric_mean_per_machine
         )
 
     print(f"\nCompleted! Processed {len(pairs)} benchmark pairs.")
