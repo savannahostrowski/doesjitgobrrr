@@ -84,12 +84,10 @@ const App: Component = () => {
   const allRuns = () => {
     const data = historicalData();
     if (!data?.machines) return [];
-
     const runs: BenchmarkRun[] = [];
     for (const machineRuns of Object.values(data.machines)) {
       runs.push(...machineRuns);
     }
-
     return runs;
   };
 
