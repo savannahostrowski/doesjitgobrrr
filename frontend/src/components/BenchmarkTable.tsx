@@ -4,6 +4,7 @@ import { formatTime } from '../utils';
 
 interface BenchmarkTableProps {
   data: ComparisonRow[];
+  title?: string;
 }
 
 const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
@@ -109,7 +110,7 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
 
   return (
     <section class="benchmarks">
-      <h2>Benchmark Results</h2>
+      <h2>{props.title || 'Benchmark Results'}</h2>
       <div class="table-controls">
         <input
           type="text"

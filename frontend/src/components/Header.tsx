@@ -1,50 +1,13 @@
 import { type Component, createSignal } from 'solid-js';
 import { useTheme } from '../ThemeContext';
-import type { BenchmarkRun } from '../types';
 
-interface HeaderProps {
-  runs: BenchmarkRun[];
-}
-
-const Header: Component<HeaderProps> = (props) => {
+const Header: Component = () => {
   const { theme, toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = createSignal(false);
 
   const toggleMenu = () => setMenuOpen(!menuOpen());
 
   const closeMenu = () => setMenuOpen(false);
-
-  const subtitle = () => {
-    if (props.runs.length === 0) {
-      return 'Python JIT vs Non-JIT Benchmark Performance Dashboard';
-    }
-
-    // Find the latest JIT run with speedup data (geometric mean)
-    const latestJit = props.runs.find(r => r.is_jit && r.speedup !== null && r.speedup !== undefined);
-
-    if (latestJit?.speedup) {
-      const speedup = latestJit.speedup;
-
-      // speedup = nonjit_geomean / jit_geomean
-      // speedup > 1.0 means JIT is faster
-      // speedup < 1.0 means JIT is slower
-
-      if (speedup > 1.0) {
-        // JIT is faster
-        const percentFaster = ((speedup - 1) * 100).toFixed(1);
-        return `JIT went brrrr! On the latest run, it was ${percentFaster}% faster on average 🚀`;
-      } else if (speedup < 1.0) {
-        // JIT is slower
-        const percentSlower = ((1 - speedup) * 100).toFixed(1);
-        return `JIT did not go brrr! On the latest run, it was ${percentSlower}% slower on average 🐢`;
-      } else {
-        // Same performance
-        return 'Same performance! 🤝';
-      }
-    }
-
-    return 'Python JIT vs Non-JIT Benchmark Performance Dashboard';
-  };
 
   return (
     <header class="header">
@@ -81,7 +44,7 @@ const Header: Component<HeaderProps> = (props) => {
       <a href="/" class="header-title-link">
         <h1>does JIT go brrr?</h1>
       </a>
-      <p class="header-subtitle">{subtitle()}</p>
+      <p class="header-subtitle">An unofficial CPython JIT performance dashboard</p>
     </header>
   );
 };

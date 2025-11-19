@@ -327,6 +327,151 @@ section h2 {
   text-shadow: 0 0 10px var(--shadow-accent);
 }
 
+.machine-stats-grid {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-secondary);
+}
+
+.machine-stats-card {
+  flex: 1;
+  max-width: 50%;
+  background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border-primary);
+  box-shadow: 0 2px 8px var(--shadow-accent);
+  transition: all 0.2s;
+}
+
+.machine-stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow-accent);
+}
+
+.machine-stats-heading {
+  margin: 0 0 0.75rem 0;
+  color: var(--accent-tertiary);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 10px var(--shadow-accent);
+}
+
+.machine-stats-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.machine-stats-list li {
+  padding: 0.15rem 0;
+}
+
+.machine-stats-list .label {
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.machine-stats-list .faster,
+.machine-stats-list .slower,
+.machine-stats-list .neutral {
+  font-weight: 400;
+}
+
+.machine-filter {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-secondary);
+}
+
+.machine-filter label {
+  display: block;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.machine-filter select {
+  padding: 0.75rem 1rem;
+  border: 2px solid var(--border-secondary);
+  border-radius: 8px;
+  font-size: 1rem;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 200px;
+}
+
+.machine-filter select:focus {
+  outline: none;
+  border-color: var(--border-primary);
+  box-shadow: 0 0 0 3px var(--shadow-accent);
+}
+
+.machine-filter select:hover {
+  border-color: var(--border-primary);
+}
+
+.benchmark-tabs {
+  display: flex;
+  gap: 0;
+  margin: 1.5rem 2rem 0 2rem;
+  border-bottom: 2px solid var(--border-secondary);
+}
+
+.benchmark-tabs .tab {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
+  border-bottom: none;
+  padding: 0.875rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s;
+  outline: none;
+  border-radius: 8px 8px 0 0;
+  margin-bottom: 0;
+  position: relative;
+}
+
+.benchmark-tabs .tab:not(:first-child) {
+  margin-left: -1px;
+}
+
+.benchmark-tabs .tab:hover {
+  color: var(--accent-tertiary);
+  background: var(--bg-tertiary);
+  z-index: 1;
+}
+
+.benchmark-tabs .tab.active {
+  color: var(--accent-tertiary);
+  background: var(--bg-primary);
+  border-bottom: 2px solid var(--bg-primary);
+  margin-bottom: -2px;
+  z-index: 2;
+  border-color: var(--border-primary);
+}
+
+.benchmark-tabs .tab:focus {
+  outline: none;
+}
+
+/* Remove top margin from sections that follow tabs */
+.benchmark-tabs + section {
+  margin-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -855,6 +1000,48 @@ footer a:hover {
 
   .chart-container {
     padding: 1rem;
+  }
+
+  .benchmark-tabs {
+    margin: 1rem 1rem 0 1rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .benchmark-tabs .tab {
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .machine-stats-grid {
+    flex-direction: column;
+    gap: 1rem;
+    padding-top: 1rem;
+  }
+
+  .machine-stats-card {
+    padding: 1.25rem;
+  }
+
+  .machine-stats-heading {
+    font-size: 1.1rem;
+  }
+
+  .summary-compact {
+    padding: 1.5rem;
+    margin: 1rem;
+  }
+
+  .summary-compact h2 {
+    font-size: 1.5rem;
+  }
+
+  .summary-list {
+    gap: 0.75rem;
   }
 
   .detail-header {
