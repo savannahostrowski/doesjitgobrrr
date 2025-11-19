@@ -7,9 +7,9 @@ const LoadingSpinner: Component = () => {
       <div class="spinner-wrapper">
         <p class="loading-text">Loading benchmark data...</p>
         <div class="loading-dots">
-          <span></span>
-          <span></span>
-          <span></span>
+          <span/>
+          <span/>
+          <span/>
         </div>
       </div>
     </div>

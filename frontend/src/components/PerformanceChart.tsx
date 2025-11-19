@@ -477,7 +477,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
   return (
     <div class="chart-section">
       <div class="chart-container">
-        <canvas ref={canvasRef} style="cursor: pointer" />
+        <canvas ref={canvasRef} style={{ cursor: "pointer" }} />
       </div>
       <p class="chart-subtext">
         <a href="/about">Learn more about these benchmark runs</a>
