@@ -1,5 +1,4 @@
 import asyncio
-import os
 import re
 import tempfile
 from datetime import datetime
@@ -11,7 +10,7 @@ from sqlmodel import select
 
 import hpt
 
-from database import async_session_maker
+from database import async_session_maker, get_github_token
 from models import Benchmark, BenchmarkRun, compute_benchmark_statistics
 
 PYPERF_BENCH_REPO = "https://api.github.com/repos/savannahostrowski/pyperf_bench"
@@ -19,8 +18,8 @@ RAW_BASE_URL = "https://raw.githubusercontent.com/savannahostrowski/pyperf_bench
 # Filter for benchmark result directories. Pattern: bm-YYYYMMDD-VERSION-HASH[-JIT]
 PATTERN = r"bm-(\d{8})-([\d\.a-z\+]+)-([a-f0-9]+)(?:-JIT)?"
 
-# Get GitHub token from environment if available
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+# Get GitHub token from Docker secret or environment variable
+GITHUB_TOKEN = get_github_token()
 
 
 def get_github_headers() -> dict[str, str]:

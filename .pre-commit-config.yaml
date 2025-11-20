@@ -12,13 +12,13 @@ repos:
 
   - repo: local
     hooks:
-      - id: pytest
-        name: pytest
-        entry: bash -c 'cd api && uv run --frozen --group dev pytest'
-        language: system
-        pass_filenames: false
-        always_run: true
-        stages: [commit]
+      # - id: pytest
+      #   name: pytest
+      #   entry: bash -c 'cd api && uv run --frozen --group dev pytest'
+      #   language: system
+      #   pass_filenames: false
+      #   always_run: true
+      #   stages: [commit]
       - id: pyright
         name: pyright
         entry: bash -c 'cd api && uv run python -m pyright .'

@@ -21,6 +21,14 @@ def get_admin_token() -> str | None:
     return os.getenv("ADMIN_TOKEN")
 
 
+def get_github_token() -> str | None:
+    """Get GitHub token from Docker secret or environment variable."""
+    secret_file = Path("/run/secrets/github_token")
+    if secret_file.exists():
+        return secret_file.read_text().strip()
+    return os.getenv("GITHUB_TOKEN")
+
+
 def get_database_url() -> str:
     """Construct database URL with password from secret or environment."""
     if database_url := os.getenv("DATABASE_URL"):
