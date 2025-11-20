@@ -25,18 +25,18 @@ repos:
         language: system
         pass_filenames: false
         types: [python]
-        stages: [commit]
+        stages: [pre-commit]
       - id: frontend-typecheck
         name: frontend typecheck
         entry: bash -c 'cd frontend && npm run typecheck'
         language: system
         pass_filenames: false
         files: '^frontend/src/.*\.(ts|tsx)$'
-        stages: [commit]
+        stages: [pre-commit]
       - id: frontend-lint
         name: frontend lint
         entry: bash -c 'cd frontend && npm run lint'
         language: system
         pass_filenames: false
         files: '^frontend/src/.*\.(ts|tsx)$'
-        stages: [commit]
+        stages: [pre-commit]
