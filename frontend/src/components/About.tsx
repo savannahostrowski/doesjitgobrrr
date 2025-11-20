@@ -82,8 +82,22 @@ const About: Component = () => {
           <ul>
             <li><strong>CPU:</strong> Intel(R) Core(TM) i5-8400 CPU @ 2.80GHz (6 cores)</li>
             <li><strong>RAM:</strong> 8GB</li>
+            <li><strong>Storage:</strong> 500GB SSD</li>
             <li><strong>OS:</strong> Ubuntu 24.04</li>
             <li><strong>Name:</strong> "ripley" because Alien is one of my favourite movies of all time!</li>
+          </ul>
+
+          <h4>jones (aarch64)</h4>
+          <ul>
+            <li>
+              <strong>Device:</strong>{' '}
+                MacBook Pro
+            </li>
+            <li><strong>CPU:</strong> Apple M3 Pro chip with 11-core CPU, 14-core GPU, 16-core Neural Engine</li>
+            <li><strong>RAM:</strong> 18GB unified memory</li>
+            <li><strong>Storage:</strong> 512GB SSD</li>
+            <li><strong>OS:</strong> macOS</li>
+            <li><strong>Name:</strong> "jones" is Ripley's cat in Alien!</li>
           </ul>
 
           <h3>Contact</h3>
