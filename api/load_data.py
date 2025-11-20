@@ -55,7 +55,7 @@ async def compute_geometric_mean_per_machine(jit_dir: str) -> dict[str, float]:
             jit_contents.raise_for_status()
 
             # Find README.md file
-            readme_url = None
+            readme_url: str | None = None
             for file in jit_contents.json():
                 if file["name"].upper() == "README.MD":
                     readme_url = file["download_url"]
@@ -72,8 +72,8 @@ async def compute_geometric_mean_per_machine(jit_dir: str) -> dict[str, float]:
 
             # Parse per-machine geometric means
             # Look for pattern: "linux <arch> (machine_name)" followed by "Geometric mean: X.XXXx slower/faster"
-            machine_geomeans = {}
-            current_machine = None
+            machine_geomeans: dict[str, float] = {}
+            current_machine: str | None = None
 
             for line in readme_text.split("\n"):
                 # Match machine header: "linux aarch64 (blueberry)", "darwin arm64 (macbook)", etc.
@@ -356,7 +356,7 @@ async def load_benchmark_run(
         files = response.json()
 
         # Find ALL benchmark JSON files (not just the first one)
-        json_files = []
+        json_files: list[dict[str, str]] = []
         for file in files:
             if (
                 file["name"].endswith(".json")
@@ -371,7 +371,7 @@ async def load_benchmark_run(
 
         # Process each JSON file (one per machine)
         for json_file in json_files:
-            json_url = json_file["download_url"]
+            json_url: str = json_file["download_url"]
             json_response = await client.get(json_url)
             json_response.raise_for_status()
             benchmark_data = json_response.json()
