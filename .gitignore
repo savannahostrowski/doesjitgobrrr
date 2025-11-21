@@ -36,3 +36,5 @@ dist-ssr
 production-compose.yml
 DEPLOYMENT.md
 frontend/.env
+
+.env
