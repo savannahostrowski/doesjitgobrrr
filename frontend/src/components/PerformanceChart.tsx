@@ -163,6 +163,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
     const machineColors: Record<string, { border: string; background: string }> = {
       'blueberry': { border: '#a855f7', background: 'rgba(168, 85, 247, 0.15)' },  // purple
       'ripley': { border: '#3b82f6', background: 'rgba(59, 130, 246, 0.15)' },     // blue
+      'jones': { border: '#10b981', background: 'rgba(16, 185, 129, 0.15)' },      // green
       'unknown': { border: '#6b7280', background: 'rgba(107, 114, 128, 0.15)' },   // gray
     };
 
