@@ -11,7 +11,6 @@ interface DetailViewProps {
 interface MachineComparisonRow {
   name: string;
   speedups: Record<string, number | null>;
-  delta: number | null; // Difference between machines (if 2 machines)
 }
 
 const DetailView: Component<DetailViewProps> = (props) => {
@@ -50,7 +49,7 @@ const DetailView: Component<DetailViewProps> = (props) => {
   );
 
   // Sorting state for comparison table
-  type CompareSortColumn = 'name' | 'delta' | string; // string for machine names
+  type CompareSortColumn = 'name' | string; // string for machine names
   const [compareSortColumn, setCompareSortColumn] = createSignal<CompareSortColumn>('name');
   const [compareSortDirection, setCompareSortDirection] = createSignal<'asc' | 'desc'>('asc');
   const [compareSearchQuery, setCompareSearchQuery] = createSignal('');
@@ -137,16 +136,7 @@ const DetailView: Component<DetailViewProps> = (props) => {
         }
       });
 
-      // Calculate delta if exactly 2 machines
-      let delta: number | null = null;
-      if (machines.length === 2) {
-        const [m1, m2] = machines;
-        if (speedups[m1] !== null && speedups[m2] !== null) {
-          delta = speedups[m2]! - speedups[m1]!;
-        }
-      }
-
-      return { name, speedups, delta };
+      return { name, speedups };
     }).filter(row => Object.values(row.speedups).some(v => v !== null));
 
     // Filter by search query
@@ -166,9 +156,6 @@ const DetailView: Component<DetailViewProps> = (props) => {
       if (col === 'name') {
         aVal = a.name;
         bVal = b.name;
-      } else if (col === 'delta') {
-        aVal = a.delta;
-        bVal = b.delta;
       } else {
         // Sorting by machine speedup
         aVal = a.speedups[col] ?? null;
@@ -399,18 +386,6 @@ const DetailView: Component<DetailViewProps> = (props) => {
                       </th>
                     )}
                   </For>
-                  <Show when={availableMachines().length === 2}>
-                    <th
-                      data-sort="delta"
-                      classList={{
-                        'sort-asc': compareSortColumn() === 'delta' && compareSortDirection() === 'asc',
-                        'sort-desc': compareSortColumn() === 'delta' && compareSortDirection() === 'desc',
-                      }}
-                      onClick={() => handleCompareSort('delta')}
-                    >
-                      Δ <span class="sort-indicator" />
-                    </th>
-                  </Show>
                 </tr>
               </thead>
               <tbody>
@@ -425,24 +400,21 @@ const DetailView: Component<DetailViewProps> = (props) => {
 
                           let className = 'neutral';
                           let text = '';
-                          if (speedup > 1.05) {
-                            className = 'faster';
+                          const roundedSpeedup = parseFloat(speedup.toFixed(2));
+
+                          if (roundedSpeedup === 1.00) {
                             text = `${speedup.toFixed(2)}x`;
-                          } else if (speedup < 1.0) {
+                          } else if (speedup >= 1.0) {
+                            className = 'faster';
+                            text = `${speedup.toFixed(2)}x faster`;
+                          } else {
                             className = 'slower';
                             text = `${(1.0 / speedup).toFixed(2)}x slower`;
-                          } else {
-                            text = `${speedup.toFixed(2)}x`;
                           }
 
                           return <td class={className}>{text}</td>;
                         }}
                       </For>
-                      <Show when={availableMachines().length === 2}>
-                        <td class={row.delta !== null && Math.abs(row.delta) > 0.05 ? (row.delta > 0 ? 'faster' : 'slower') : 'neutral'}>
-                          {row.delta !== null ? (row.delta > 0 ? `+${(row.delta * 100).toFixed(1)}%` : `${(row.delta * 100).toFixed(1)}%`) : '-'}
-                        </td>
-                      </Show>
                     </tr>
                   )}
                 </For>

@@ -316,7 +316,8 @@ section h2 {
 }
 
 .machine-stats-grid {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 350px));
   gap: 1rem;
   margin-top: 1rem;
   padding-top: 1rem;
@@ -324,8 +325,6 @@ section h2 {
 }
 
 .machine-stats-card {
-  flex: 1;
-  max-width: 50%;
   background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
   border-radius: 10px;
   padding: 1rem 1.25rem;
@@ -1006,7 +1005,7 @@ footer a:hover {
   }
 
   .machine-stats-grid {
-    flex-direction: column;
+    grid-template-columns: 1fr;
     gap: 1rem;
     padding-top: 1rem;
   }
