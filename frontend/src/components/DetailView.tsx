@@ -1,7 +1,7 @@
 import { type Component, createSignal, For, Show } from 'solid-js';
 import type { BenchmarkRun, ComparisonRow } from '../types';
 import BenchmarkTable from './BenchmarkTable';
-import { getArchitecture } from '../utils';
+import { getArchitecture, compareValues } from '../utils';
 
 interface DetailViewProps {
   runs: BenchmarkRun[];
@@ -150,45 +150,9 @@ const DetailView: Component<DetailViewProps> = (props) => {
     const dir = compareSortDirection();
 
     return [...data].sort((a, b) => {
-      let aVal: string | number | null;
-      let bVal: string | number | null;
-
-      if (col === 'name') {
-        aVal = a.name;
-        bVal = b.name;
-      } else {
-        // Sorting by machine speedup
-        aVal = a.speedups[col] ?? null;
-        bVal = b.speedups[col] ?? null;
-      }
-
-      // Handle null values - always sort them to the end
-      const aIsNull = aVal === null || aVal === undefined;
-      const bIsNull = bVal === null || bVal === undefined;
-
-      if (aIsNull && bIsNull) return 0;
-      if (aIsNull) return 1;
-      if (bIsNull) return -1;
-
-      // At this point, both values are non-null
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
-        const aComp = aVal.toLowerCase();
-        const bComp = bVal.toLowerCase();
-        if (dir === 'asc') {
-          return aComp > bComp ? 1 : aComp < bComp ? -1 : 0;
-        } else {
-          return aComp < bComp ? 1 : aComp > bComp ? -1 : 0;
-        }
-      } else {
-        // Both are numbers
-        const aComp = aVal as number;
-        const bComp = bVal as number;
-        if (dir === 'asc') {
-          return aComp > bComp ? 1 : aComp < bComp ? -1 : 0;
-        } else {
-          return aComp < bComp ? 1 : aComp > bComp ? -1 : 0;
-        }
-      }
+      const aVal = col === 'name' ? a.name : a.speedups[col] ?? null;
+      const bVal = col === 'name' ? b.name : b.speedups[col] ?? null;
+      return compareValues(aVal, bVal, dir);
     });
   };
 
@@ -218,14 +182,16 @@ const DetailView: Component<DetailViewProps> = (props) => {
     if (!runs || !runs.jit.speedup) return null;
 
     const speedup = runs.jit.speedup;
-    if (speedup > 1.0) {
+    const roundedSpeedup = parseFloat(speedup.toFixed(2));
+
+    if (roundedSpeedup === 1.00) {
+      return { text: 'same speed', class: 'neutral' };
+    } else if (speedup >= 1.0) {
       const percentFaster = ((speedup - 1) * 100).toFixed(1);
       return { text: `${percentFaster}% faster`, class: 'faster' };
-    } else if (speedup < 1.0) {
+    } else {
       const percentSlower = ((1 - speedup) * 100).toFixed(1);
       return { text: `${percentSlower}% slower`, class: 'slower' };
-    } else {
-      return { text: 'same speed', class: 'neutral' };
     }
   };
 

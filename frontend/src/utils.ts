@@ -31,3 +31,38 @@ export function getArchitecture(machine: string): string {
   }
   return 'aarch64';
 }
+
+/**
+ * Generic comparison function for sorting arrays with null-safe handling.
+ * Null/undefined values are always sorted to the end.
+ */
+export function compareValues(
+  a: string | number | null | undefined,
+  b: string | number | null | undefined,
+  direction: 'asc' | 'desc'
+): number {
+  // Handle null/undefined values - always sort them to the end
+  const aIsNull = a === null || a === undefined;
+  const bIsNull = b === null || b === undefined;
+
+  if (aIsNull && bIsNull) return 0;
+  if (aIsNull) return 1;
+  if (bIsNull) return -1;
+
+  // At this point, both values are non-null
+  let aComp: string | number = a;
+  let bComp: string | number = b;
+
+  // Handle string comparison (case-insensitive)
+  if (typeof aComp === 'string' && typeof bComp === 'string') {
+    aComp = aComp.toLowerCase();
+    bComp = bComp.toLowerCase();
+  }
+
+  // Compare values based on direction
+  if (direction === 'asc') {
+    return aComp > bComp ? 1 : aComp < bComp ? -1 : 0;
+  } else {
+    return aComp < bComp ? 1 : aComp > bComp ? -1 : 0;
+  }
+}

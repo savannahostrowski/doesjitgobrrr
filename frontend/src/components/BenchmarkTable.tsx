@@ -1,6 +1,6 @@
 import { type Component, createSignal, For } from 'solid-js';
 import type { ComparisonRow, SortColumn, SortDirection } from '../types';
-import { formatTime } from '../utils';
+import { formatTime, compareValues } from '../utils';
 
 interface BenchmarkTableProps {
   data: ComparisonRow[];
@@ -28,29 +28,7 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
     return [...props.data].sort((a, b) => {
       const aVal = a[col];
       const bVal = b[col];
-
-      // Handle null/undefined values - always sort them to the end
-      const aIsNull = aVal === null || aVal === undefined;
-      const bIsNull = bVal === null || bVal === undefined;
-
-      if (aIsNull && bIsNull) return 0;
-      if (aIsNull) return 1;
-      if (bIsNull) return -1;
-
-      // At this point, both values are non-null
-      let aComp: string | number = aVal;
-      let bComp: string | number = bVal;
-
-      if (typeof aComp === 'string') {
-        aComp = aComp.toLowerCase();
-        bComp = (bComp as string).toLowerCase();
-      }
-
-      if (dir === 'asc') {
-        return aComp > bComp ? 1 : aComp < bComp ? -1 : 0;
-      } else {
-        return aComp < bComp ? 1 : aComp > bComp ? -1 : 0;
-      }
+      return compareValues(aVal, bVal, dir);
     });
   };
 
@@ -93,8 +71,10 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
   const formatSpeedup = (benchmark: ComparisonRow) => {
     if (benchmark.speedup === null) return { text: '-', class: 'neutral' };
 
-    // Check if speedup is very close to 1.0 (within 0.5% tolerance)
-    if (Math.abs(benchmark.speedup - 1.0) < 0.005) {
+    const roundedSpeedup = parseFloat(benchmark.speedup.toFixed(2));
+
+    // Only neutral if rounds to exactly 1.00
+    if (roundedSpeedup === 1.00) {
       return { text: '1.00x', class: 'neutral' };
     }
 
@@ -103,7 +83,7 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
       const slowdown = 1.0 / benchmark.speedup;
       return { text: slowdown.toFixed(2) + 'x slower', class: 'slower' };
     } else {
-      // If speedup > 1.0, JIT is faster
+      // If speedup >= 1.0, JIT is faster
       return { text: benchmark.speedup.toFixed(2) + 'x faster', class: 'faster' };
     }
   };

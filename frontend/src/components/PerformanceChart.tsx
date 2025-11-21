@@ -13,6 +13,10 @@ import { getArchitecture } from '../utils';
 
 Chart.register(...registerables);
 
+// Constants
+const SYSTEM_FONT_STACK = "-apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif";
+const Y_AXIS_BASELINE = 2.0; // Baseline for inverting speedup values (slower plots higher)
+
 interface PerformanceChartProps {
   data: BenchmarkRun[];
   onPointClick: (dateStr: string) => void;
@@ -142,7 +146,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
         const subtitleText = `View most recent run (${mostRecentDate}) →`;
 
         // Set font
-        ctx.font = `normal 12px -apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif`;
+        ctx.font = `normal 12px ${SYSTEM_FONT_STACK}`;
 
         // Set color based on hover state
         const baseColor = isDark ? 'rgba(196, 181, 253, 0.7)' : 'rgba(109, 40, 217, 0.7)';
@@ -233,7 +237,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
         label: `${machine} (${getArchitecture(machine)})`,
         data: runs.map(r => ({
           x: new Date(r.date).getTime(),
-          y: 2.0 - (r.speedup || 1.0), // Invert so slower (0.918) plots higher
+          y: Y_AXIS_BASELINE - (r.speedup || 1.0), // Invert so slower (0.918) plots higher
           run: r, // Store the run for click handling
         })),
         borderColor: colors.border,
@@ -283,7 +287,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
             font: {
               size: 18,
               weight: 'bold',
-              family: "-apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif"
+              family: SYSTEM_FONT_STACK
             },
             color: titleColor,
             padding: { top: 10, bottom: 30 }  // Extra bottom padding for custom subtitle
@@ -296,7 +300,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
               color: textColor,
               font: {
                 size: 12,
-                family: "-apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif"
+                family: SYSTEM_FONT_STACK
               },
               usePointStyle: true,
               pointStyle: 'circle',
@@ -307,6 +311,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
             backgroundColor: tooltipBg,
             titleColor: titleColor,
             bodyColor: textColor,
+            footerColor: textColor,
             borderColor: tooltipBorder,
             borderWidth: 2,
             padding: 12,
@@ -315,11 +320,16 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
             titleFont: {
               size: 14,
               weight: 'bold',
-              family: "-apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif"
+              family: SYSTEM_FONT_STACK
             },
             bodyFont: {
               size: 13,
-              family: "-apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif"
+              family: SYSTEM_FONT_STACK
+            },
+            footerFont: {
+              size: 11,
+              family: SYSTEM_FONT_STACK,
+              weight: 'normal',
             },
             callbacks: {
               title: (items) => {
@@ -382,7 +392,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
               font: {
                 size: 14,
                 weight: 'bold',
-                family: "-apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif"
+                family: SYSTEM_FONT_STACK
               }
             },
             border: {
@@ -395,7 +405,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
               color: textColor,
               font: {
                 size: 12,
-                family: "-apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif"
+                family: SYSTEM_FONT_STACK
               }
             }
           },
@@ -410,7 +420,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
               font: {
                 size: 14,
                 weight: 'bold',
-                family: "-apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif"
+                family: SYSTEM_FONT_STACK
               }
             },
             border: {
@@ -423,7 +433,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
               color: textColor,
               font: {
                 size: 12,
-                family: "-apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif"
+                family: SYSTEM_FONT_STACK
               },
               maxTicksLimit: 8,
               callback: (value) => {
