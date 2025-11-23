@@ -11,28 +11,67 @@ import { fetchHistoricalData } from './api';
 import type { BenchmarkRun } from './types';
 import './App.css';
 
-const ChartView: Component<{ data: BenchmarkRun[] }> = (props) => {
+const ChartView: Component = () => {
   const navigate = useNavigate();
+  const [historicalData, { refetch }] = createResource(() => fetchHistoricalData(100));
+
+  // Flatten machines data into a single array
+  const allRuns = () => {
+    const data = historicalData();
+    if (!data?.machines) return [];
+    const runs: BenchmarkRun[] = [];
+    for (const machineRuns of Object.values(data.machines)) {
+      runs.push(...machineRuns);
+    }
+    return runs;
+  };
 
   const handlePointClick = (dateStr: string) => {
     navigate(`/run/${dateStr}`);
   };
 
   return (
-    <div class="chart-view-wrapper">
-      <PerformanceChart data={props.data} onPointClick={handlePointClick} />
-    </div>
+    <Show
+      when={!historicalData.loading && !historicalData.error}
+      fallback={
+        <>
+          <Show when={historicalData.loading}>
+            <LoadingSpinner />
+          </Show>
+          <Show when={historicalData.error}>
+            <ErrorState onRetry={() => refetch()} />
+          </Show>
+        </>
+      }
+    >
+      <div class="chart-view-wrapper">
+        <PerformanceChart data={allRuns()} onPointClick={handlePointClick} />
+      </div>
+    </Show>
   );
 };
 
-const DetailViewRoute: Component<{ data: BenchmarkRun[] }> = (props) => {
+const DetailViewRoute: Component = () => {
   const params = useParams();
   const navigate = useNavigate();
+  const [historicalData] = createResource(() => fetchHistoricalData(100));
+
+  // Flatten machines data into a single array
+  const allRuns = () => {
+    const data = historicalData();
+    if (!data?.machines) return [];
+    const runs: BenchmarkRun[] = [];
+    for (const machineRuns of Object.values(data.machines)) {
+      runs.push(...machineRuns);
+    }
+    return runs;
+  };
 
   const runsOnDate = () => {
     const dateStr = params.date;
+    const data = allRuns();
     // Filter runs for this date
-    const runsForDate = props.data.filter(r => {
+    const runsForDate = data.filter(r => {
       const runDate = new Date(r.date).toISOString().split('T')[0];
       return runDate === dateStr;
     });
@@ -92,15 +131,20 @@ const DetailViewRoute: Component<{ data: BenchmarkRun[] }> = (props) => {
 
   return (
     <Show
-      when={runsOnDate().length > 0}
-      fallback={
-        <>
-          <p>No data found for this date.</p>
-          <button onClick={handleBack}>← Back to Chart</button>
-        </>
-      }
+      when={!historicalData.loading}
+      fallback={<LoadingSpinner />}
     >
-      <DetailView runs={runsOnDate()} onBack={handleBack} />
+      <Show
+        when={runsOnDate().length > 0}
+        fallback={
+          <>
+            <p>No data found for this date.</p>
+            <button onClick={handleBack}>← Back to Chart</button>
+          </>
+        }
+      >
+        <DetailView runs={runsOnDate()} onBack={handleBack} />
+      </Show>
     </Show>
   );
 };
@@ -129,44 +173,14 @@ const Layout: Component<RouteSectionProps> = (props) => {
 };
 
 const App: Component = () => {
-  const [historicalData, { refetch }] = createResource(() => fetchHistoricalData(100));
-
-  // Flatten machines data into a single array
-  const allRuns = () => {
-    const data = historicalData();
-    if (!data?.machines) return [];
-    const runs: BenchmarkRun[] = [];
-    for (const machineRuns of Object.values(data.machines)) {
-      runs.push(...machineRuns);
-    }
-    return runs;
-  };
-
   return (
     <ThemeProvider>
       <div class="app">
-        <Show
-          when={!historicalData.loading && !historicalData.error}
-          fallback={
-            <>
-              <Header />
-              <main>
-                <Show when={historicalData.loading}>
-                  <LoadingSpinner />
-                </Show>
-                <Show when={historicalData.error}>
-                  <ErrorState onRetry={() => refetch()} />
-                </Show>
-              </main>
-            </>
-          }
-        >
-          <Router root={(props) => <Layout {...props} />}>
-            <Route path="/" component={() => <ChartView data={allRuns()} />} />
-            <Route path="/run/:date" component={() => <DetailViewRoute data={allRuns()} />} />
-            <Route path="/about" component={About} />
-          </Router>
-        </Show>
+        <Router root={(props) => <Layout {...props} />}>
+          <Route path="/" component={ChartView} />
+          <Route path="/run/:date" component={DetailViewRoute} />
+          <Route path="/about" component={About} />
+        </Router>
       </div>
     </ThemeProvider>
   );
