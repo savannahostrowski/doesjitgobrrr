@@ -12,9 +12,10 @@ from fastapi import BackgroundTasks, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from models import Benchmark, BenchmarkRun
+from models import BenchmarkRun
 from sqlmodel import desc, select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlalchemy.orm import selectinload
 
 GITHUB_REPO_URL = "https://api.github.com/repos/savannahostrowski/pyperf_bench"
 
@@ -93,17 +94,17 @@ async def get_latest_comparison(
     session: AsyncSession = fastapi.Depends(get_session),
 ) -> dict[str, Any]:
     result = await session.exec(
-        select(BenchmarkRun).order_by(desc(BenchmarkRun.run_date)).limit(1)
+        select(BenchmarkRun)
+        .options(selectinload(BenchmarkRun.benchmarks))  # type: ignore[arg-type]
+        .order_by(desc(BenchmarkRun.run_date))
+        .limit(1)
     )
     latest_run: BenchmarkRun | None = result.one_or_none()
 
     if not latest_run:
         return {"error": "No benchmark runs found."}
 
-    benchmark_result = await session.exec(
-        select(Benchmark).where(Benchmark.run_id == latest_run.id)
-    )
-    benchmarks = benchmark_result.all()
+    benchmarks = latest_run.benchmarks
 
     return_json = {}
     for bench in benchmarks:
@@ -130,6 +131,7 @@ async def get_historical_comparison(
 ) -> JSONResponse:
     result = await session.exec(
         select(BenchmarkRun)
+        .options(selectinload(BenchmarkRun.benchmarks))  # type: ignore[arg-type]
         .order_by(desc(BenchmarkRun.run_date))
         .limit(days * 2)  # Increased to account for multiple machines
     )
@@ -139,10 +141,7 @@ async def get_historical_comparison(
     historical_data_by_machine: dict[str, list[dict[str, Any]]] = {}
 
     for run in runs:
-        benchmark_result = await session.exec(
-            select(Benchmark).where(Benchmark.run_id == run.id)
-        )
-        benchmarks = benchmark_result.all()
+        benchmarks = run.benchmarks
 
         benchmarks_json = {}
         for bench in benchmarks:
@@ -200,17 +199,16 @@ async def get_benchmark_trend(
     name: str, days: int = 30, session: AsyncSession = fastapi.Depends(get_session)
 ) -> dict[str, Any]:
     result = await session.exec(
-        select(BenchmarkRun).order_by(desc(BenchmarkRun.run_date)).limit(days)
+        select(BenchmarkRun)
+        .options(selectinload(BenchmarkRun.benchmarks))  # type: ignore[arg-type]
+        .order_by(desc(BenchmarkRun.run_date))
+        .limit(days)
     )
     runs = result.all()
     trend_data: list[dict[str, Any]] = []
     for run in runs:
-        benchmark_result = await session.exec(
-            select(Benchmark).where(
-                (Benchmark.run_id == run.id) & (Benchmark.name == name)
-            )
-        )
-        benchmark = benchmark_result.one_or_none()
+        # Find the benchmark with the matching name from the eager-loaded benchmarks
+        benchmark = next((b for b in run.benchmarks if b.name == name), None)
         if benchmark:
             trend_data.append(
                 {
