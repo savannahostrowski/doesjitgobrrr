@@ -40,35 +40,50 @@ const DetailViewRoute: Component<{ data: BenchmarkRun[] }> = (props) => {
     // If no runs, return empty
     if (runsForDate.length === 0) return [];
 
-    // Find the latest commit (most recent created_at timestamp) for this date
-    // Group by commit to find which commit is latest
-    const commitGroups = new Map<string, BenchmarkRun[]>();
+    // Group by machine first, then by commit within each machine
+    // This matches the chart's per-machine deduplication logic
+    const machineLatestCommit = new Map<string, string>();
+
+    // For each machine, find its latest commit based on created_at
+    const byMachine = new Map<string, Map<string, BenchmarkRun[]>>();
     runsForDate.forEach(run => {
-      if (!commitGroups.has(run.commit)) {
-        commitGroups.set(run.commit, []);
+      const machine = run.machine || 'unknown';
+      if (!byMachine.has(machine)) {
+        byMachine.set(machine, new Map());
       }
-      commitGroups.get(run.commit)!.push(run);
+      const commitMap = byMachine.get(machine)!;
+      if (!commitMap.has(run.commit)) {
+        commitMap.set(run.commit, []);
+      }
+      commitMap.get(run.commit)!.push(run);
     });
 
-    // Find the latest commit by looking at the maximum created_at timestamp across all runs
-    // This matches the chart's deduplication logic
-    let latestCommit = '';
-    let latestTime = new Date(0);
-    commitGroups.forEach((runs, commit) => {
-      // Find the maximum created_at across all runs in this commit
-      const maxTime = runs.reduce((max, run) => {
-        const runTime = new Date(run.created_at);
-        return runTime > max ? runTime : max;
-      }, new Date(0));
+    // For each machine, find the commit with the latest created_at
+    byMachine.forEach((commitMap, machine) => {
+      let latestCommit = '';
+      let latestTime = new Date(0);
 
-      if (maxTime > latestTime) {
-        latestTime = maxTime;
-        latestCommit = commit;
-      }
+      commitMap.forEach((runs, commit) => {
+        const maxTime = runs.reduce((max, run) => {
+          const runTime = new Date(run.created_at);
+          return runTime > max ? runTime : max;
+        }, new Date(0));
+
+        if (maxTime > latestTime) {
+          latestTime = maxTime;
+          latestCommit = commit;
+        }
+      });
+
+      machineLatestCommit.set(machine, latestCommit);
     });
 
-    // Return only runs from the latest commit
-    return commitGroups.get(latestCommit) || [];
+    // Now filter to only include runs from each machine's latest commit
+    return runsForDate.filter(run => {
+      const machine = run.machine || 'unknown';
+      const latestCommit = machineLatestCommit.get(machine);
+      return run.commit === latestCommit;
+    });
   };
 
   const handleBack = () => {

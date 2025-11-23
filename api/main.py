@@ -7,7 +7,7 @@ from typing import Any
 
 import fastapi
 import httpx
-from database import get_admin_token, get_session, init_db
+from database import get_admin_token, get_github_token, get_session, init_db
 from fastapi import BackgroundTasks, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -17,6 +17,16 @@ from sqlmodel import desc, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 GITHUB_REPO_URL = "https://api.github.com/repos/savannahostrowski/pyperf_bench"
+
+
+def get_github_headers() -> dict[str, str]:
+    """Get headers for GitHub API requests with optional authentication."""
+    headers = {"Accept": "application/vnd.github.v3+json"}
+    github_token = get_github_token()
+    if github_token:
+        headers["Authorization"] = f"Bearer {github_token}"
+    return headers
+
 
 # Security for admin endpoints
 security = HTTPBearer()
@@ -68,9 +78,7 @@ app.add_middleware(
 @app.get("/")
 async def render_home():
     async with httpx.AsyncClient() as client:
-        response = await client.get(
-            GITHUB_REPO_URL, headers={"Accept": "application/vnd.github.v3+json"}
-        )
+        response = await client.get(GITHUB_REPO_URL, headers=get_github_headers())
         response.raise_for_status()
         return response.json()
 
