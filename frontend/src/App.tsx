@@ -58,19 +58,19 @@ const DetailViewRoute: Component<{ data: BenchmarkRun[] }> = (props) => {
       commitMap.get(run.commit)!.push(run);
     });
 
-    // For each machine, find the commit with the latest created_at
+    // For each machine, find the commit with the latest directory name (actual benchmark run)
     byMachine.forEach((commitMap, machine) => {
       let latestCommit = '';
-      let latestTime = new Date(0);
+      let latestDirName = '';
 
       commitMap.forEach((runs, commit) => {
-        const maxTime = runs.reduce((max, run) => {
-          const runTime = new Date(run.created_at);
-          return runTime > max ? runTime : max;
-        }, new Date(0));
+        const maxDirName = runs.reduce((max, run) => {
+          const dirName = run.directory_name || '';
+          return dirName > max ? dirName : max;
+        }, '');
 
-        if (maxTime > latestTime) {
-          latestTime = maxTime;
+        if (maxDirName > latestDirName) {
+          latestDirName = maxDirName;
           latestCommit = commit;
         }
       });

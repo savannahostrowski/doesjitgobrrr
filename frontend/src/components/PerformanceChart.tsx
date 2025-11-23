@@ -60,8 +60,9 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
         const dateStr = new Date(run.date).toISOString().split('T')[0];
         const existing = runsByDate.get(dateStr);
 
-        // Keep the run with the latest created_at timestamp for this date
-        if (!existing || new Date(run.created_at) > new Date(existing.created_at)) {
+        // Keep the run with the latest directory name (which represents the actual benchmark run)
+        // Directory format: bm-YYYYMMDD-version-commit-JIT, sorted alphabetically
+        if (!existing || (run.directory_name || '') > (existing.directory_name || '')) {
           runsByDate.set(dateStr, run);
         }
       });
