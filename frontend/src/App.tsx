@@ -50,14 +50,19 @@ const DetailViewRoute: Component<{ data: BenchmarkRun[] }> = (props) => {
       commitGroups.get(run.commit)!.push(run);
     });
 
-    // Find the latest commit by looking at created_at timestamp
-    // (runs are created in chronological order, so latest created_at = latest commit)
+    // Find the latest commit by looking at the maximum created_at timestamp across all runs
+    // This matches the chart's deduplication logic
     let latestCommit = '';
     let latestTime = new Date(0);
     commitGroups.forEach((runs, commit) => {
-      const runTime = new Date(runs[0].created_at);
-      if (runTime > latestTime) {
-        latestTime = runTime;
+      // Find the maximum created_at across all runs in this commit
+      const maxTime = runs.reduce((max, run) => {
+        const runTime = new Date(run.created_at);
+        return runTime > max ? runTime : max;
+      }, new Date(0));
+
+      if (maxTime > latestTime) {
+        latestTime = maxTime;
         latestCommit = commit;
       }
     });
