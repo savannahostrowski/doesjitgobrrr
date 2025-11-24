@@ -4,7 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Cache configuration
 const CACHE_KEY = 'historical_data_cache';
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 interface CachedData {
   data: HistoricalResponse;
