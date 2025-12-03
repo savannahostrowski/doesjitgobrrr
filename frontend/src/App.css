@@ -687,6 +687,60 @@ footer a:hover {
   margin: 2rem auto;
 }
 
+.chart-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.date-range-filter {
+  display: flex;
+  gap: 0.5rem;
+  background: var(--bg-secondary);
+  padding: 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-secondary);
+}
+
+.date-range-btn {
+  background: transparent;
+  border: none;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.date-range-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.date-range-btn.active {
+  background: var(--accent-primary);
+  color: white;
+  box-shadow: 0 2px 4px var(--shadow-accent);
+}
+
+.date-range-btn:focus {
+  outline: none;
+}
+
+.date-range-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.chart-loading {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
 .chart-container {
   position: relative;
   height: 60vh;
@@ -983,6 +1037,15 @@ footer a:hover {
   .chart-section {
     width: 95%;
     margin: 2rem auto;
+  }
+
+  .chart-controls {
+    justify-content: center;
+  }
+
+  .date-range-btn {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
   }
 
   .chart-container {
