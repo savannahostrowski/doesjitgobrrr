@@ -3,6 +3,7 @@ import pathlib
 import subprocess
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 from typing import Any
 
 import fastapi
@@ -129,11 +130,12 @@ async def get_historical_comparison(
     days: int = 30,
     session: AsyncSession = fastapi.Depends(get_session),
 ) -> JSONResponse:
+    cutoff_date = datetime.now().date() - timedelta(days=days)
     result = await session.exec(
         select(BenchmarkRun)
         .options(selectinload(BenchmarkRun.benchmarks))  # type: ignore[arg-type]
+        .where(BenchmarkRun.run_date >= cutoff_date)
         .order_by(desc(BenchmarkRun.run_date))
-        .limit(days * 2)  # Increased to account for multiple machines
     )
     runs = result.all()
 
