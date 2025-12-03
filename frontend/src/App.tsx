@@ -7,7 +7,7 @@ import DetailView from './components/DetailView';
 import About from './components/About';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorState from './components/ErrorState';
-import { fetchHistoricalData } from './api';
+import { fetchHistoricalByDate, fetchHistoricalSummary } from './api';
 import type { BenchmarkRun } from './types';
 import './App.css';
 
@@ -17,7 +17,7 @@ const ChartView: Component = () => {
   const navigate = useNavigate();
   const [dateRange, setDateRange] = createSignal<DateRange>(30);
   const [historicalData, { refetch }] = createResource(dateRange, (days) =>
-    fetchHistoricalData(days === 'all' ? 1000 : days)
+    fetchHistoricalSummary(days === 'all' ? 1000 : days)
   );
 
   // Flatten machines data into a single array
@@ -64,7 +64,11 @@ const ChartView: Component = () => {
 const DetailViewRoute: Component = () => {
   const params = useParams();
   const navigate = useNavigate();
-  const [historicalData] = createResource(() => fetchHistoricalData(100));
+  // Fetch data only for the specific date from URL
+  const [historicalData] = createResource(
+    () => params.date,
+    (date) => fetchHistoricalByDate(date)
+  );
 
   // Flatten machines data into a single array
   const allRuns = () => {
@@ -78,16 +82,10 @@ const DetailViewRoute: Component = () => {
   };
 
   const runsOnDate = () => {
-    const dateStr = params.date;
     const data = allRuns();
-    // Filter runs for this date
-    const runsForDate = data.filter(r => {
-      const runDate = new Date(r.date).toISOString().split('T')[0];
-      return runDate === dateStr;
-    });
 
     // If no runs, return empty
-    if (runsForDate.length === 0) return [];
+    if (data.length === 0) return [];
 
     // Group by machine first, then by commit within each machine
     // This matches the chart's per-machine deduplication logic
@@ -95,7 +93,7 @@ const DetailViewRoute: Component = () => {
 
     // For each machine, find its latest commit based on created_at
     const byMachine = new Map<string, Map<string, BenchmarkRun[]>>();
-    runsForDate.forEach(run => {
+    data.forEach(run => {
       const machine = run.machine || 'unknown';
       if (!byMachine.has(machine)) {
         byMachine.set(machine, new Map());
@@ -128,7 +126,7 @@ const DetailViewRoute: Component = () => {
     });
 
     // Now filter to only include runs from each machine's latest commit
-    return runsForDate.filter(run => {
+    return data.filter(run => {
       const machine = run.machine || 'unknown';
       const latestCommit = machineLatestCommit.get(machine);
       return run.commit === latestCommit;

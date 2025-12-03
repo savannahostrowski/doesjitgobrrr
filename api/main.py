@@ -125,11 +125,135 @@ async def get_latest_comparison(
     }
 
 
+@app.get("/api/historical/summary")
+async def get_historical_summary(
+    days: int = 30,
+    session: AsyncSession = fastapi.Depends(get_session),
+) -> JSONResponse:
+    """Lightweight endpoint for chart - returns only summary data without benchmarks."""
+    cutoff_date = datetime.now().date() - timedelta(days=days)
+    result = await session.exec(
+        select(BenchmarkRun)
+        .where(BenchmarkRun.run_date >= cutoff_date)
+        .order_by(desc(BenchmarkRun.run_date))
+    )
+    runs = result.all()
+
+    # Build list of all runs grouped by machine (without benchmark details)
+    historical_data_by_machine: dict[str, list[dict[str, Any]]] = {}
+
+    for run in runs:
+        run_data: dict[str, Any] = {
+            "date": run.run_date.isoformat(),
+            "commit": run.commit_hash,
+            "python_version": run.python_version,
+            "is_jit": run.is_jit,
+            "machine": run.machine,
+            "directory_name": run.directory_name,
+        }
+
+        # Add speedup for JIT runs (this is what the chart uses)
+        if run.is_jit:
+            run_data["speedup"] = run.geometric_mean_speedup
+
+        machine_key = run.machine
+        if machine_key not in historical_data_by_machine:
+            historical_data_by_machine[machine_key] = []
+
+        historical_data_by_machine[machine_key].append(run_data)
+
+    return JSONResponse(
+        content={
+            "days": days,
+            "machines": historical_data_by_machine,
+        },
+        headers={
+            "Cache-Control": "public, max-age=3600, s-maxage=3600",
+        },
+    )
+
+
+@app.get("/api/historical/date/{date}")
+async def get_historical_by_date(
+    date: str,
+    session: AsyncSession = fastapi.Depends(get_session),
+) -> JSONResponse:
+    """Get full benchmark data for a specific date - for detail view."""
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(
+            status_code=400, detail="Invalid date format. Use YYYY-MM-DD"
+        )
+
+    result = await session.exec(
+        select(BenchmarkRun)
+        .options(selectinload(BenchmarkRun.benchmarks))  # type: ignore[arg-type]
+        .where(BenchmarkRun.run_date == target_date)
+        .order_by(desc(BenchmarkRun.created_at))
+    )
+    runs = result.all()
+
+    # Build list of all runs grouped by machine
+    historical_data_by_machine: dict[str, list[dict[str, Any]]] = {}
+
+    for run in runs:
+        benchmarks = run.benchmarks
+
+        benchmarks_json = {}
+        for bench in benchmarks:
+            benchmarks_json[bench.name] = {
+                "mean": bench.mean,
+                "median": bench.median,
+                "stddev": bench.stddev,
+                "min_value": bench.min_value,
+                "max_value": bench.max_value,
+            }
+
+        run_data: dict[str, Any] = {
+            "date": run.run_date.isoformat(),
+            "commit": run.commit_hash,
+            "python_version": run.python_version,
+            "is_jit": run.is_jit,
+            "machine": run.machine,
+            "directory_name": run.directory_name,
+            "created_at": run.created_at.isoformat(),
+            "benchmarks": benchmarks_json,
+        }
+
+        # Add HPT data and geometric mean speedup for JIT runs
+        if run.is_jit:
+            run_data["hpt"] = {
+                "reliability": run.hpt_reliability,
+                "percentile_90": run.hpt_percentile_90,
+                "percentile_95": run.hpt_percentile_95,
+                "percentile_99": run.hpt_percentile_99,
+            }
+            run_data["speedup"] = run.geometric_mean_speedup
+
+        machine_key = run.machine
+        if machine_key not in historical_data_by_machine:
+            historical_data_by_machine[machine_key] = []
+
+        historical_data_by_machine[machine_key].append(run_data)
+
+    return JSONResponse(
+        content={
+            "date": date,
+            "machines": historical_data_by_machine,
+        },
+        headers={
+            "Cache-Control": "public, max-age=3600, s-maxage=3600",
+        },
+    )
+
+
 @app.get("/api/historical")
 async def get_historical_comparison(
     days: int = 30,
     session: AsyncSession = fastapi.Depends(get_session),
 ) -> JSONResponse:
+    """Full historical data with benchmark details."""
     cutoff_date = datetime.now().date() - timedelta(days=days)
     result = await session.exec(
         select(BenchmarkRun)
