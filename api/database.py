@@ -43,7 +43,7 @@ DATABASE_URL = get_database_url()
 
 engine = create_async_engine(
     DATABASE_URL,
-    echo=True,
+    echo=False,
     pool_pre_ping=True,  # Test connections before using them to avoid stale connections
     pool_recycle=3600,  # Recycle connections after 1 hour
 )
