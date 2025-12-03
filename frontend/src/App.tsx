@@ -1,4 +1,4 @@
-import { type Component, createResource, Show } from 'solid-js';
+import { type Component, createResource, createSignal, Show } from 'solid-js';
 import { Router, Route, useNavigate, useParams, type RouteSectionProps } from '@solidjs/router';
 import { ThemeProvider } from './ThemeContext';
 import Header from './components/Header';
@@ -11,9 +11,14 @@ import { fetchHistoricalData } from './api';
 import type { BenchmarkRun } from './types';
 import './App.css';
 
+type DateRange = 7 | 30 | 'all';
+
 const ChartView: Component = () => {
   const navigate = useNavigate();
-  const [historicalData, { refetch }] = createResource(() => fetchHistoricalData(100));
+  const [dateRange, setDateRange] = createSignal<DateRange>(30);
+  const [historicalData, { refetch }] = createResource(dateRange, (days) =>
+    fetchHistoricalData(days === 'all' ? 1000 : days)
+  );
 
   // Flatten machines data into a single array
   const allRuns = () => {
@@ -30,23 +35,28 @@ const ChartView: Component = () => {
     navigate(`/run/${dateStr}`);
   };
 
+  // Show loading spinner only on initial load, not when switching filters
+  const hasData = () => historicalData() !== undefined;
+
   return (
     <Show
-      when={!historicalData.loading && !historicalData.error}
-      fallback={
-        <>
-          <Show when={historicalData.loading}>
-            <LoadingSpinner />
-          </Show>
-          <Show when={historicalData.error}>
-            <ErrorState onRetry={() => refetch()} />
-          </Show>
-        </>
-      }
+      when={hasData() || historicalData.error}
+      fallback={<LoadingSpinner />}
     >
-      <div class="chart-view-wrapper">
-        <PerformanceChart data={allRuns()} onPointClick={handlePointClick} />
-      </div>
+      <Show when={historicalData.error}>
+        <ErrorState onRetry={() => refetch()} />
+      </Show>
+      <Show when={!historicalData.error}>
+        <div class="chart-view-wrapper">
+          <PerformanceChart
+            data={allRuns()}
+            onPointClick={handlePointClick}
+            dateRange={dateRange()}
+            onDateRangeChange={setDateRange}
+            isLoading={historicalData.loading}
+          />
+        </div>
+      </Show>
     </Show>
   );
 };

@@ -1,4 +1,4 @@
-import { type Component, onMount, onCleanup, createEffect } from 'solid-js';
+import { type Component, type Setter, onMount, onCleanup, createEffect, For } from 'solid-js';
 import {
   Chart,
   type ChartConfiguration,
@@ -17,9 +17,20 @@ Chart.register(...registerables);
 const SYSTEM_FONT_STACK = "-apple-system, BlinkMacSystemFont, segoe ui, Roboto, Oxygen, Ubuntu, Cantarell, open sans, helvetica neue, sans-serif";
 const Y_AXIS_BASELINE = 2.0; // Baseline for inverting speedup values (slower plots higher)
 
+type DateRange = 7 | 30 | 'all';
+
+const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
+  { value: 7, label: 'Last 7 days' },
+  { value: 30, label: 'Last 30 days' },
+  { value: 'all', label: 'All time' },
+];
+
 interface PerformanceChartProps {
   data: BenchmarkRun[];
   onPointClick: (dateStr: string) => void;
+  dateRange: DateRange;
+  onDateRangeChange: Setter<DateRange>;
+  isLoading?: boolean;
 }
 
 const PerformanceChart: Component<PerformanceChartProps> = (props) => {
@@ -412,8 +423,8 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           },
           y: {
             type: 'linear',
-            min: 0.85,
-            max: 1.15,
+            min: 0.80,
+            max: 1.20,
             title: {
               display: true,
               text: 'Performance Difference',
@@ -443,15 +454,15 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
                 if (v >= 1.0) {
                   const percentSlower = ((v - 1) * 100).toFixed(0);
                   label = `+${percentSlower}%`;
-                  // Add "slower" label at the bottom (after reverse)
-                  if (v === 1.15) {
+                  // Add "slower" label at the top
+                  if (v === 1.20) {
                     label += ' (slower)';
                   }
                 } else {
                   const percentFaster = ((1 - v) * 100).toFixed(0);
                   label = `-${percentFaster}%`;
-                  // Add "faster" label at the top (after reverse)
-                  if (v === 0.85) {
+                  // Add "faster" label at the bottom
+                  if (v === 0.80) {
                     label += ' (faster)';
                   }
                 }
@@ -492,7 +503,22 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
 
   return (
     <div class="chart-section">
-      <div class="chart-container">
+      <div class="chart-controls">
+        <div class="date-range-filter">
+          <For each={DATE_RANGE_OPTIONS}>
+            {(option) => (
+              <button
+                class={`date-range-btn ${props.dateRange === option.value ? 'active' : ''}`}
+                onClick={() => props.onDateRangeChange(option.value)}
+                disabled={props.isLoading}
+              >
+                {option.label}
+              </button>
+            )}
+          </For>
+        </div>
+      </div>
+      <div class={`chart-container ${props.isLoading ? 'chart-loading' : ''}`}>
         <canvas ref={canvasRef} style={{ cursor: "pointer" }} />
       </div>
       <p class="chart-subtext">
