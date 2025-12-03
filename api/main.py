@@ -187,9 +187,7 @@ async def get_historical_comparison(
             "machines": historical_data_by_machine,
         },
         headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0",
+            "Cache-Control": "public, max-age=3600, s-maxage=3600",
         },
     )
 
