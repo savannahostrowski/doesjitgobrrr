@@ -261,15 +261,31 @@ async def get_fork_from_directory(
         return None
 
 
-async def fetch_all_benchmark_pairs() -> list[tuple[str, str]]:
+async def get_existing_directory_names() -> set[str]:
+    """Get all directory names already in the database."""
+    async with async_session_maker() as session:
+        result = await session.exec(select(BenchmarkRun.directory_name).distinct())
+        return set(result.all())
+
+
+async def fetch_all_benchmark_pairs(
+    skip_existing: bool = True,
+) -> list[tuple[str, str]]:
     """
     Fetch all complete benchmark pairs (interpreter and JIT) from the repository.
     Only returns pairs where:
     - Both interpreter and JIT runs exist for the same commit
     - Both runs are from the 'python' fork (not other forks like brandtbucher, faster-cpython, etc.)
+    - (if skip_existing=True) The pair hasn't already been fully processed
 
     Returns list of (interpreter_dir, jit_dir) tuples, sorted by date (oldest first).
     """
+    # Get existing directories from database to skip already-processed pairs
+    existing_dirs: set[str] = set()
+    if skip_existing:
+        existing_dirs = await get_existing_directory_names()
+        print(f"Found {len(existing_dirs)} existing directories in database.")
+
     async with httpx.AsyncClient() as client:
         response = await client.get(
             f"{PYPERF_BENCH_REPO}/contents/results",
@@ -303,9 +319,19 @@ async def fetch_all_benchmark_pairs() -> list[tuple[str, str]]:
 
         # Filter to only complete pairs from 'python' fork, sorted by date (oldest first)
         complete_pairs: list[tuple[str, str]] = []
+        skipped_existing = 0
         for key in sorted(groups.keys()):
             group = groups[key]
             if group["interpreter"] and group["jit"]:
+                # Skip if both directories already exist in database
+                if (
+                    skip_existing
+                    and group["interpreter"] in existing_dirs
+                    and group["jit"] in existing_dirs
+                ):
+                    skipped_existing += 1
+                    continue
+
                 # Check if both directories are from the 'python' fork
                 interpreter_fork = await get_fork_from_directory(
                     client, group["interpreter"]
@@ -320,8 +346,10 @@ async def fetch_all_benchmark_pairs() -> list[tuple[str, str]]:
                     )
 
         print(
-            f"Found {len(complete_pairs)} complete benchmark pairs from 'python' fork"
+            f"Found {len(complete_pairs)} new benchmark pairs to process from 'python' fork"
         )
+        if skipped_existing > 0:
+            print(f"Skipped {skipped_existing} pairs already in database")
         return complete_pairs
 
 
