@@ -4,7 +4,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 // Cache configuration for summary data (chart)
 const CACHE_KEY_SUMMARY_PREFIX = 'historical_summary_cache_';
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
 
 interface CachedData {
   data: HistoricalResponse;
