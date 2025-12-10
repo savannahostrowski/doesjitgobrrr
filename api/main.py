@@ -356,7 +356,7 @@ def reload_data_task():
             cwd="/app",
             capture_output=True,
             text=True,
-            timeout=300,  # 5 minute timeout
+            timeout=1800,  # 30 minute timeout
         )
         if result.returncode == 0:
             print("Data reload completed successfully")
