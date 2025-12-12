@@ -71,3 +71,5 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: savannahostrowski/doesjitgobrrr-frontend:latest
+          cache-from: type=registry,ref=savannahostrowski/doesjitgobrrr-frontend:buildcache
+          cache-to: type=registry,ref=savannahostrowski/doesjitgobrrr-frontend:buildcache,mode=max

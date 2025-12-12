@@ -15,8 +15,8 @@ COPY . .
 # Set the production API URL (works for both domains)
 ENV VITE_API_URL=https://api.doesjitgobrrr.com
 
-# Build the application
-RUN npm run build
+# Build the application (skip tsc, vite handles transpilation)
+RUN npx vite build
 
 # Production stage
 FROM nginx:alpine
