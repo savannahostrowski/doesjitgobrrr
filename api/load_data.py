@@ -268,6 +268,8 @@ async def get_existing_directory_names() -> set[str]:
         return set(result.all())
 
 
+
+
 async def fetch_all_benchmark_pairs(
     skip_existing: bool = True,
 ) -> list[tuple[str, str]]:
@@ -317,33 +319,43 @@ async def fetch_all_benchmark_pairs(
                 else:
                     groups[key]["interpreter"] = dir["name"]
 
-        # Filter to only complete pairs from 'python' fork, sorted by date (oldest first)
-        complete_pairs: list[tuple[str, str]] = []
-        skipped_existing = 0
-        for key in sorted(groups.keys()):
+        # Filter to only complete pairs from 'python' fork
+        # Group by date and keep only the latest pair per date (highest commit hash alphabetically)
+        pairs_by_date: dict[str, dict[str, Any]] = {}
+        for key in groups.keys():
             group = groups[key]
             if group["interpreter"] and group["jit"]:
-                # Skip if both directories already exist in database
-                if (
-                    skip_existing
-                    and group["interpreter"] in existing_dirs
-                    and group["jit"] in existing_dirs
-                ):
-                    skipped_existing += 1
-                    continue
+                date = group["date"]
+                # Keep the latest pair per date (directory names sort chronologically by commit)
+                if date not in pairs_by_date or group["jit"] > pairs_by_date[date]["jit"]:
+                    pairs_by_date[date] = group
 
-                # Check if both directories are from the 'python' fork
-                interpreter_fork = await get_fork_from_directory(
-                    client, group["interpreter"]
+        # Now process only the latest pair per date, sorted by date (oldest first)
+        complete_pairs: list[tuple[str, str]] = []
+        skipped_existing = 0
+        for date in sorted(pairs_by_date.keys()):
+            group = pairs_by_date[date]
+            # Skip if both directories already exist in database
+            if (
+                skip_existing
+                and group["interpreter"] in existing_dirs
+                and group["jit"] in existing_dirs
+            ):
+                skipped_existing += 1
+                continue
+
+            # Check if both directories are from the 'python' fork
+            interpreter_fork = await get_fork_from_directory(
+                client, group["interpreter"]
+            )
+            jit_fork = await get_fork_from_directory(client, group["jit"])
+
+            if interpreter_fork == "python" and jit_fork == "python":
+                complete_pairs.append((group["interpreter"], group["jit"]))
+            else:
+                print(
+                    f"Skipping pair {group['interpreter']} / {group['jit']} (fork: {interpreter_fork}/{jit_fork}, only ingesting 'python' fork)"
                 )
-                jit_fork = await get_fork_from_directory(client, group["jit"])
-
-                if interpreter_fork == "python" and jit_fork == "python":
-                    complete_pairs.append((group["interpreter"], group["jit"]))
-                else:
-                    print(
-                        f"Skipping pair {group['interpreter']} / {group['jit']} (fork: {interpreter_fork}/{jit_fork}, only ingesting 'python' fork)"
-                    )
 
         print(
             f"Found {len(complete_pairs)} new benchmark pairs to process from 'python' fork"
