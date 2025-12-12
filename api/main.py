@@ -168,7 +168,7 @@ async def get_historical_summary(
             "machines": historical_data_by_machine,
         },
         headers={
-            "Cache-Control": "public, max-age=3600, s-maxage=3600",
+            "Cache-Control": "public, max-age=300, s-maxage=300",
         },
     )
 
@@ -243,7 +243,7 @@ async def get_historical_by_date(
             "machines": historical_data_by_machine,
         },
         headers={
-            "Cache-Control": "public, max-age=3600, s-maxage=3600",
+            "Cache-Control": "public, max-age=300, s-maxage=300",
         },
     )
 
@@ -313,7 +313,7 @@ async def get_historical_comparison(
             "machines": historical_data_by_machine,
         },
         headers={
-            "Cache-Control": "public, max-age=3600, s-maxage=3600",
+            "Cache-Control": "public, max-age=300, s-maxage=300",
         },
     )
 
