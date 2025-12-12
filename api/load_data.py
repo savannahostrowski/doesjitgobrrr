@@ -268,6 +268,18 @@ async def get_existing_directory_names() -> set[str]:
         return set(result.all())
 
 
+async def get_jit_dirs_needing_speedup_update() -> set[str]:
+    """Get JIT directory names that have null geometric_mean_speedup."""
+    async with async_session_maker() as session:
+        result = await session.exec(
+            select(BenchmarkRun.directory_name).where(
+                BenchmarkRun.is_jit == True,  # noqa: E712
+                BenchmarkRun.geometric_mean_speedup == None,  # noqa: E711
+            )
+        )
+        return set(result.all())
+
+
 async def fetch_all_benchmark_pairs(
     skip_existing: bool = True,
 ) -> list[tuple[str, str]]:
@@ -282,9 +294,15 @@ async def fetch_all_benchmark_pairs(
     """
     # Get existing directories from database to skip already-processed pairs
     existing_dirs: set[str] = set()
+    jit_dirs_needing_update: set[str] = set()
     if skip_existing:
         existing_dirs = await get_existing_directory_names()
+        jit_dirs_needing_update = await get_jit_dirs_needing_speedup_update()
         print(f"Found {len(existing_dirs)} existing directories in database.")
+        if jit_dirs_needing_update:
+            print(
+                f"Found {len(jit_dirs_needing_update)} JIT runs needing speedup update."
+            )
 
     async with httpx.AsyncClient() as client:
         response = await client.get(
@@ -336,11 +354,12 @@ async def fetch_all_benchmark_pairs(
         skipped_existing = 0
         for date in sorted(pairs_by_date.keys()):
             group = pairs_by_date[date]
-            # Skip if both directories already exist in database
+            # Skip if both directories already exist in database AND JIT run doesn't need speedup update
             if (
                 skip_existing
                 and group["interpreter"] in existing_dirs
                 and group["jit"] in existing_dirs
+                and group["jit"] not in jit_dirs_needing_update
             ):
                 skipped_existing += 1
                 continue
