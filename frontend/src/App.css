@@ -689,8 +689,26 @@ footer a:hover {
 
 .chart-controls {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.view-latest-link {
+  color: var(--accent-tertiary);
+  text-decoration: none;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+  order: -1;
+  opacity: 0.7;
+}
+
+.view-latest-link:hover {
+  color: var(--accent-tertiary);
+  opacity: 1;
+  text-decoration: underline;
 }
 
 .date-range-filter {
@@ -754,9 +772,59 @@ footer a:hover {
   transition: all 0.3s ease;
 }
 
+/* Plotly hover line styling */
+.chart-container .hoverlayer .spikeline {
+  stroke: var(--accent-primary) !important;
+  stroke-opacity: 0.5 !important;
+}
+
+:root[data-theme="dark"] .chart-container .hoverlayer line {
+  stroke: rgba(139, 92, 246, 0.5) !important;
+}
+
+:root[data-theme="light"] .chart-container .hoverlayer line {
+  stroke: rgba(124, 58, 237, 0.4) !important;
+}
+
+/* Plotly tooltip rounded corners */
+.chart-container .hoverlayer .hovertext path {
+  rx: 8px !important;
+  ry: 8px !important;
+}
+
+/* Pointer cursor on chart */
+.chart-container .draglayer {
+  cursor: pointer !important;
+}
+
+.chart-legend {
+  display: flex;
+  justify-content: center;
+  gap: 1rem 1.5rem;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.legend-label {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
 .chart-subtext {
   text-align: center;
-  margin-top: 1rem;
+  margin-top: 0.75rem;
   font-size: 0.875rem;
 }
 
@@ -1040,7 +1108,12 @@ footer a:hover {
   }
 
   .chart-controls {
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .view-latest-link {
+    order: 0;
   }
 
   .date-range-btn {
@@ -1049,7 +1122,15 @@ footer a:hover {
   }
 
   .chart-container {
-    padding: 1rem;
+    padding: 0.75rem;
+  }
+
+  .chart-legend {
+    gap: 0.5rem 1rem;
+  }
+
+  .legend-label {
+    font-size: 0.8rem;
   }
 
   .benchmark-tabs {

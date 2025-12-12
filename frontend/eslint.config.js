@@ -23,6 +23,7 @@ export default [
         window: 'readonly',
         fetch: 'readonly',
         HTMLCanvasElement: 'readonly',
+        HTMLDivElement: 'readonly',
         console: 'readonly',
       },
     },
