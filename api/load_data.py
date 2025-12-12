@@ -268,8 +268,6 @@ async def get_existing_directory_names() -> set[str]:
         return set(result.all())
 
 
-
-
 async def fetch_all_benchmark_pairs(
     skip_existing: bool = True,
 ) -> list[tuple[str, str]]:
@@ -327,7 +325,10 @@ async def fetch_all_benchmark_pairs(
             if group["interpreter"] and group["jit"]:
                 date = group["date"]
                 # Keep the latest pair per date (directory names sort chronologically by commit)
-                if date not in pairs_by_date or group["jit"] > pairs_by_date[date]["jit"]:
+                if (
+                    date not in pairs_by_date
+                    or group["jit"] > pairs_by_date[date]["jit"]
+                ):
                     pairs_by_date[date] = group
 
         # Now process only the latest pair per date, sorted by date (oldest first)

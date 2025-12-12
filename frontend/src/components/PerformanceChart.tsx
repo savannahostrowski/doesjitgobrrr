@@ -1,6 +1,7 @@
 import { type Component, type Setter, onMount, onCleanup, createEffect, createMemo, For } from 'solid-js';
 
 // Plotly is loaded via CDN in index.html
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const Plotly: any;
 import type { BenchmarkRun } from '../types';
 import { useTheme } from '../ThemeContext';
@@ -84,7 +85,6 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
       jitRunsByMachine.set(machine, deduplicated);
     });
 
-
     // Create traces for Plotly (sorted by machine name for consistent legend order)
     const sortedMachines = Array.from(jitRunsByMachine.entries()).sort((a, b) => a[0].localeCompare(b[0]));
     const traces = sortedMachines.map(([machine, runs]) => {
@@ -136,17 +136,19 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
     });
     const sortedDates = Array.from(allDates).sort();
 
-    traces.push({
+    // Invisible trace for "Click to view details" hint - needs different shape than main traces
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (traces as any[]).push({
       type: 'scatter',
       mode: 'markers',
       name: '',
       x: sortedDates.map(d => new Date(d)),
-      y: sortedDates.map(() => 0), // Plot at y=0 (zero line)
+      y: sortedDates.map(() => 0),
       marker: { size: 0, color: 'transparent', line: { color: 'transparent', width: 0 } },
       customdata: sortedDates.map(d => new Date(d).toISOString().split('T')[0]),
       hovertemplate: '<span style="font-size:11px;color:#9ca3af">Click to view details</span><extra></extra>',
       showlegend: false,
-    } as any);
+    });
 
     // Responsive sizing
     const isMobile = window.innerWidth < 768;
@@ -207,7 +209,6 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
       paper_bgcolor: paperBgColor,
       margin: { t: isMobile ? 60 : 80, r: 10, b: 40, l: leftMargin },
       autosize: true,
-      uirevision: 'true', // Preserve UI state (legend visibility, zoom) across updates
     };
 
     const config = {
@@ -216,15 +217,16 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
       scrollZoom: false,
     };
 
+    const onPointClick = props.onPointClick;
     Plotly.newPlot(chartDiv, traces, layout, config).then(() => {
       // Add click handler for points after chart is created
-      // @ts-ignore - Plotly adds 'on' method to the div
+      // @ts-expect-error - Plotly adds 'on' method to the div
       chartDiv.on('plotly_click', (data: { points: Array<{ customdata: string; x: string }> }) => {
         if (data.points && data.points.length > 0) {
           // Find first point with valid customdata
           for (const point of data.points) {
             if (point.customdata) {
-              props.onPointClick(point.customdata);
+              onPointClick(point.customdata);
               return;
             }
           }
@@ -232,7 +234,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           const point = data.points[0];
           if (point.x) {
             const dateStr = new Date(point.x).toISOString().split('T')[0];
-            props.onPointClick(dateStr);
+            onPointClick(dateStr);
           }
         }
       });
