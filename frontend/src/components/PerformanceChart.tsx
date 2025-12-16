@@ -191,8 +191,8 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
         ticksuffix: '%',
         tickvals: [-20, -15, -10, -5, 0, 5, 10, 15, 20],
         ticktext: isMobile
-          ? ['+20%', '+15%', '+10%', '+5%', '0%', '-5%', '-10%', '-15%', '+20%']
-          : ['+20% faster', '+15%', '+10%', '+5%', '0%', '-5%', '-10%', '-15%', '+20% slower'],
+          ? ['+20%', '+15%', '+10%', '+5%', '0%', '-5%', '-10%', '-15%', '-20%']
+          : ['+20% faster', '+15%', '+10%', '+5%', '0%', '-5%', '-10%', '-15%', '-20% slower'],
       },
       showlegend: false,
       hovermode: 'x unified',
