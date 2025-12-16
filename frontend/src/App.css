@@ -315,6 +315,32 @@ section h2 {
   text-shadow: 0 0 10px var(--shadow-accent);
 }
 
+.raw-data-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0 0;
+  font-size: 0.85rem;
+}
+
+.raw-data-list li {
+  padding: 0.15rem 0;
+}
+
+.raw-data-list .machine-name {
+  color: var(--text-tertiary);
+}
+
+.raw-data-list a {
+  color: var(--accent-secondary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.raw-data-list a:hover {
+  color: var(--accent-tertiary);
+  text-decoration: underline;
+}
+
 .machine-stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 350px));
@@ -345,6 +371,9 @@ section h2 {
   font-weight: 700;
   letter-spacing: -0.01em;
   text-shadow: 0 0 10px var(--shadow-accent);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .machine-stats-list {
@@ -634,6 +663,21 @@ td:nth-child(n+2) {
 
 .neutral {
   color: var(--text-tertiary);
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+
+.badge.tailcall {
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--accent-secondary);
+  border: 1px solid rgba(139, 92, 246, 0.3);
 }
 
 tr.jit-slower {

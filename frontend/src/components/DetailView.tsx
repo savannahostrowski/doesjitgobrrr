@@ -226,35 +226,6 @@ const DetailView: Component<DetailViewProps> = (props) => {
               '-'
             )}
           </li>
-          <Show when={runsByMachine().size > 0}>
-            <li>
-              <span class="label">Raw Data:</span>{' '}
-              <Show when={(() => {
-                const firstMachine = availableMachines()[0];
-                return runsByMachine().get(firstMachine);
-              })()} fallback="-">
-                {(runs) => (
-                  <>
-                    <a
-                      href={getRawDataUrl(runs().jit)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      JIT
-                    </a>
-                    {', '}
-                    <a
-                      href={getRawDataUrl(runs().nonJit)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Interpreter
-                    </a>
-                  </>
-                )}
-              </Show>
-            </li>
-          </Show>
         </ul>
 
         <div class="machine-stats-grid">
@@ -262,9 +233,15 @@ const DetailView: Component<DetailViewProps> = (props) => {
             {(machine) => {
               const runs = runsByMachine().get(machine)!;
               const speedupData = getSpeedupForMachine(machine);
+              const hasTailcall = runs.jit.has_tailcall || runs.nonJit.has_tailcall;
               return (
                 <div class="machine-stats-card">
-                  <h3 class="machine-stats-heading">{machine} ({getArchitecture(machine)})</h3>
+                  <h3 class="machine-stats-heading">
+                    <span>{machine} ({getArchitecture(machine)})</span>
+                    <Show when={hasTailcall}>
+                      <span class="badge tailcall">tail calls enabled</span>
+                    </Show>
+                  </h3>
                   <ul class="machine-stats-list">
                     <li>
                       <span class="label">Benchmarks:</span> {totalBenchmarksForMachine(machine)}
@@ -280,6 +257,24 @@ const DetailView: Component<DetailViewProps> = (props) => {
                         <span class="label">HPT 99th %ile:</span> {runs.jit.hpt!.percentile_99?.toFixed(2)}x
                       </li>
                     </Show>
+                    <li>
+                      <span class="label">Raw Data:</span>{' '}
+                      <a
+                        href={getRawDataUrl(runs.jit)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        JIT
+                      </a>
+                      {', '}
+                      <a
+                        href={getRawDataUrl(runs.nonJit)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Interpreter
+                      </a>
+                    </li>
                   </ul>
                 </div>
               );

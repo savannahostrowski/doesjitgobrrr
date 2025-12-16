@@ -20,6 +20,7 @@ export interface BenchmarkRun {
   is_jit: boolean;
   machine: string;
   directory_name: string;
+  has_tailcall: boolean;
   created_at: string;
   geomean: number | null;
   speedup: number | null;  // Speedup ratio for JIT runs (nonjit_time / jit_time)

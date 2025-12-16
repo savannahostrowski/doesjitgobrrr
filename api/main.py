@@ -150,6 +150,7 @@ async def get_historical_summary(
             "is_jit": run.is_jit,
             "machine": run.machine,
             "directory_name": run.directory_name,
+            "has_tailcall": run.has_tailcall,
         }
 
         # Add speedup for JIT runs (this is what the chart uses)
@@ -217,6 +218,7 @@ async def get_historical_by_date(
             "is_jit": run.is_jit,
             "machine": run.machine,
             "directory_name": run.directory_name,
+            "has_tailcall": run.has_tailcall,
             "created_at": run.created_at.isoformat(),
             "benchmarks": benchmarks_json,
         }
@@ -286,6 +288,7 @@ async def get_historical_comparison(
             "is_jit": run.is_jit,
             "machine": run.machine,
             "directory_name": run.directory_name,
+            "has_tailcall": run.has_tailcall,
             "created_at": run.created_at.isoformat(),
             "benchmarks": benchmarks_json,
         }

@@ -15,11 +15,38 @@ from models import Benchmark, BenchmarkRun, compute_benchmark_statistics
 
 PYPERF_BENCH_REPO = "https://api.github.com/repos/savannahostrowski/pyperf_bench"
 RAW_BASE_URL = "https://raw.githubusercontent.com/savannahostrowski/pyperf_bench/main"
-# Filter for benchmark result directories. Pattern: bm-YYYYMMDD-VERSION-HASH[-JIT]
-PATTERN = r"bm-(\d{8})-([\d\.a-z\+]+)-([a-f0-9]+)(?:-JIT)?"
+# Filter for benchmark result directories. Pattern: bm-YYYYMMDD-VERSION-HASH[-JIT][,TAILCALL][-TAILCALL]
+# Examples:
+#   bm-20251215-3.15.0a2+-bef63d2          (interpreter only)
+#   bm-20251215-3.15.0a2+-bef63d2-JIT      (JIT only)
+#   bm-20251215-3.15.0a2+-bef63d2-TAILCALL (interpreter + tailcall)
+#   bm-20251215-3.15.0a2+-bef63d2-JIT,TAILCALL (JIT + tailcall)
+PATTERN = r"bm-(\d{8})-([\d\.a-z\+]+)-([a-f0-9]+)(?:-(JIT,TAILCALL|JIT|TAILCALL))?"
 
 # Get GitHub token from Docker secret or environment variable
 GITHUB_TOKEN = get_github_token()
+
+
+def parse_run_flags(dir_name: str) -> tuple[bool, bool]:
+    """
+    Parse directory name to determine JIT and tailcall flags.
+    Returns (is_jit, has_tailcall) tuple.
+    """
+    is_jit = "JIT" in dir_name.split("-")[-1]
+    has_tailcall = "TAILCALL" in dir_name
+    return is_jit, has_tailcall
+
+
+def get_base_key(dir_name: str) -> str:
+    """
+    Get the base key for pairing runs (date-version-hash).
+    Strips off the suffix (-JIT, -TAILCALL, -JIT,TAILCALL).
+    """
+    match = re.match(PATTERN, dir_name)
+    if match:
+        date, version, commit_hash, _ = match.groups()
+        return f"{date}-{version}-{commit_hash}"
+    return dir_name
 
 
 def get_github_headers() -> dict[str, str]:
@@ -320,40 +347,49 @@ async def fetch_all_benchmark_pairs(
                 continue
             match = re.match(PATTERN, dir["name"])
             if match:
-                date, version, commit_hash = match.groups()
-                key = f"{date}-{version}-{commit_hash}"
+                date, version, commit_hash, _ = match.groups()
+                is_jit, has_tailcall = parse_run_flags(dir["name"])
+
+                # Create separate groups for tailcall vs non-tailcall runs
+                # This ensures TAILCALL pairs with JIT,TAILCALL, and plain pairs with JIT
+                tailcall_key = "tailcall" if has_tailcall else "standard"
+                key = f"{date}-{version}-{commit_hash}-{tailcall_key}"
 
                 if key not in groups:
                     groups[key] = {
                         "interpreter": None,
                         "jit": None,
                         "date": date,
+                        "has_tailcall": has_tailcall,
                     }
 
-                if dir["name"].endswith("-JIT"):
+                if is_jit:
                     groups[key]["jit"] = dir["name"]
                 else:
                     groups[key]["interpreter"] = dir["name"]
 
         # Filter to only complete pairs from 'python' fork
-        # Group by date and keep only the latest pair per date (highest commit hash alphabetically)
-        pairs_by_date: dict[str, dict[str, Any]] = {}
+        # Group by date+tailcall_type and keep only the latest pair per group
+        # This allows both standard and tailcall pairs for the same date
+        pairs_by_date_and_type: dict[str, dict[str, Any]] = {}
         for key in groups.keys():
             group = groups[key]
             if group["interpreter"] and group["jit"]:
                 date = group["date"]
-                # Keep the latest pair per date (directory names sort chronologically by commit)
+                tailcall_type = "tailcall" if group["has_tailcall"] else "standard"
+                date_type_key = f"{date}-{tailcall_type}"
+                # Keep the latest pair per date+type (directory names sort chronologically by commit)
                 if (
-                    date not in pairs_by_date
-                    or group["jit"] > pairs_by_date[date]["jit"]
+                    date_type_key not in pairs_by_date_and_type
+                    or group["jit"] > pairs_by_date_and_type[date_type_key]["jit"]
                 ):
-                    pairs_by_date[date] = group
+                    pairs_by_date_and_type[date_type_key] = group
 
-        # Now process only the latest pair per date, sorted by date (oldest first)
+        # Now process all pairs, sorted by date (oldest first)
         complete_pairs: list[tuple[str, str]] = []
         skipped_existing = 0
-        for date in sorted(pairs_by_date.keys()):
-            group = pairs_by_date[date]
+        for date_type_key in sorted(pairs_by_date_and_type.keys()):
+            group = pairs_by_date_and_type[date_type_key]
             # Skip if both directories already exist in database AND JIT run doesn't need speedup update
             if (
                 skip_existing
@@ -404,9 +440,9 @@ async def load_benchmark_run(
     if not match:
         print(f"Directory name {dir_name} does not match expected pattern.")
         return
-    date_str, version, commit_hash = match.groups()
+    date_str, version, commit_hash, _ = match.groups()
     run_date = datetime.strptime(date_str, "%Y%m%d")
-    is_jit = dir_name.endswith("-JIT")
+    is_jit, has_tailcall = parse_run_flags(dir_name)
 
     async with httpx.AsyncClient() as client:
         contents_url = f"{PYPERF_BENCH_REPO}/contents/results/{dir_name}"
@@ -525,6 +561,7 @@ async def load_benchmark_run(
                     commit_hash=full_commit_hash,
                     is_jit=is_jit,
                     machine=machine,
+                    has_tailcall=has_tailcall,
                     hpt_reliability=hpt_data.get("reliability") if hpt_data else None,
                     hpt_percentile_90=hpt_data.get("percentile_90")
                     if hpt_data

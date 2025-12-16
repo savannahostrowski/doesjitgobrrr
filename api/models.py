@@ -23,6 +23,7 @@ class BenchmarkRun(SQLModel, table=True):
     commit_hash: str = Field(nullable=False, index=True)
     is_jit: bool = Field(nullable=False, index=True)
     machine: str = Field(nullable=False, index=True)
+    has_tailcall: bool = Field(default=False, nullable=False, index=True)
     created_at: datetime = Field(default_factory=datetime.now, nullable=False)
 
     # HPT (Hypothesis Testing) data - only populated for JIT runs
