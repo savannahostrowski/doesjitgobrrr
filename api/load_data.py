@@ -295,7 +295,7 @@ async def fetch_all_benchmark_pairs(
     Fetch all complete benchmark pairs (interpreter and JIT) from the repository.
     Only returns pairs where:
     - Both interpreter and JIT runs exist for the same commit
-    - Both runs are from the 'python' fork (not other forks like brandtbucher, faster-cpython, etc.)
+    - Both runs are from the 'python' fork (not other forks like savannahostrowski, faster-cpython, etc.)
     - (if skip_existing=True) The pair hasn't already been fully processed
 
     Returns list of (interpreter_dir, jit_dir) tuples, sorted by date (oldest first).
