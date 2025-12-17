@@ -2,8 +2,9 @@ import type { HistoricalResponse } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-// Cache configuration for summary data (chart)
+// Cache configuration
 const CACHE_KEY_SUMMARY_PREFIX = 'historical_summary_cache_';
+const CACHE_KEY_DATE_PREFIX = 'historical_date_cache_';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 interface CachedData {
@@ -87,21 +88,36 @@ export async function fetchHistoricalSummary(days: number = 100, forceRefresh = 
 /**
  * Fetch full historical data for a specific date (for detail view)
  */
-export async function fetchHistoricalByDate(date: string): Promise<HistoricalResponse> {
+export async function fetchHistoricalByDate(date: string, forceRefresh = false): Promise<HistoricalResponse> {
+  const cacheKey = `${CACHE_KEY_DATE_PREFIX}${date}`;
+
+  // Try to get from cache first (unless force refresh is requested)
+  if (!forceRefresh) {
+    const cachedData = getCachedData(cacheKey);
+    if (cachedData) {
+      return cachedData;
+    }
+  }
+
   const response = await fetch(`${API_URL}/api/historical/date/${date}`, {
     cache: 'no-cache',
   });
   if (!response.ok) {
     throw new Error('Failed to fetch data');
   }
-  return response.json();
+  const data = await response.json();
+
+  // Cache the result
+  setCachedData(cacheKey, data);
+
+  return data;
 }
 
 // Helper to clear the cache manually
 export function clearHistoricalDataCache(): void {
   const keys = Object.keys(window.localStorage);
   for (const key of keys) {
-    if (key.startsWith(CACHE_KEY_SUMMARY_PREFIX)) {
+    if (key.startsWith(CACHE_KEY_SUMMARY_PREFIX) || key.startsWith(CACHE_KEY_DATE_PREFIX)) {
       window.localStorage.removeItem(key);
     }
   }

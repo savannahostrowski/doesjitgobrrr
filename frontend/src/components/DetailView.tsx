@@ -1,7 +1,7 @@
-import { type Component, createSignal, For, Show } from 'solid-js';
+import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import type { BenchmarkRun, ComparisonRow } from '../types';
 import BenchmarkTable from './BenchmarkTable';
-import { getArchitecture, compareValues } from '../utils';
+import { getArchitecture, compareValues, formatSpeedup, formatSpeedupPercent } from '../utils';
 
 interface DetailViewProps {
   runs: BenchmarkRun[];
@@ -14,8 +14,8 @@ interface MachineComparisonRow {
 }
 
 const DetailView: Component<DetailViewProps> = (props) => {
-  // Group runs by machine
-  const runsByMachine = () => {
+  // Group runs by machine - memoized to avoid recomputation
+  const runsByMachine = createMemo(() => {
     const grouped = new Map<string, { nonJit?: BenchmarkRun; jit?: BenchmarkRun }>();
 
     props.runs.forEach(run => {
@@ -41,9 +41,9 @@ const DetailView: Component<DetailViewProps> = (props) => {
     });
 
     return filtered;
-  };
+  });
 
-  const availableMachines = () => Array.from(runsByMachine().keys()).sort();
+  const availableMachines = createMemo(() => Array.from(runsByMachine().keys()).sort());
   const [selectedTab, setSelectedTab] = createSignal<string>(
     availableMachines()[0] || 'compare'
   );
@@ -180,25 +180,13 @@ const DetailView: Component<DetailViewProps> = (props) => {
   const getSpeedupForMachine = (machine: string) => {
     const runs = runsByMachine().get(machine);
     if (!runs || !runs.jit.speedup) return null;
-
-    const speedup = runs.jit.speedup;
-    const roundedSpeedup = parseFloat(speedup.toFixed(2));
-
-    if (roundedSpeedup === 1.00) {
-      return { text: 'same speed', class: 'neutral' };
-    } else if (speedup >= 1.0) {
-      const percentFaster = ((speedup - 1) * 100).toFixed(1);
-      return { text: `${percentFaster}% faster`, class: 'faster' };
-    } else {
-      const percentSlower = ((1 - speedup) * 100).toFixed(1);
-      return { text: `${percentSlower}% slower`, class: 'slower' };
-    }
+    return formatSpeedupPercent(runs.jit.speedup);
   };
 
   return (
     <>
       <div class="back-button-container">
-        <button class="back-button" onClick={() => props.onBack()}>
+        <button class="back-button" onClick={props.onBack}>
           ← Back to Home
         </button>
       </div>
@@ -249,7 +237,7 @@ const DetailView: Component<DetailViewProps> = (props) => {
                     <Show when={speedupData !== null}>
                       <li>
                         <span class="label">Geometric Mean:</span>{' '}
-                        <span class={speedupData!.class}>{speedupData!.text}</span>
+                        <span class={speedupData!.className}>{speedupData!.text}</span>
                       </li>
                     </Show>
                     <Show when={runs.jit.hpt?.percentile_99}>
@@ -357,23 +345,8 @@ const DetailView: Component<DetailViewProps> = (props) => {
                       <For each={availableMachines()}>
                         {(machine) => {
                           const speedup = row.speedups[machine];
-                          if (speedup === null) return <td>-</td>;
-
-                          let className = 'neutral';
-                          let text = '';
-                          const roundedSpeedup = parseFloat(speedup.toFixed(2));
-
-                          if (roundedSpeedup === 1.00) {
-                            text = `${speedup.toFixed(2)}x`;
-                          } else if (speedup >= 1.0) {
-                            className = 'faster';
-                            text = `${speedup.toFixed(2)}x faster`;
-                          } else {
-                            className = 'slower';
-                            text = `${(1.0 / speedup).toFixed(2)}x slower`;
-                          }
-
-                          return <td class={className}>{text}</td>;
+                          const formatted = formatSpeedup(speedup);
+                          return <td class={formatted.className}>{formatted.text}</td>;
                         }}
                       </For>
                     </tr>
