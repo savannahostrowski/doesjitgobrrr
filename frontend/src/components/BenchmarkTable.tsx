@@ -1,6 +1,6 @@
 import { type Component, createSignal, For } from 'solid-js';
 import type { ComparisonRow, SortColumn, SortDirection } from '../types';
-import { formatTime, compareValues } from '../utils';
+import { formatTime, compareValues, formatSpeedup } from '../utils';
 
 interface BenchmarkTableProps {
   data: ComparisonRow[];
@@ -68,24 +68,9 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
     }
   };
 
-  const formatSpeedup = (benchmark: ComparisonRow) => {
-    if (benchmark.speedup === null) return { text: '-', class: 'neutral' };
-
-    const roundedSpeedup = parseFloat(benchmark.speedup.toFixed(2));
-
-    // Only neutral if rounds to exactly 1.00
-    if (roundedSpeedup === 1.00) {
-      return { text: '1.00x', class: 'neutral' };
-    }
-
-    // If speedup < 1.0, JIT is slower - show as reciprocal (slowdown)
-    if (benchmark.speedup < 1.0) {
-      const slowdown = 1.0 / benchmark.speedup;
-      return { text: slowdown.toFixed(2) + 'x slower', class: 'slower' };
-    } else {
-      // If speedup >= 1.0, JIT is faster
-      return { text: benchmark.speedup.toFixed(2) + 'x faster', class: 'faster' };
-    }
+  const formatBenchmarkSpeedup = (benchmark: ComparisonRow) => {
+    const result = formatSpeedup(benchmark.speedup);
+    return { text: result.text, class: result.className };
   };
 
   return (
@@ -159,7 +144,7 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
             <For each={filteredData()}>
               {(benchmark) => {
                 const diff = formatDiff(benchmark);
-                const speedup = formatSpeedup(benchmark);
+                const speedup = formatBenchmarkSpeedup(benchmark);
                 return (
                   <tr class={getRowClass(benchmark)}>
                     <td>{benchmark.name}</td>

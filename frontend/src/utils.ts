@@ -32,6 +32,53 @@ export function getArchitecture(machine: string): string {
   return 'aarch64';
 }
 
+export interface SpeedupDisplay {
+  text: string;
+  className: 'faster' | 'slower' | 'neutral';
+}
+
+/**
+ * Format a speedup value for display.
+ * Speedup > 1 means faster, < 1 means slower.
+ */
+export function formatSpeedup(speedup: number | null): SpeedupDisplay {
+  if (speedup === null) {
+    return { text: '-', className: 'neutral' };
+  }
+
+  const roundedSpeedup = parseFloat(speedup.toFixed(2));
+
+  if (roundedSpeedup === 1.00) {
+    return { text: '1.00x', className: 'neutral' };
+  } else if (speedup >= 1.0) {
+    return { text: `${speedup.toFixed(2)}x faster`, className: 'faster' };
+  } else {
+    const slowdown = 1.0 / speedup;
+    return { text: `${slowdown.toFixed(2)}x slower`, className: 'slower' };
+  }
+}
+
+/**
+ * Format speedup as a percentage change (e.g., "5.2% faster").
+ */
+export function formatSpeedupPercent(speedup: number | null): SpeedupDisplay {
+  if (speedup === null) {
+    return { text: '-', className: 'neutral' };
+  }
+
+  const roundedSpeedup = parseFloat(speedup.toFixed(2));
+
+  if (roundedSpeedup === 1.00) {
+    return { text: 'same speed', className: 'neutral' };
+  } else if (speedup >= 1.0) {
+    const percentFaster = ((speedup - 1) * 100).toFixed(1);
+    return { text: `${percentFaster}% faster`, className: 'faster' };
+  } else {
+    const percentSlower = ((1 - speedup) * 100).toFixed(1);
+    return { text: `${percentSlower}% slower`, className: 'slower' };
+  }
+}
+
 /**
  * Generic comparison function for sorting arrays with null-safe handling.
  * Null/undefined values are always sorted to the end.
