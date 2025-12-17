@@ -583,6 +583,7 @@ async def main():
                 await process_pair(client, interpreter_dir, jit_dir, i, len(pairs))
 
         # Process all pairs concurrently (limited by semaphore)
+        # Use 1-based indexing for pair numbers for logging, e.g. [1/N], [2/N], ...
         await asyncio.gather(
             *[process_with_semaphore((i, pair)) for i, pair in enumerate(pairs, 1)]
         )
