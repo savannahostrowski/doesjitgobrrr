@@ -1,5 +1,6 @@
 import asyncio
 import re
+import subprocess
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -65,91 +66,141 @@ def is_benchmark_json_file(filename: str) -> bool:
 
 
 async def compute_geometric_mean_per_machine(
-    client: httpx.AsyncClient, jit_dir: str
+    client: httpx.AsyncClient, interpreter_dir: str, jit_dir: str
 ) -> dict[str, float]:
     """
-    Extract per-machine geometric mean speedups from the README.md file.
-    We parse this out because there's a discrepancy between the overall geometric mean
-    in the README and the per-machine geometric means computed from the JSON files as a
-    result of skipping some benchmarks on some machines. In the future, I'll probably
-    fix this discrepancy by ensuring all benchmarks are run on all machines, but for now
-    we just extract the per-machine geometric means directly from the README.
+    Compute per-machine geometric mean speedups using pyperf compare_to.
 
     Returns a dict mapping machine name to geometric mean ratio.
-
-    The README has sections like:
-    linux aarch64 (blueberry)
-    ...
-    Geometric mean: 1.027x slower
-
-    linux x86_64 (ripley)
-    ...
-    Geometric mean: 1.005x faster
+    Ratio > 1.0 means JIT is faster.
     """
     try:
-        # Get the JIT directory contents to find README.md
+        # Get the JIT directory contents to find JSON files
         jit_contents = await client.get(
             f"{PYPERF_BENCH_REPO}/contents/results/{jit_dir}",
             headers=get_github_headers(),
         )
         jit_contents.raise_for_status()
 
-        # Find README.md file
-        readme_url: str | None = None
+        # Collect machine names from JSON files
+        machines_in_dir: list[str] = []
         for file in jit_contents.json():
-            if file["name"].upper() == "README.MD":
-                readme_url = file["download_url"]
-                break
+            if is_benchmark_json_file(file["name"]):
+                machine_match = re.search(r"-([^-]+)-[^-]+-python-", file["name"])
+                if machine_match:
+                    machines_in_dir.append(machine_match.group(1))
 
-        if not readme_url:
-            await log(f"Could not find README.md file in {jit_dir}")
-            return {}
-
-        # Download and parse the README
-        readme_response = await client.get(readme_url)
-        readme_response.raise_for_status()
-        readme_text = readme_response.text
-
-        # Parse per-machine geometric means
-        # Look for pattern: "linux <arch> (machine_name)" followed by "Geometric mean: X.XXXx slower/faster"
+        # Compute geomean for each machine using pyperf
         machine_geomeans: dict[str, float] = {}
-        current_machine: str | None = None
-
-        for line in readme_text.split("\n"):
-            # Match machine header: "linux aarch64 (blueberry)", "darwin arm64 (macbook)", etc.
-            # Pattern: <os> <arch> (machine_name)
-            machine_match = re.search(
-                r"(?:linux|darwin|windows)\s+[\w_]+\s+\((\w+)\)",
-                line,
-                re.IGNORECASE,
+        for machine in machines_in_dir:
+            geomean = await compute_geomean_with_pyperf(
+                client, interpreter_dir, jit_dir, machine
             )
-            if machine_match:
-                current_machine = machine_match.group(1)
-                continue
-
-            # Match geometric mean line within a machine section
-            if current_machine and "geometric mean:" in line.lower():
-                geomean_match = re.search(
-                    r"(\d+\.\d+)x\s+(slower|faster)", line, re.IGNORECASE
-                )
-                if geomean_match:
-                    value = float(geomean_match.group(1))
-                    direction = geomean_match.group(2).lower()
-
-                    # Convert to ratio (nonjit_time / jit_time)
-                    if direction == "slower":
-                        ratio = 1.0 - (value - 1.0)
-                    else:  # faster
-                        ratio = value
-
-                    machine_geomeans[current_machine] = ratio
-                    current_machine = None  # Reset after finding geomean
+            if geomean is not None:
+                machine_geomeans[machine] = geomean
+                await log(f"Computed geomean for {machine}: {geomean}")
 
         return machine_geomeans
 
     except Exception as e:
-        await log(f"Error extracting per-machine geometric means: {e}")
+        await log(f"Error computing geometric means: {e}")
         return {}
+
+
+def parse_pyperf_geomean(output: str) -> float | None:
+    """Parse geometric mean from pyperf compare_to output.
+
+    pyperf outputs multiple "Geometric mean" lines (one per category).
+    The LAST one is the overall geometric mean we want.
+    """
+    # Format: "Geometric mean: 1.06x faster" or "Geometric mean: 1.02x slower"
+    # Use findall to get ALL matches, then take the last one
+    matches = re.findall(r"Geometric mean:\s*(\d+\.\d+)x\s+(faster|slower)", output)
+    if matches:
+        value, direction = matches[-1]  # Take the last match
+        value = float(value)
+        # Return ratio where > 1.0 means JIT is faster
+        if direction == "slower":
+            return 1.0 / value  # e.g., 1.02x slower = 1/1.02 ≈ 0.98
+        return value
+    return None
+
+
+async def compute_geomean_with_pyperf(
+    client: httpx.AsyncClient, interpreter_dir: str, jit_dir: str, machine: str
+) -> float | None:
+    """
+    Compute geometric mean using pyperf compare_to.
+    Downloads JSON files for the specified machine and runs pyperf comparison.
+    """
+    try:
+        # Get directory contents
+        interpreter_resp, jit_resp = await asyncio.gather(
+            client.get(
+                f"{PYPERF_BENCH_REPO}/contents/results/{interpreter_dir}",
+                headers=get_github_headers(),
+            ),
+            client.get(
+                f"{PYPERF_BENCH_REPO}/contents/results/{jit_dir}",
+                headers=get_github_headers(),
+            ),
+        )
+        interpreter_resp.raise_for_status()
+        jit_resp.raise_for_status()
+
+        # Find JSON files for this machine
+        interpreter_json_url = None
+        jit_json_url = None
+
+        for f in interpreter_resp.json():
+            if is_benchmark_json_file(f["name"]) and f"-{machine}-" in f["name"]:
+                interpreter_json_url = f["download_url"]
+                break
+
+        for f in jit_resp.json():
+            if is_benchmark_json_file(f["name"]) and f"-{machine}-" in f["name"]:
+                jit_json_url = f["download_url"]
+                break
+
+        if not interpreter_json_url or not jit_json_url:
+            return None
+
+        # Download JSON files
+        interpreter_json_resp, jit_json_resp = await asyncio.gather(
+            client.get(interpreter_json_url), client.get(jit_json_url)
+        )
+        interpreter_json_resp.raise_for_status()
+        jit_json_resp.raise_for_status()
+
+        # Write to temp files and run pyperf compare_to
+        with (
+            tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as base_file,
+            tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as head_file,
+        ):
+            base_file.write(interpreter_json_resp.text)
+            head_file.write(jit_json_resp.text)
+            base_path = base_file.name
+            head_path = head_file.name
+
+        try:
+            result = subprocess.run(
+                ["pyperf", "compare_to", base_path, head_path],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            return parse_pyperf_geomean(result.stdout)
+        finally:
+            Path(base_path).unlink(missing_ok=True)
+            Path(head_path).unlink(missing_ok=True)
+
+    except Exception as e:
+        await log(f"Error computing geomean with pyperf for {machine}: {e}")
+        return None
 
 
 async def compute_hpt_comparison(
@@ -539,7 +590,7 @@ async def process_pair(
     # Run interpreter load, geometric mean extraction, and HPT comparison in parallel
     # (interpreter load doesn't depend on the other two)
     interpreter_task = load_benchmark_run(client, interpreter_dir)
-    geomean_task = compute_geometric_mean_per_machine(client, jit_dir)
+    geomean_task = compute_geometric_mean_per_machine(client, interpreter_dir, jit_dir)
     hpt_task = compute_hpt_comparison(client, interpreter_dir, jit_dir)
 
     # Wait for all three to complete
