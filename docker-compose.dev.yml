@@ -23,6 +23,9 @@ services:
       - "8000:8000"
     volumes:
       - ./api:/app
+      - /app/.venv
+    env_file:
+      - .env
     environment:
       - DATABASE_URL=postgresql+asyncpg://benchmarks:benchmarks@db:5432/benchmarks
       - PYTHONUNBUFFERED=1
