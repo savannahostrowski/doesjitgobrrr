@@ -11,17 +11,12 @@ RUN apt-get update && apt-get install -y \
 # Install uv
 RUN pip install uv
 
-# Copy only dependency files first
-COPY pyproject.toml .
-
-# Sync dependencies
-RUN uv sync
-
 # Create data directory
 RUN mkdir -p data
 
 # Expose port
 EXPOSE 8000
 
-# Run with uvicorn directly for hot-reloading
-CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Sync dependencies at startup, then run uvicorn
+# (uv sync is fast when deps are cached and handles volume-mounted pyproject.toml)
+CMD ["sh", "-c", "uv sync && uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude .venv --reload-exclude load_data.py"]

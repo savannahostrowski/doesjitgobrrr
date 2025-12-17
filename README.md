@@ -31,7 +31,7 @@ Pre-built multi-platform images are available on Docker Hub:
 
 ## Data Loading
 
-Benchmark data is automatically loaded via GitHub Actions via the `update-data.yml` workflow. This fetches benchmark results from [pyperf_bench](https://github.com/savannahostrowski/pyperf_bench), parses the JSON files, and stores them in the SQLite database.
+Benchmark data is automatically loaded via GitHub Actions via the `update-data.yml` workflow. This fetches benchmark results from [pyperf_bench](https://github.com/savannahostrowski/pyperf_bench), parses the JSON files, and stores them in the PostgreSQL database.
 
 ## License
 
