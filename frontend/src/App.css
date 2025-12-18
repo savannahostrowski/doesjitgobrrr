@@ -929,6 +929,17 @@ footer a:hover {
   opacity: 1;
 }
 
+.custom-goal-input.has-error input {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.custom-goal-error {
+  color: #ef4444;
+  font-size: 0.625rem;
+  white-space: nowrap;
+}
+
 .chart-loading {
   opacity: 0.5;
   pointer-events: none;

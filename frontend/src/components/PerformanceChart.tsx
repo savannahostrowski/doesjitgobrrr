@@ -1,4 +1,4 @@
-import { type Component, type Setter, onMount, onCleanup, createEffect, createMemo, For, on, Show } from 'solid-js';
+import { type Component, type Setter, onMount, onCleanup, createEffect, createMemo, createSignal, For, on, Show } from 'solid-js';
 import type { Data, Layout, Config, PlotlyHTMLElement } from 'plotly.js';
 
 import type { BenchmarkRun, DateRange, GoalLines } from '../types';
@@ -370,6 +370,7 @@ const MOBILE_BREAKPOINT = 768;
 const PerformanceChart: Component<PerformanceChartProps> = (props) => {
   let chartDiv: HTMLDivElement | undefined;
   const { theme } = useTheme();
+  const [customInputError, setCustomInputError] = createSignal<string | null>(null);
 
   // Parse dates once upfront for all JIT runs with valid speedup
   const parsedJitRuns = createMemo(() => {
@@ -498,32 +499,44 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
             <span class="goal-line-indicator" style={{ background: GOAL_LINE_COLORS[10] }} />
             10% (3.16)
           </button>
-          <div class={`custom-goal-input ${props.goalLines.custom !== null ? 'has-value' : ''}`}>
+          <div class={`custom-goal-input ${props.goalLines.custom !== null ? 'has-value' : ''} ${customInputError() ? 'has-error' : ''}`}>
             <span class="goal-line-indicator" style={{ background: GOAL_LINE_COLORS.custom }} />
             <input
               type="number"
               min={GOAL_LINE_MIN}
               max={GOAL_LINE_MAX}
-              step="0.5"
+              step="1"
               placeholder="Custom %"
               value={props.goalLines.custom !== null ? `${props.goalLines.custom}` : ''}
-              onChange={(e) => {
+              onKeyDown={(e) => {
+                // Block non-numeric keys (e, E, +, -, .)
+                if (['e', 'E', '+', '-', '.'].includes(e.key)) {
+                  e.preventDefault();
+                }
+              }}
+              onInput={(e) => {
                 const val = e.currentTarget.value;
                 if (val === '') {
+                  setCustomInputError(null);
                   props.onGoalLinesChange(prev => ({ ...prev, custom: null }));
                 } else {
-                  const num = parseFloat(val);
+                  const num = parseInt(val, 10);
                   if (isValidGoalValue(num)) {
+                    setCustomInputError(null);
                     props.onGoalLinesChange(prev => ({ ...prev, custom: num }));
                   } else {
-                    e.currentTarget.value = props.goalLines.custom?.toString() ?? '';
+                    setCustomInputError(`${GOAL_LINE_MIN}-${GOAL_LINE_MAX} only`);
                   }
                 }
               }}
+              onBlur={() => setCustomInputError(null)}
               disabled={props.isLoading}
-              title="Custom goal line (1-20%)"
+              title={`Custom goal line (${GOAL_LINE_MIN}-${GOAL_LINE_MAX}%)`}
             />
-            {props.goalLines.custom !== null && (
+            <Show when={customInputError()}>
+              <span class="custom-goal-error">{customInputError()}</span>
+            </Show>
+            <Show when={!customInputError() && props.goalLines.custom !== null}>
               <button
                 type="button"
                 class="custom-goal-clear"
@@ -532,7 +545,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
               >
                 ×
               </button>
-            )}
+            </Show>
           </div>
         </div>
       </div>
