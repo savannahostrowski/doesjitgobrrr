@@ -1,4 +1,4 @@
-import { type Component, type Setter, onMount, onCleanup, createEffect, createMemo, For, on } from 'solid-js';
+import { type Component, type Setter, onMount, onCleanup, createEffect, createMemo, For, on, Show } from 'solid-js';
 import type { Data, Layout, Config, PlotlyHTMLElement } from 'plotly.js';
 
 import type { BenchmarkRun, DateRange, GoalLines } from '../types';
@@ -402,6 +402,8 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
     const traces = createTraces(jitRunsByMachine, mode);
     const layout = createLayout(mode, props.goalLines);
 
+    // Capture the click handler to avoid stale closure issues
+    const onPointClick = props.onPointClick;
     Plotly.newPlot(chartDiv, traces, layout, PLOTLY_CONFIG).then(() => {
       // Add click handler for points after chart is created
       // @ts-expect-error - Plotly adds 'on' method to the div
@@ -410,8 +412,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           // Find first point with valid customdata
           for (const point of data.points) {
             if (point.customdata) {
-              // Access props.onPointClick directly to avoid stale closure
-              props.onPointClick(point.customdata);
+              onPointClick(point.customdata);
               return;
             }
           }
@@ -419,7 +420,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           const point = data.points[0];
           if (point.x) {
             const dateStr = new Date(point.x).toISOString().split('T')[0];
-            props.onPointClick(dateStr);
+            onPointClick(dateStr);
           }
         }
       });
@@ -450,6 +451,16 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
   return (
     <div class="chart-section">
       <div class="chart-controls">
+        <Show when={mostRecentDate()}>
+          {(latestDate) => (
+            <>
+              <a class="view-latest-link" href={`/run/${latestDate()}`}>
+                Latest ({latestDate()}) →
+              </a>
+              <span class="controls-divider">|</span>
+            </>
+          )}
+        </Show>
         <div class="date-range-filter">
           <For each={DATE_RANGE_OPTIONS}>
             {(option) => (
@@ -463,14 +474,15 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
             )}
           </For>
         </div>
+        <span class="controls-divider">|</span>
         <div class="goal-line-toggles">
-          <span class="goal-line-label">Goals:</span>
+          <span class="goal-label">Goals</span>
           <button
             type="button"
             class={`goal-line-btn ${props.goalLines.show5 ? 'active' : ''}`}
             onClick={() => props.onGoalLinesChange(prev => ({ ...prev, show5: !prev.show5 }))}
             disabled={props.isLoading}
-            title="Toggle 5% faster goal line"
+            title="5% faster (3.15 goal)"
           >
             <span class="goal-line-indicator" style={{ background: GOAL_LINE_COLORS[5] }} />
             5% (3.15)
@@ -480,59 +492,48 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
             class={`goal-line-btn ${props.goalLines.show10 ? 'active' : ''}`}
             onClick={() => props.onGoalLinesChange(prev => ({ ...prev, show10: !prev.show10 }))}
             disabled={props.isLoading}
-            title="Toggle 10% faster goal line"
+            title="10% faster (3.16 goal)"
           >
             <span class="goal-line-indicator" style={{ background: GOAL_LINE_COLORS[10] }} />
             10% (3.16)
           </button>
-          <div class="custom-goal-input">
+          <div class={`custom-goal-input ${props.goalLines.custom !== null ? 'has-value' : ''}`}>
             <span class="goal-line-indicator" style={{ background: GOAL_LINE_COLORS.custom }} />
-            <div class="custom-goal-field">
-              <input
-                type="number"
-                min={GOAL_LINE_MIN}
-                max={GOAL_LINE_MAX}
-                step="0.5"
-                placeholder="Custom"
-                value={props.goalLines.custom ?? ''}
-                onChange={(e) => {
-                  const val = e.currentTarget.value;
-                  if (val === '') {
-                    props.onGoalLinesChange(prev => ({ ...prev, custom: null }));
+            <input
+              type="number"
+              min={GOAL_LINE_MIN}
+              max={GOAL_LINE_MAX}
+              step="0.5"
+              placeholder="Custom %"
+              value={props.goalLines.custom !== null ? `${props.goalLines.custom}` : ''}
+              onChange={(e) => {
+                const val = e.currentTarget.value;
+                if (val === '') {
+                  props.onGoalLinesChange(prev => ({ ...prev, custom: null }));
+                } else {
+                  const num = parseFloat(val);
+                  if (isValidGoalValue(num)) {
+                    props.onGoalLinesChange(prev => ({ ...prev, custom: num }));
                   } else {
-                    const num = parseFloat(val);
-                    if (isValidGoalValue(num)) {
-                      props.onGoalLinesChange(prev => ({ ...prev, custom: num }));
-                    } else {
-                      // Reset input to previous valid value
-                      e.currentTarget.value = props.goalLines.custom?.toString() ?? '';
-                    }
+                    e.currentTarget.value = props.goalLines.custom?.toString() ?? '';
                   }
-                }}
-                disabled={props.isLoading}
-              />
-              <span class="custom-goal-suffix">%</span>
-            </div>
+                }
+              }}
+              disabled={props.isLoading}
+              title="Custom goal line (1-20%)"
+            />
             {props.goalLines.custom !== null && (
               <button
                 type="button"
                 class="custom-goal-clear"
                 onClick={() => props.onGoalLinesChange(prev => ({ ...prev, custom: null }))}
-                title="Clear custom goal"
+                title="Clear"
               >
                 ×
               </button>
             )}
           </div>
         </div>
-        {(() => {
-          const latestDate = mostRecentDate();
-          return latestDate && (
-            <a class="view-latest-link" href={`/run/${latestDate}`}>
-              View latest run ({latestDate}) &rarr;
-            </a>
-          );
-        })()}
       </div>
       <div class={`chart-container ${props.isLoading ? 'chart-loading' : ''}`}>
         <div ref={chartDiv} style={{ width: '100%', height: '100%', cursor: 'pointer' }} />

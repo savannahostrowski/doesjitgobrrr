@@ -44,9 +44,9 @@ const DetailView: Component<DetailViewProps> = (props) => {
   });
 
   const availableMachines = createMemo(() => Array.from(runsByMachine().keys()).sort());
-  const [selectedTab, setSelectedTab] = createSignal<string>(
-    availableMachines()[0] || 'compare'
-  );
+  // Initialize selectedTab lazily - use first machine or 'compare'
+  const getInitialTab = () => availableMachines()[0] || 'compare';
+  const [selectedTab, setSelectedTab] = createSignal<string>(getInitialTab());
 
   // Sorting state for comparison table
   type CompareSortColumn = 'name' | string; // string for machine names
@@ -186,7 +186,7 @@ const DetailView: Component<DetailViewProps> = (props) => {
   return (
     <>
       <div class="back-button-container">
-        <button class="back-button" onClick={props.onBack}>
+        <button class="back-button" onClick={() => props.onBack()}>
           ← Back to Home
         </button>
       </div>

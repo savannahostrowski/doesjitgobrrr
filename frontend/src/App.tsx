@@ -16,6 +16,11 @@ const GOAL_LINES_STORAGE_KEY = 'goalLines';
 
 /** Parse goal lines from a comma-separated string */
 function parseGoalLinesFromString(goals: string): GoalLines {
+  // Handle explicit "none" value
+  if (goals === 'none') {
+    return { show5: false, show10: false, custom: null };
+  }
+
   const values = goals.split(',');
 
   // Parse custom value - any number that's not 5 or 10
@@ -36,20 +41,25 @@ function parseGoalLinesFromString(goals: string): GoalLines {
   };
 }
 
-/** Parse goal lines from URL search params, falling back to sessionStorage */
-function parseGoalLines(params: URLSearchParams): GoalLines {
+/** Get initial goal lines from URL or localStorage */
+function getInitialGoalLines(): GoalLines {
+  const params = new globalThis.URLSearchParams(globalThis.location.search);
   const goals = params.get('goals');
   if (goals) return parseGoalLinesFromString(goals);
 
-  // Fallback to sessionStorage for persistence across navigation
+  // Fallback to localStorage for persistence across sessions
   try {
-    const stored = sessionStorage.getItem(GOAL_LINES_STORAGE_KEY);
+    const stored = globalThis.localStorage.getItem(GOAL_LINES_STORAGE_KEY);
+    if (stored === 'none') {
+      // User explicitly turned off all goals
+      return { show5: false, show10: false, custom: null };
+    }
     if (stored) return parseGoalLinesFromString(stored);
   } catch {
-    // sessionStorage may be unavailable in private browsing mode
+    // localStorage may be unavailable in private browsing mode
   }
 
-  // Default: show 5% goal line
+  // Default: show 5% goal line (only for first-time visitors)
   return { show5: true, show10: false, custom: null };
 }
 
@@ -71,24 +81,21 @@ const ChartView: Component = () => {
 
   // Initialize goal lines from URL
   const [goalLines, setGoalLines] = createSignal<GoalLines>(
-    parseGoalLines(new URLSearchParams(window.location.search))
+    getInitialGoalLines()
   );
 
-  // Sync goal lines to URL and sessionStorage
+  // Sync goal lines to URL and localStorage
   createEffect(() => {
     const serialized = serializeGoalLines(goalLines());
-    const cleanUrl = window.location.pathname + (serialized ? `?goals=${serialized}` : '');
-    window.history.replaceState(null, '', cleanUrl);
+    const cleanUrl = globalThis.location.pathname + (serialized ? `?goals=${serialized}` : '');
+    globalThis.history.replaceState(null, '', cleanUrl);
 
-    // Persist to sessionStorage for navigation
+    // Persist to localStorage for cross-session persistence
     try {
-      if (serialized) {
-        sessionStorage.setItem(GOAL_LINES_STORAGE_KEY, serialized);
-      } else {
-        sessionStorage.removeItem(GOAL_LINES_STORAGE_KEY);
-      }
+      // Store 'none' explicitly when all goals are off to distinguish from "never set"
+      globalThis.localStorage.setItem(GOAL_LINES_STORAGE_KEY, serialized || 'none');
     } catch {
-      // sessionStorage may be unavailable in private browsing mode
+      // localStorage may be unavailable in private browsing mode
     }
   });
 
