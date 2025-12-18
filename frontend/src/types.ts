@@ -48,3 +48,21 @@ export interface SortState {
   column: SortColumn;
   direction: SortDirection;
 }
+
+// Shared types for chart controls
+export type DateRange = 7 | 30 | 'all';
+
+export type GoalLines = {
+  show5: boolean;
+  show10: boolean;
+  custom: number | null;  // Custom percentage value, null when disabled
+};
+
+// Goal line validation constants
+export const GOAL_LINE_MIN = 1;
+export const GOAL_LINE_MAX = 20;
+
+/** Validate a custom goal line value */
+export function isValidGoalValue(num: number): boolean {
+  return !isNaN(num) && num >= GOAL_LINE_MIN && num <= GOAL_LINE_MAX;
+}
