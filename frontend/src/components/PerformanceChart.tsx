@@ -70,11 +70,12 @@ const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: 'all', label: 'All time' },
 ];
 
-// Goal line colors - keys match GoalLines properties (show5 -> 5, show10 -> 10)
+// Goal line colors - distinct from machine colors (purple, blue, green)
+// Using warm/neutral tones that work in both light and dark mode
 const GOAL_LINE_COLORS = {
-  5: '#22c55e',
-  10: '#eab308',
-  custom: '#f472b6',
+  5: '#f97316',      // orange - visible in both modes, distinct from data
+  10: '#ef4444',     // red - clear warning/goal color
+  custom: '#06b6d4', // cyan - complements purple theme, distinct from blue
 } as const;
 
 interface PerformanceChartProps {
