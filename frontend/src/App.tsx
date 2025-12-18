@@ -1,4 +1,4 @@
-import { type Component, createResource, createSignal, Show } from 'solid-js';
+import { type Component, createResource, createSignal, createEffect, Show } from 'solid-js';
 import { Router, Route, useNavigate, useParams, type RouteSectionProps } from '@solidjs/router';
 import { ThemeProvider } from './ThemeContext';
 import Header from './components/Header';
@@ -8,10 +8,59 @@ import About from './components/About';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorState from './components/ErrorState';
 import { fetchHistoricalByDate, fetchHistoricalSummary } from './api';
-import type { BenchmarkRun } from './types';
+import type { BenchmarkRun, DateRange, GoalLines } from './types';
+import { isValidGoalValue } from './types';
 import './App.css';
 
-type DateRange = 7 | 30 | 'all';
+const GOAL_LINES_STORAGE_KEY = 'goalLines';
+
+/** Parse goal lines from a comma-separated string */
+function parseGoalLinesFromString(goals: string): GoalLines {
+  const values = goals.split(',');
+
+  // Parse custom value - any number that's not 5 or 10
+  let custom: number | null = null;
+  for (const v of values) {
+    if (v !== '5' && v !== '10') {
+      const num = parseFloat(v);
+      if (isValidGoalValue(num)) {
+        custom = num;
+      }
+    }
+  }
+
+  return {
+    show5: values.includes('5'),
+    show10: values.includes('10'),
+    custom,
+  };
+}
+
+/** Parse goal lines from URL search params, falling back to sessionStorage */
+function parseGoalLines(params: URLSearchParams): GoalLines {
+  const goals = params.get('goals');
+  if (goals) return parseGoalLinesFromString(goals);
+
+  // Fallback to sessionStorage for persistence across navigation
+  try {
+    const stored = sessionStorage.getItem(GOAL_LINES_STORAGE_KEY);
+    if (stored) return parseGoalLinesFromString(stored);
+  } catch {
+    // sessionStorage may be unavailable in private browsing mode
+  }
+
+  // Default: show 5% goal line
+  return { show5: true, show10: false, custom: null };
+}
+
+/** Serialize goal lines to URL search param value */
+function serializeGoalLines(goalLines: GoalLines): string | null {
+  const values: string[] = [];
+  if (goalLines.show5) values.push('5');
+  if (goalLines.show10) values.push('10');
+  if (goalLines.custom !== null) values.push(String(goalLines.custom));
+  return values.length > 0 ? values.join(',') : null;
+}
 
 const ChartView: Component = () => {
   const navigate = useNavigate();
@@ -19,6 +68,29 @@ const ChartView: Component = () => {
   const [historicalData, { refetch }] = createResource(dateRange, (days) =>
     fetchHistoricalSummary(days === 'all' ? 1000 : days)
   );
+
+  // Initialize goal lines from URL
+  const [goalLines, setGoalLines] = createSignal<GoalLines>(
+    parseGoalLines(new URLSearchParams(window.location.search))
+  );
+
+  // Sync goal lines to URL and sessionStorage
+  createEffect(() => {
+    const serialized = serializeGoalLines(goalLines());
+    const cleanUrl = window.location.pathname + (serialized ? `?goals=${serialized}` : '');
+    window.history.replaceState(null, '', cleanUrl);
+
+    // Persist to sessionStorage for navigation
+    try {
+      if (serialized) {
+        sessionStorage.setItem(GOAL_LINES_STORAGE_KEY, serialized);
+      } else {
+        sessionStorage.removeItem(GOAL_LINES_STORAGE_KEY);
+      }
+    } catch {
+      // sessionStorage may be unavailable in private browsing mode
+    }
+  });
 
   // Flatten machines data into a single array
   const allRuns = () => {
@@ -53,6 +125,8 @@ const ChartView: Component = () => {
             onPointClick={handlePointClick}
             dateRange={dateRange()}
             onDateRangeChange={setDateRange}
+            goalLines={goalLines()}
+            onGoalLinesChange={setGoalLines}
             isLoading={historicalData.loading}
           />
         </div>
@@ -91,7 +165,7 @@ const DetailViewRoute: Component = () => {
     // This matches the chart's per-machine deduplication logic
     const machineLatestCommit = new Map<string, string>();
 
-    // For each machine, find its latest commit based on created_at
+    // For each machine, find its latest commit based on directory_name
     const byMachine = new Map<string, Map<string, BenchmarkRun[]>>();
     data.forEach(run => {
       const machine = run.machine || 'unknown';

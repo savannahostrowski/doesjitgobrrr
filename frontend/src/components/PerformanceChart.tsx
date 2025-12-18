@@ -1,7 +1,8 @@
 import { type Component, type Setter, onMount, onCleanup, createEffect, createMemo, For, on } from 'solid-js';
 import type { Data, Layout, Config, PlotlyHTMLElement } from 'plotly.js';
 
-import type { BenchmarkRun } from '../types';
+import type { BenchmarkRun, DateRange, GoalLines } from '../types';
+import { isValidGoalValue, GOAL_LINE_MIN, GOAL_LINE_MAX } from '../types';
 
 // Plotly is loaded via CDN in index.html
 declare const Plotly: {
@@ -16,12 +17,11 @@ declare const Plotly: {
 import { useTheme } from '../ThemeContext';
 import { getArchitecture } from '../utils';
 
-type DateRange = 7 | 30 | 'all';
-
 const MACHINE_COLORS: Record<string, string> = {
   'blueberry': '#a855f7',  // purple
   'ripley': '#3b82f6',     // blue
   'jones': '#10b981',      // green
+  'unknown': '#6b7280',    // gray fallback
 };
 
 // Theme colors
@@ -70,11 +70,20 @@ const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: 'all', label: 'All time' },
 ];
 
+// Goal line colors - keys match GoalLines properties (show5 -> 5, show10 -> 10)
+const GOAL_LINE_COLORS = {
+  5: '#22c55e',
+  10: '#eab308',
+  custom: '#f472b6',
+} as const;
+
 interface PerformanceChartProps {
   data: BenchmarkRun[];
   onPointClick: (dateStr: string) => void;
   dateRange: DateRange;
   onDateRangeChange: Setter<DateRange>;
+  goalLines: GoalLines;
+  onGoalLinesChange: Setter<GoalLines>;
   isLoading?: boolean;
 }
 
@@ -187,16 +196,109 @@ function createTraces(
 }
 
 /** Create Plotly layout configuration */
-function createLayout(mode: ThemeMode): Partial<Layout> {
+function createLayout(mode: ThemeMode, goalLines: GoalLines): Partial<Layout> {
   const textColor = COLORS.text[mode];
   const titleColor = COLORS.title[mode];
   const gridColor = COLORS.grid[mode];
 
-  const isMobile = window.innerWidth < 768;
+  const isMobile = window.innerWidth < MOBILE_BREAKPOINT;
   const titleSize = isMobile ? 14 : 18;
   const yAxisTitleSize = isMobile ? 11 : 14;
   const tickFontSize = isMobile ? 10 : 12;
   const leftMargin = isMobile ? 70 : 100;
+  const hasGoalLines = goalLines.show5 || goalLines.show10 || goalLines.custom !== null;
+  const rightMargin = hasGoalLines ? (isMobile ? 70 : 90) : 10;
+
+  // Build goal line shapes
+  const shapes: Partial<Layout>['shapes'] = [];
+  const annotations: Partial<Layout>['annotations'] = [];
+
+  if (goalLines.show5) {
+    shapes.push({
+      type: 'line',
+      xref: 'paper',
+      x0: 0,
+      x1: 1,
+      yref: 'y',
+      y0: -5,
+      y1: -5,
+      line: {
+        color: GOAL_LINE_COLORS[5],
+        width: 2,
+        dash: 'dash',
+      },
+    });
+    annotations.push({
+      xref: 'paper',
+      x: 1,
+      yref: 'y',
+      y: -5,
+      text: isMobile ? '5%' : '5% faster',
+      showarrow: false,
+      font: { color: GOAL_LINE_COLORS[5], size: 11 },
+      xanchor: 'left',
+      yanchor: 'middle',
+      xshift: 8,
+    });
+  }
+
+  if (goalLines.show10) {
+    shapes.push({
+      type: 'line',
+      xref: 'paper',
+      x0: 0,
+      x1: 1,
+      yref: 'y',
+      y0: -10,
+      y1: -10,
+      line: {
+        color: GOAL_LINE_COLORS[10],
+        width: 2,
+        dash: 'dash',
+      },
+    });
+    annotations.push({
+      xref: 'paper',
+      x: 1,
+      yref: 'y',
+      y: -10,
+      text: isMobile ? '10%' : '10% faster',
+      showarrow: false,
+      font: { color: GOAL_LINE_COLORS[10], size: 11 },
+      xanchor: 'left',
+      yanchor: 'middle',
+      xshift: 8,
+    });
+  }
+
+  if (goalLines.custom !== null) {
+    shapes.push({
+      type: 'line',
+      xref: 'paper',
+      x0: 0,
+      x1: 1,
+      yref: 'y',
+      y0: -goalLines.custom,
+      y1: -goalLines.custom,
+      line: {
+        color: GOAL_LINE_COLORS.custom,
+        width: 2,
+        dash: 'dash',
+      },
+    });
+    annotations.push({
+      xref: 'paper',
+      x: 1,
+      yref: 'y',
+      y: -goalLines.custom,
+      text: isMobile ? `${goalLines.custom}%` : `${goalLines.custom}% faster`,
+      showarrow: false,
+      font: { color: GOAL_LINE_COLORS.custom, size: 11 },
+      xanchor: 'left',
+      yanchor: 'middle',
+      xshift: 8,
+    });
+  }
 
   return {
     title: {
@@ -248,8 +350,10 @@ function createLayout(mode: ThemeMode): Partial<Layout> {
     },
     plot_bgcolor: 'rgba(0,0,0,0)',
     paper_bgcolor: 'rgba(0,0,0,0)',
-    margin: { t: isMobile ? 60 : 80, r: 10, b: 40, l: leftMargin },
+    margin: { t: isMobile ? 60 : 80, r: rightMargin, b: 40, l: leftMargin },
     autosize: true,
+    shapes,
+    annotations,
   };
 }
 
@@ -258,6 +362,9 @@ const PLOTLY_CONFIG: Partial<Config> = {
   displayModeBar: false,
   scrollZoom: false,
 };
+
+// Breakpoint for mobile layout (matches CSS media queries)
+const MOBILE_BREAKPOINT = 768;
 
 const PerformanceChart: Component<PerformanceChartProps> = (props) => {
   let chartDiv: HTMLDivElement | undefined;
@@ -293,7 +400,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
     const mode: ThemeMode = theme() === 'dark' ? 'dark' : 'light';
     const jitRunsByMachine = groupAndDeduplicateByMachine(parsedJitRuns());
     const traces = createTraces(jitRunsByMachine, mode);
-    const layout = createLayout(mode);
+    const layout = createLayout(mode, props.goalLines);
 
     Plotly.newPlot(chartDiv, traces, layout, PLOTLY_CONFIG).then(() => {
       // Add click handler for points after chart is created
@@ -324,7 +431,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
   });
 
   createEffect(
-    on([() => props.data, theme], () => {
+    on([() => props.data, theme, () => props.goalLines], () => {
       if (!chartDiv) {
         return;
       }
@@ -356,11 +463,76 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
             )}
           </For>
         </div>
-        {mostRecentDate() && (
-          <a class="view-latest-link" href={`/run/${mostRecentDate()}`}>
-            View latest run ({mostRecentDate()}) &rarr;
-          </a>
-        )}
+        <div class="goal-line-toggles">
+          <span class="goal-line-label">Goals:</span>
+          <button
+            type="button"
+            class={`goal-line-btn ${props.goalLines.show5 ? 'active' : ''}`}
+            onClick={() => props.onGoalLinesChange(prev => ({ ...prev, show5: !prev.show5 }))}
+            disabled={props.isLoading}
+            title="Toggle 5% faster goal line"
+          >
+            <span class="goal-line-indicator" style={{ background: GOAL_LINE_COLORS[5] }} />
+            5% (3.15)
+          </button>
+          <button
+            type="button"
+            class={`goal-line-btn ${props.goalLines.show10 ? 'active' : ''}`}
+            onClick={() => props.onGoalLinesChange(prev => ({ ...prev, show10: !prev.show10 }))}
+            disabled={props.isLoading}
+            title="Toggle 10% faster goal line"
+          >
+            <span class="goal-line-indicator" style={{ background: GOAL_LINE_COLORS[10] }} />
+            10% (3.16)
+          </button>
+          <div class="custom-goal-input">
+            <span class="goal-line-indicator" style={{ background: GOAL_LINE_COLORS.custom }} />
+            <div class="custom-goal-field">
+              <input
+                type="number"
+                min={GOAL_LINE_MIN}
+                max={GOAL_LINE_MAX}
+                step="0.5"
+                placeholder="Custom"
+                value={props.goalLines.custom ?? ''}
+                onChange={(e) => {
+                  const val = e.currentTarget.value;
+                  if (val === '') {
+                    props.onGoalLinesChange(prev => ({ ...prev, custom: null }));
+                  } else {
+                    const num = parseFloat(val);
+                    if (isValidGoalValue(num)) {
+                      props.onGoalLinesChange(prev => ({ ...prev, custom: num }));
+                    } else {
+                      // Reset input to previous valid value
+                      e.currentTarget.value = props.goalLines.custom?.toString() ?? '';
+                    }
+                  }
+                }}
+                disabled={props.isLoading}
+              />
+              <span class="custom-goal-suffix">%</span>
+            </div>
+            {props.goalLines.custom !== null && (
+              <button
+                type="button"
+                class="custom-goal-clear"
+                onClick={() => props.onGoalLinesChange(prev => ({ ...prev, custom: null }))}
+                title="Clear custom goal"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        </div>
+        {(() => {
+          const latestDate = mostRecentDate();
+          return latestDate && (
+            <a class="view-latest-link" href={`/run/${latestDate}`}>
+              View latest run ({latestDate}) &rarr;
+            </a>
+          );
+        })()}
       </div>
       <div class={`chart-container ${props.isLoading ? 'chart-loading' : ''}`}>
         <div ref={chartDiv} style={{ width: '100%', height: '100%', cursor: 'pointer' }} />
