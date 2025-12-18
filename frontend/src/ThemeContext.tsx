@@ -8,18 +8,36 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>();
+const THEME_STORAGE_KEY = 'theme';
+
+function getInitialTheme(): Theme {
+  try {
+    const stored = globalThis.localStorage.getItem(THEME_STORAGE_KEY);
+    if (stored === 'light' || stored === 'dark') {
+      return stored;
+    }
+  } catch {
+    // localStorage may be unavailable
+  }
+  return 'dark';
+}
 
 export const ThemeProvider: Component<ParentProps> = (props) => {
-  const [theme, setTheme] = createSignal<Theme>('dark');
+  const initialTheme = getInitialTheme();
+  const [theme, setTheme] = createSignal<Theme>(initialTheme);
 
   // Set initial theme immediately
-  document.documentElement.setAttribute('data-theme', 'dark');
+  document.documentElement.setAttribute('data-theme', initialTheme);
 
   const toggleTheme = () => {
     const newTheme = theme() === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
-    // Update immediately in the toggle handler
     document.documentElement.setAttribute('data-theme', newTheme);
+    try {
+      globalThis.localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    } catch {
+      // localStorage may be unavailable
+    }
   };
 
   return (

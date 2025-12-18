@@ -14,7 +14,7 @@ interface CachedData {
 
 function getCachedData(cacheKey: string): HistoricalResponse | null {
   try {
-    const cached = window.localStorage.getItem(cacheKey);
+    const cached = globalThis.localStorage.getItem(cacheKey);
     if (!cached) return null;
 
     const cachedData: CachedData = JSON.parse(cached);
@@ -27,18 +27,22 @@ function getCachedData(cacheKey: string): HistoricalResponse | null {
       const totalRuns = Object.values(machines).reduce((sum, runs) => sum + runs.length, 0);
       if (totalRuns === 0) {
         // Empty cache, remove it
-        window.localStorage.removeItem(cacheKey);
+        globalThis.localStorage.removeItem(cacheKey);
         return null;
       }
       return cachedData.data;
     }
 
     // Cache is stale, remove it
-    window.localStorage.removeItem(cacheKey);
+    globalThis.localStorage.removeItem(cacheKey);
     return null;
   } catch {
     // If there's any error parsing cache, just ignore it
-    window.localStorage.removeItem(cacheKey);
+    try {
+      globalThis.localStorage.removeItem(cacheKey);
+    } catch {
+      // localStorage may be unavailable
+    }
     return null;
   }
 }
@@ -49,10 +53,9 @@ function setCachedData(cacheKey: string, data: HistoricalResponse): void {
       data,
       timestamp: Date.now(),
     };
-    window.localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    globalThis.localStorage.setItem(cacheKey, JSON.stringify(cacheData));
   } catch {
-    // If localStorage is full or unavailable, just continue without caching
-    console.warn('Failed to cache data');
+    // localStorage may be full or unavailable
   }
 }
 
@@ -115,10 +118,14 @@ export async function fetchHistoricalByDate(date: string, forceRefresh = false):
 
 // Helper to clear the cache manually
 export function clearHistoricalDataCache(): void {
-  const keys = Object.keys(window.localStorage);
-  for (const key of keys) {
-    if (key.startsWith(CACHE_KEY_SUMMARY_PREFIX) || key.startsWith(CACHE_KEY_DATE_PREFIX)) {
-      window.localStorage.removeItem(key);
+  try {
+    const keys = Object.keys(globalThis.localStorage);
+    for (const key of keys) {
+      if (key.startsWith(CACHE_KEY_SUMMARY_PREFIX) || key.startsWith(CACHE_KEY_DATE_PREFIX)) {
+        globalThis.localStorage.removeItem(key);
+      }
     }
+  } catch {
+    // localStorage may be unavailable
   }
 }
