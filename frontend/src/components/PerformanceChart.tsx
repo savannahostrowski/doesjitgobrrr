@@ -21,6 +21,7 @@ const MACHINE_COLORS: Record<string, string> = {
   'blueberry': '#a855f7',  // purple
   'ripley': '#3b82f6',     // blue
   'jones': '#10b981',      // green
+  'prometheus': '#ec4899', // pink
   'unknown': '#6b7280',    // gray fallback
 };
 

@@ -100,6 +100,14 @@ const About: Component = () => {
             <li><strong>Name:</strong> "jones" is Ripley's cat in Alien!</li>
           </ul>
 
+          <h4>prometheus (x86_64)</h4>
+          <ul>
+            <li><strong>CPU:</strong> AMD Ryzen 5 3600X 6-Core Processor @ 3.80 GHz</li>
+            <li><strong>RAM:</strong> 16GB</li>
+            <li><strong>OS:</strong> Windows 11 Pro</li>
+            <li><strong>Name:</strong> "prometheus" is the ship in the Alien prequel!</li>
+          </ul>
+
           <h3>Contact</h3>
           <p>
             Questions or feedback? Feel free to reach out to me via email at 
