@@ -24,9 +24,9 @@ export function formatNumber(num: number | null | undefined): string {
 }
 
 export function getArchitecture(machine: string): string {
-  // ripley is x86_64, others default to aarch64
+  // ripley and prometheus are x86_64, others default to aarch64
   // This can be expanded as more machines are added
-  if (machine === 'ripley') {
+  if (machine === 'ripley' || machine === 'prometheus') {
     return 'x86_64';
   }
   return 'aarch64';
