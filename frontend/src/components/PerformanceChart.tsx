@@ -133,8 +133,12 @@ function createTraces(
   const sortedMachines = Array.from(jitRunsByMachine.entries())
     .sort((a, b) => a[0].localeCompare(b[0]));
 
-  const traces: Data[] = sortedMachines.map(([machine, runs]) => {
+  const traces: Data[] = sortedMachines.map(([machine, runs], index) => {
     const color = MACHINE_COLORS[machine] || MACHINE_COLORS['unknown'];
+    // Only show "Click to view details" hint on the last trace to avoid duplication in unified hover
+    const hoverHint = index === sortedMachines.length - 1
+      ? `<br><span style="font-size:11px;color:${COLORS.hintText}">Click to view details</span>`
+      : '';
 
     return {
       type: 'scatter' as const,
@@ -155,7 +159,7 @@ function createTraces(
         return 'same speed';
       }),
       customdata: runs.map(r => r.dateStr),
-      hovertemplate: `${machine}: %{text}<extra></extra>`,
+      hovertemplate: `${machine}: %{text}${hoverHint}<extra></extra>`,
       line: {
         color,
         width: 3,
@@ -171,26 +175,6 @@ function createTraces(
         },
       },
     };
-  });
-
-  // Add invisible trace for "Click to view details" hint
-  const uniqueDates = new Map<string, Date>();
-  jitRunsByMachine.forEach(runs => {
-    runs.forEach(r => uniqueDates.set(r.dateStr, r.parsedDate));
-  });
-  const sortedDateEntries = Array.from(uniqueDates.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]));
-
-  traces.push({
-    type: 'scatter' as const,
-    mode: 'markers' as const,
-    name: '',
-    x: sortedDateEntries.map(([, date]) => date),
-    y: sortedDateEntries.map(() => 0),
-    marker: { size: 0, color: 'transparent', line: { color: 'transparent', width: 0 } },
-    customdata: sortedDateEntries.map(([dateStr]) => dateStr),
-    hovertemplate: `<span style="font-size:11px;color:${COLORS.hintText}">Click to view details</span><extra></extra>`,
-    showlegend: false,
   });
 
   return traces;
