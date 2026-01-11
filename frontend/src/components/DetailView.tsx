@@ -165,7 +165,9 @@ const DetailView: Component<DetailViewProps> = (props) => {
   };
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('en-US', {
+    // Parse as UTC to avoid timezone issues
+    return new Date(dateStr.split('T')[0] + 'T00:00:00Z').toLocaleDateString('en-US', {
+      timeZone: 'UTC',
       year: 'numeric',
       month: 'long',
       day: 'numeric',

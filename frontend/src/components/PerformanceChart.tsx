@@ -362,11 +362,12 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
     return props.data
       .filter(r => r.is_jit && r.speedup !== null && r.speedup !== undefined)
       .map(r => {
-        const parsedDate = new Date(r.date);
+        const parsedDate = new Date(r.date.split('T')[0] + 'T00:00:00Z');
+        const dateStr = parsedDate.toISOString().split('T')[0];
         return {
           ...r,
           parsedDate,
-          dateStr: parsedDate.toISOString().split('T')[0],
+          dateStr,
         };
       }) as ParsedRun[];
   });
@@ -406,7 +407,8 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           // Fallback: use x value date
           const point = data.points[0];
           if (point.x) {
-            const dateStr = new Date(point.x).toISOString().split('T')[0];
+            // Parse as UTC to avoid timezone issues
+            const dateStr = new Date(String(point.x).split('T')[0] + 'T00:00:00Z').toISOString().split('T')[0];
             onPointClick(dateStr);
           }
         }
