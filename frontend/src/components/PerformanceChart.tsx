@@ -136,8 +136,7 @@ function createTraces(
 
   const traces: Data[] = sortedMachines.map(([machine, runs], index) => {
     const color = MACHINE_COLORS[machine] || MACHINE_COLORS['unknown'];
-    // Only show date on first trace and hint on last trace to avoid duplication in unified hover
-    const datePrefix = index === 0 ? '%{customdata}<br>' : '';
+    // Only show "Click to view details" hint on the last trace to avoid duplication in unified hover
     const hoverHint = index === sortedMachines.length - 1
       ? `<br><span style="font-size:11px;color:${COLORS.hintText}">Click to view details</span>`
       : '';
@@ -161,7 +160,7 @@ function createTraces(
         return 'same speed';
       }),
       customdata: runs.map(r => r.dateStr),
-      hovertemplate: `${datePrefix}${machine}: %{text}${hoverHint}<extra></extra>`,
+      hovertemplate: `${machine}: %{text}${hoverHint}<extra></extra>`,
       line: {
         color,
         width: 3,
