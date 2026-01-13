@@ -136,7 +136,8 @@ function createTraces(
 
   const traces: Data[] = sortedMachines.map(([machine, runs], index) => {
     const color = MACHINE_COLORS[machine] || MACHINE_COLORS['unknown'];
-    // Only show "Click to view details" hint on the last trace to avoid duplication in unified hover
+    // Only show date on first trace and hint on last trace to avoid duplication in unified hover
+    const datePrefix = index === 0 ? '%{customdata}<br>' : '';
     const hoverHint = index === sortedMachines.length - 1
       ? `<br><span style="font-size:11px;color:${COLORS.hintText}">Click to view details</span>`
       : '';
@@ -145,7 +146,7 @@ function createTraces(
       type: 'scatter' as const,
       mode: 'lines+markers' as const,
       name: `${machine} (${getArchitecture(machine)})`,
-      x: runs.map(r => r.parsedDate),
+      x: runs.map(r => r.dateStr),
       y: runs.map(r => {
         const speedup = r.speedup || 1.0;
         return (1 - speedup) * 100;
@@ -160,7 +161,7 @@ function createTraces(
         return 'same speed';
       }),
       customdata: runs.map(r => r.dateStr),
-      hovertemplate: `${machine}: %{text}${hoverHint}<extra></extra>`,
+      hovertemplate: `${datePrefix}${machine}: %{text}${hoverHint}<extra></extra>`,
       line: {
         color,
         width: 3,
@@ -302,7 +303,6 @@ function createLayout(mode: ThemeMode, goalLines: GoalLines): Partial<Layout> {
       gridcolor: gridColor,
       linecolor: gridColor,
       tickformat: '%b %d',
-      hoverformat: '%B %d, %Y',
     },
     yaxis: {
       title: {
