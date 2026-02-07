@@ -2,6 +2,39 @@ import { type Component, createSignal, For } from 'solid-js';
 import type { ComparisonRow, SortColumn, SortDirection } from '../types';
 import { formatTime, compareValues, formatSpeedup } from '../utils';
 
+
+const PYSTON_BENCHMARKS = new Set(['aiohttp', 'djangocms', 'flaskblogging', 'gevent_hub', 'gunicorn', 'json', 'mypy2', 'pycparser', 'pylint', 'pytorch_alexnet_inference', 'thrift']);
+const SPECIAL_BENCHMARK_NAME_MAPPING: Record<string, string[]> = {
+  'argparse': ['many_optionals', 'subparsers'],
+  'async_tree': ['async_tree_cpu_io_mixed', 'async_tree_cpu_io_mixed_tg', 'async_tree_io', 'async_tree_io_tg', 'async_tree_memoization', 'async_tree_memoization_tg', 'async_tree_none', 'async_tree_none_tg'],
+  'asyncio_tcp': ['asyncio_tcp', 'asyncio_tcp_ssl'],
+  'bench_thread_pool': ['concurrent_imap'],
+  'concurrent_imap': ['bench_mp_pool', 'bench_thread_pool'],
+  'deepcopy': ['deepcopy', 'deepcopy_memo', 'deepcopy_reduce'],
+  'gc_collect': ['create_gc_cycles'],
+  'genshi': ['genshi_text', 'genshi_xml'],
+  'logging': ['logging_format', 'logging_silent', 'logging_simple'],
+  'networkx': ['connected_components', 'shortest_path', 'k_core'],
+  'pickle': ['pickle_dict', 'pickle_list', 'pickle_pure_python', 'unpickle', 'unpickle_dict', 'unpickle_list', 'unpickle_pure_python'],
+  'pprint': ['pprint_pformat', 'pprint_safe_repr'],
+  'python_startup': ['python_startup', 'python_startup_no_site'],
+  'scimark': ['scimark_fft', 'scimark_lu', 'scimark_monte_carlo', 'scimark_sor', 'scimark_sparse_mat_mult'],
+  'sqlglot_v2': ['sqlglot_v2_optimize', 'sqlglot_v2_normalize', 'sqlglot_v2_parse', 'sqlglot_v2_transpile'],
+  'sympy': ['sympy_integrate', 'sympy_str', 'sympy_expand', 'sympy_sum'],
+  'xdsl': ['xdsl_constant_fold'],
+  'xml_etree': ['xml_etree_parse', 'xml_etree_generate', 'xml_etree_iterparse', 'xml_etree_process'],
+};
+
+function benchmarkNameUrl(benchmarkName: string): string {
+  if (PYSTON_BENCHMARKS.has(benchmarkName)) {
+    return `https://github.com/pyston/python-macrobenchmarks/blob/main/benchmarks/bm_${benchmarkName}/run_benchmark.py`;
+  }
+  const baseName = Object.entries(SPECIAL_BENCHMARK_NAME_MAPPING)
+    .find(([, variants]) => variants.includes(benchmarkName))?.[0] ?? benchmarkName;
+  return `https://github.com/python/pyperformance/tree/main/pyperformance/data-files/benchmarks/bm_${baseName}/run_benchmark.py`;
+}
+
+
 interface BenchmarkTableProps {
   data: ComparisonRow[];
   title?: string;
@@ -147,7 +180,7 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
                 const speedup = formatBenchmarkSpeedup(benchmark);
                 return (
                   <tr class={getRowClass(benchmark)}>
-                    <td>{benchmark.name}</td>
+                    <td><a href={benchmarkNameUrl(benchmark.name)} target="_blank" rel="noopener noreferrer">{benchmark.name}</a></td>
                     <td>{benchmark.nonjit_mean ? formatTime(benchmark.nonjit_mean) : '-'}</td>
                     <td>{benchmark.jit_mean ? formatTime(benchmark.jit_mean) : '-'}</td>
                     <td class={diff.class}>{diff.text}</td>
