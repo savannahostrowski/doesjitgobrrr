@@ -193,13 +193,26 @@ async def compute_geomean_with_pyperf(
                 text=True,
                 timeout=60,
             )
-            return parse_pyperf_geomean(result.stdout)
+            if result.returncode != 0:
+                await log(
+                    f"pyperf compare_to failed for {machine} "
+                    f"(exit code {result.returncode}): {result.stderr.strip()}"
+                )
+            geomean = parse_pyperf_geomean(result.stdout)
+            if geomean is None and result.stdout.strip():
+                await log(
+                    f"Could not parse geomean from pyperf output for {machine}: "
+                    f"{result.stdout[:200]}"
+                )
+            return geomean
         finally:
             Path(base_path).unlink(missing_ok=True)
             Path(head_path).unlink(missing_ok=True)
 
     except Exception as e:
-        await log(f"Error computing geomean with pyperf for {machine}: {e}")
+        await log(
+            f"Error computing geomean with pyperf for {machine}: {type(e).__name__}: {e}"
+        )
         return None
 
 
