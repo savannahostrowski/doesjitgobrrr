@@ -332,10 +332,36 @@ async def get_fork_from_directory(
 
 
 async def get_existing_directory_names() -> set[str]:
-    """Get all directory names already in the database."""
+    """Get directory names that are fully processed in the database.
+
+    A directory is considered fully processed only if all its JIT runs
+    have a non-null geometric_mean_speedup. This ensures pairs with
+    missing geomean data (e.g., due to transient failures) get re-processed.
+    """
     async with async_session_maker() as session:
-        result = await session.exec(select(BenchmarkRun.directory_name).distinct())
-        return set(result.all())
+        all_dirs_result = await session.exec(
+            select(BenchmarkRun.directory_name).distinct()
+        )
+        all_dirs = set(all_dirs_result.all())
+
+        # Find JIT directories that have at least one machine with null geomean
+        incomplete_result = await session.exec(
+            select(BenchmarkRun.directory_name)
+            .distinct()
+            .where(
+                BenchmarkRun.is_jit == True,  # noqa: E712
+                BenchmarkRun.geometric_mean_speedup == None,  # noqa: E711
+            )
+        )
+        incomplete_dirs = set(incomplete_result.all())
+
+        if incomplete_dirs:
+            print(
+                f"Found {len(incomplete_dirs)} JIT directories with missing geomean data, "
+                f"will re-process: {incomplete_dirs}"
+            )
+
+        return all_dirs - incomplete_dirs
 
 
 async def fetch_all_benchmark_pairs(
@@ -523,14 +549,28 @@ async def load_benchmark_run(
                     BenchmarkRun.machine == machine,
                 )
             )
-            if existing_result.first():
-                await log(
-                    f"BenchmarkRun for {dir_name} ({machine}) already exists, skipping."
-                )
-                continue
+            existing_run = existing_result.first()
 
             # Get this machine's geometric mean from the per-machine dict
             machine_geometric_mean = (geometric_mean_per_machine or {}).get(machine)
+
+            # If run exists and had null geomean but we now have one, update it
+            if existing_run:
+                if (
+                    existing_run.geometric_mean_speedup is None
+                    and machine_geometric_mean is not None
+                ):
+                    existing_run.geometric_mean_speedup = machine_geometric_mean
+                    session.add(existing_run)
+                    await session.commit()
+                    await log(
+                        f"Updated geomean for {dir_name} ({machine}): {machine_geometric_mean}"
+                    )
+                else:
+                    await log(
+                        f"BenchmarkRun for {dir_name} ({machine}) already exists, skipping."
+                    )
+                continue
 
             benchmark_run = BenchmarkRun(
                 directory_name=dir_name,
