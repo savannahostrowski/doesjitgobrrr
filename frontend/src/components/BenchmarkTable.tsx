@@ -8,6 +8,7 @@ const SPECIAL_BENCHMARK_NAME_MAPPING: Record<string, string[]> = {
   'argparse': ['many_optionals', 'subparsers'],
   'async_tree': ['async_tree_cpu_io_mixed', 'async_tree_cpu_io_mixed_tg', 'async_tree_io', 'async_tree_io_tg', 'async_tree_memoization', 'async_tree_memoization_tg', 'async_tree_none', 'async_tree_none_tg'],
   'asyncio_tcp': ['asyncio_tcp', 'asyncio_tcp_ssl'],
+  'base64': ['ascii85_large', 'ascii85_small','base16_large', 'base16_small', 'base32_large', 'base32_small', 'base64_large', 'base64_small', 'base85_large', 'base85_small'],
   'bench_thread_pool': ['concurrent_imap'],
   'concurrent_imap': ['bench_mp_pool', 'bench_thread_pool'],
   'deepcopy': ['deepcopy', 'deepcopy_memo', 'deepcopy_reduce'],
