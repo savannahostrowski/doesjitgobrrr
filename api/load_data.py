@@ -663,8 +663,10 @@ async def process_pair(
 async def main():
     await init_db()
 
-    # Use a single shared HTTP client with connection pooling
+    # Use a single shared HTTP client with connection pooling and retries
+    transport = httpx.AsyncHTTPTransport(retries=3)
     async with httpx.AsyncClient(
+        transport=transport,
         limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
         timeout=httpx.Timeout(60.0),
     ) as client:
