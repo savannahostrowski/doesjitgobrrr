@@ -33,6 +33,18 @@ export interface HistoricalResponse {
   machines: Record<string, BenchmarkRun[]>;  // Grouped by machine name
 }
 
+export interface MachineInfo {
+  description: string;
+  os: string;
+  arch: string;
+  color: string;
+  repo: string;
+  owner: string;
+  owner_email: string;
+}
+
+export type MachinesMap = Record<string, MachineInfo>;
+
 export interface ComparisonRow {
   name: string;
   nonjit_mean: number | null;

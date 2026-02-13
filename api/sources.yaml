@@ -1,0 +1,26 @@
+sources:
+  - repo: "savannahostrowski/pyperf_bench"
+    owner: "Savannah Ostrowski"
+    owner_email: "savannah@python.org"
+    fork_filter: "python"
+    machines:
+      blueberry:
+        description: "Raspberry Pi 5, 8GB RAM, 256GB SSD"
+        os: "Debian GNU/Linux 12 (bookworm)"
+        arch: "aarch64"
+        color: "#a855f7"
+      ripley:
+        description: "Intel i5-8400 @ 2.80GHz, 8GB RAM, 500GB SSD"
+        os: "Ubuntu 24.04"
+        arch: "x86_64"
+        color: "#3b82f6"
+      jones:
+        description: "Apple M3 Pro, 18GB RAM, 512GB SSD"
+        os: "macOS"
+        arch: "aarch64"
+        color: "#10b981"
+      prometheus:
+        description: "AMD Ryzen 5 3600X @ 3.80GHz, 16GB RAM"
+        os: "Windows 11 Pro"
+        arch: "x86_64"
+        color: "#ec4899"

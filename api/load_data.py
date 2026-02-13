@@ -1,4 +1,5 @@
 import asyncio
+import json
 import re
 import subprocess
 import tempfile
@@ -23,6 +24,23 @@ from sqlmodel import select
 PATTERN = r"bm-(\d{8})-([\d\.a-z\+]+)-([a-f0-9]+)(?:-(JIT,TAILCALL|JIT|TAILCALL))?"
 GITHUB_TOKEN = get_github_token()
 MAX_CONCURRENT_PAIRS = 10
+
+# Benchmarks excluded from geomean calculation (sourced from bench_runner.toml)
+EXCLUDED_BENCHMARKS = [
+    "aiohttp",
+    "asyncio_tcp",
+    "asyncio_tcp_ssl",
+    "bench_mp_pool",
+    "concurrent_imap",
+    "deepcopy_reduce",
+    "logging_silent",
+    "pickle",
+    "pickle_dict",
+    "pickle_list",
+    "unpack_sequence",
+    "unpickle",
+    "unpickle_list",
+]
 
 # Lock for thread-safe printing
 print_lock = asyncio.Lock()
@@ -169,29 +187,35 @@ class DataLoader:
         total_pairs: int,
     ):
         """Process a single interpreter/JIT pair."""
-        await log(
-            f"\n[{pair_num}/{total_pairs}] Processing pair: {interpreter_dir} and {jit_dir}"
-        )
+        try:
+            await log(
+                f"\n[{pair_num}/{total_pairs}] Processing pair: {interpreter_dir} and {jit_dir}"
+            )
 
-        # Run interpreter load, geometric mean extraction, and HPT comparison in parallel
-        # (interpreter load doesn't depend on the other two)
-        interpreter_task = self._load_benchmark_run(interpreter_dir)
-        geomean_task = self._compute_geometric_mean_per_machine(
-            interpreter_dir, jit_dir
-        )
-        hpt_task = self._compute_hpt_comparison(interpreter_dir, jit_dir)
+            # Run interpreter load, geometric mean extraction, and HPT comparison in parallel
+            # (interpreter load doesn't depend on the other two)
+            interpreter_task = self._load_benchmark_run(interpreter_dir)
+            geomean_task = self._compute_geometric_mean_per_machine(
+                interpreter_dir, jit_dir
+            )
+            hpt_task = self._compute_hpt_comparison(interpreter_dir, jit_dir)
 
-        # Wait for all three to complete
-        _, geometric_mean_per_machine, hpt_data = await asyncio.gather(
-            interpreter_task, geomean_task, hpt_task
-        )
+            # Wait for all three to complete
+            _, geometric_mean_per_machine, hpt_data = await asyncio.gather(
+                interpreter_task, geomean_task, hpt_task
+            )
 
-        # Load JIT run with the computed data
-        await self._load_benchmark_run(
-            jit_dir,
-            hpt_data=hpt_data,
-            geometric_mean_per_machine=geometric_mean_per_machine,
-        )
+            # Load JIT run with the computed data
+            await self._load_benchmark_run(
+                jit_dir,
+                hpt_data=hpt_data,
+                geometric_mean_per_machine=geometric_mean_per_machine,
+            )
+        except Exception as e:
+            await log(
+                f"[{pair_num}/{total_pairs}] Error processing pair "
+                f"{interpreter_dir} / {jit_dir}: {e}"
+            )
 
     async def _compute_geometric_mean_per_machine(
         self, interpreter_dir: str, jit_dir: str
@@ -280,7 +304,17 @@ class DataLoader:
             interpreter_json_resp.raise_for_status()
             jit_json_resp.raise_for_status()
 
-            # Write to temp files and run pyperf compare_to
+            # Filter out excluded benchmarks from JSON data
+            def filter_benchmarks(raw_json: str) -> str:
+                data = json.loads(raw_json)
+                data["benchmarks"] = [
+                    b
+                    for b in data.get("benchmarks", [])
+                    if b.get("metadata", {}).get("name") not in EXCLUDED_BENCHMARKS
+                ]
+                return json.dumps(data)
+
+            # Write filtered data to temp files and run pyperf compare_to
             with (
                 tempfile.NamedTemporaryFile(
                     mode="w", suffix=".json", delete=False
@@ -289,8 +323,8 @@ class DataLoader:
                     mode="w", suffix=".json", delete=False
                 ) as head_file,
             ):
-                base_file.write(interpreter_json_resp.text)
-                head_file.write(jit_json_resp.text)
+                base_file.write(filter_benchmarks(interpreter_json_resp.text))
+                head_file.write(filter_benchmarks(jit_json_resp.text))
                 base_path = base_file.name
                 head_path = head_file.name
 
@@ -705,6 +739,6 @@ class DataLoader:
 
 
 if __name__ == "__main__":
-    path = Path(__file__).parent.parent / "sources.yaml"
+    path = Path(__file__).parent / "sources.yaml"
     loader = DataLoader(path)
     asyncio.run(loader.run())

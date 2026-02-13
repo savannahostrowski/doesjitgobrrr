@@ -23,15 +23,6 @@ export function formatNumber(num: number | null | undefined): string {
   return num.toFixed(6);
 }
 
-export function getArchitecture(machine: string): string {
-  // ripley and prometheus are x86_64, others default to aarch64
-  // This can be expanded as more machines are added
-  if (machine === 'ripley' || machine === 'prometheus') {
-    return 'x86_64';
-  }
-  return 'aarch64';
-}
-
 export interface SpeedupDisplay {
   text: string;
   className: 'faster' | 'slower' | 'neutral';

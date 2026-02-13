@@ -108,6 +108,7 @@ dependencies = [
     { name = "httpx" },
     { name = "numpy" },
     { name = "pyperf" },
+    { name = "pyyaml" },
     { name = "sqlmodel" },
 ]
 
@@ -127,6 +128,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "numpy", specifier = ">=2.0.0" },
     { name = "pyperf", specifier = ">=2.7.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "sqlmodel", specifier = ">=0.0.27" },
 ]
 

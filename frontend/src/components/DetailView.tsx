@@ -1,7 +1,8 @@
-import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
+import { type Component, createMemo, createSignal, createResource, For, Show } from 'solid-js';
 import type { BenchmarkRun, ComparisonRow } from '../types';
 import BenchmarkTable from './BenchmarkTable';
-import { getArchitecture, compareValues, formatSpeedup, formatSpeedupPercent } from '../utils';
+import { compareValues, formatSpeedup, formatSpeedupPercent } from '../utils';
+import { fetchMachines } from '../api';
 
 interface DetailViewProps {
   runs: BenchmarkRun[];
@@ -14,6 +15,8 @@ interface MachineComparisonRow {
 }
 
 const DetailView: Component<DetailViewProps> = (props) => {
+  const [machines] = createResource(fetchMachines);
+
   // Group runs by machine - memoized to avoid recomputation
   const runsByMachine = createMemo(() => {
     const grouped = new Map<string, { nonJit?: BenchmarkRun; jit?: BenchmarkRun }>();
@@ -175,8 +178,10 @@ const DetailView: Component<DetailViewProps> = (props) => {
   };
 
   const getRawDataUrl = (run: BenchmarkRun) => {
-    // Use the directory name directly from the database
-    return `https://github.com/savannahostrowski/pyperf_bench/tree/main/results/${run.directory_name}`;
+    const repo = machines()?.[run.machine]?.repo;
+    return repo
+      ? `https://github.com/${repo}/tree/main/results/${run.directory_name}`
+      : `#`;
   };
 
   const getSpeedupForMachine = (machine: string) => {
@@ -227,7 +232,7 @@ const DetailView: Component<DetailViewProps> = (props) => {
               return (
                 <div class="machine-stats-card">
                   <h3 class="machine-stats-heading">
-                    <span>{machine} ({getArchitecture(machine)})</span>
+                    <span>{machine} ({machines()?.[machine]?.arch || 'unknown'})</span>
                     <Show when={hasTailcall}>
                       <span class="badge tailcall">tail calls enabled</span>
                     </Show>
@@ -282,7 +287,7 @@ const DetailView: Component<DetailViewProps> = (props) => {
                 class={selectedTab() === machine ? 'tab active' : 'tab'}
                 onClick={() => setSelectedTab(machine)}
               >
-                {machine} ({getArchitecture(machine)})
+                {machine} ({machines()?.[machine]?.arch || 'unknown'})
               </button>
             )}
           </For>
