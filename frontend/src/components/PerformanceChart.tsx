@@ -1,8 +1,9 @@
-import { type Component, type Setter, onMount, onCleanup, createEffect, createMemo, createSignal, For, on, Show } from 'solid-js';
+import { type Component, type Setter, onMount, onCleanup, createEffect, createMemo, createSignal, createResource, For, on, Show } from 'solid-js';
 import type { Data, Layout, Config, PlotlyHTMLElement } from 'plotly.js';
 
-import type { BenchmarkRun, DateRange, GoalLines } from '../types';
+import type { BenchmarkRun, DateRange, GoalLines, MachinesMap } from '../types';
 import { isValidGoalValue, GOAL_LINE_MIN, GOAL_LINE_MAX } from '../types';
+import { fetchMachines } from '../api';
 
 // Plotly is loaded via CDN in index.html
 declare const Plotly: {
@@ -15,15 +16,8 @@ declare const Plotly: {
   purge(element: HTMLDivElement): void;
 };
 import { useTheme } from '../ThemeContext';
-import { getArchitecture } from '../utils';
 
-const MACHINE_COLORS: Record<string, string> = {
-  'blueberry': '#a855f7',  // purple
-  'ripley': '#3b82f6',     // blue
-  'jones': '#10b981',      // green
-  'prometheus': '#ec4899', // pink
-  'unknown': '#6b7280',    // gray fallback
-};
+const DEFAULT_COLOR = '#6b7280';
 
 // Theme colors
 const COLORS = {
@@ -129,13 +123,15 @@ function groupAndDeduplicateByMachine(runs: ParsedRun[]): Map<string, ParsedRun[
 /** Create Plotly traces from grouped machine data */
 function createTraces(
   jitRunsByMachine: Map<string, ParsedRun[]>,
-  mode: ThemeMode
+  mode: ThemeMode,
+  machines: MachinesMap
 ): Data[] {
   const sortedMachines = Array.from(jitRunsByMachine.entries())
     .sort((a, b) => a[0].localeCompare(b[0]));
 
   const traces: Data[] = sortedMachines.map(([machine, runs], index) => {
-    const color = MACHINE_COLORS[machine] || MACHINE_COLORS['unknown'];
+    const color = machines[machine]?.color || DEFAULT_COLOR;
+    const arch = machines[machine]?.arch || 'unknown';
     // Only show "Click to view details" hint on the last trace to avoid duplication in unified hover
     const hoverHint = index === sortedMachines.length - 1
       ? `<br><span style="font-size:11px;color:${COLORS.hintText}">Click to view details</span>`
@@ -144,7 +140,7 @@ function createTraces(
     return {
       type: 'scatter' as const,
       mode: 'lines+markers' as const,
-      name: `${machine} (${getArchitecture(machine)})`,
+      name: `${machine} (${arch})`,
       x: runs.map(r => r.dateStr),
       y: runs.map(r => {
         const speedup = r.speedup || 1.0;
@@ -355,6 +351,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
   let chartDiv: HTMLDivElement | undefined;
   const { theme } = useTheme();
   const [customInputError, setCustomInputError] = createSignal<string | null>(null);
+  const [machines] = createResource(fetchMachines);
 
   // Parse dates once upfront for all JIT runs with valid speedup
   const parsedJitRuns = createMemo(() => {
@@ -386,7 +383,8 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
 
     const mode: ThemeMode = theme() === 'dark' ? 'dark' : 'light';
     const jitRunsByMachine = groupAndDeduplicateByMachine(parsedJitRuns());
-    const traces = createTraces(jitRunsByMachine, mode);
+    const machinesData = machines() || {};
+    const traces = createTraces(jitRunsByMachine, mode, machinesData);
     const layout = createLayout(mode, props.goalLines);
 
     // Capture the click handler to avoid stale closure issues
@@ -420,7 +418,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
   });
 
   createEffect(
-    on([() => props.data, theme, () => props.goalLines], () => {
+    on([() => props.data, theme, () => props.goalLines, machines], () => {
       if (!chartDiv) {
         return;
       }
@@ -539,11 +537,11 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
         <div ref={chartDiv} style={{ width: '100%', height: '100%', cursor: 'pointer' }} />
       </div>
       <div class="chart-legend">
-        <For each={Object.entries(MACHINE_COLORS).filter(([m]) => m !== 'unknown')}>
-          {([machine, color]) => (
+        <For each={Object.entries(machines() || {})}>
+          {([machine, info]) => (
             <div class="legend-item">
-              <span class="legend-color" style={{ background: color }} />
-              <span class="legend-label">{machine} ({getArchitecture(machine)})</span>
+              <span class="legend-color" style={{ background: info.color }} />
+              <span class="legend-label">{machine} ({info.arch})</span>
             </div>
           )}
         </For>

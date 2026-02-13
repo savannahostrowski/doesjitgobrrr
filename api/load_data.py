@@ -1,7 +1,9 @@
 import asyncio
+import json
 import re
 import subprocess
 import tempfile
+import yaml
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -12,7 +14,6 @@ from database import async_session_maker, get_github_token, init_db
 from models import Benchmark, BenchmarkRun, compute_benchmark_statistics
 from sqlmodel import select
 
-PYPERF_BENCH_REPO = "https://api.github.com/repos/savannahostrowski/pyperf_bench"
 
 # Filter for benchmark result directories. Pattern: bm-YYYYMMDD-VERSION-HASH[-JIT][,TAILCALL][-TAILCALL]
 # Examples:
@@ -21,12 +22,25 @@ PYPERF_BENCH_REPO = "https://api.github.com/repos/savannahostrowski/pyperf_bench
 #   bm-20251215-3.15.0a2+-bef63d2-TAILCALL (interpreter + tailcall)
 #   bm-20251215-3.15.0a2+-bef63d2-JIT,TAILCALL (JIT + tailcall)
 PATTERN = r"bm-(\d{8})-([\d\.a-z\+]+)-([a-f0-9]+)(?:-(JIT,TAILCALL|JIT|TAILCALL))?"
-
-# Get GitHub token from Docker secret or environment variable
 GITHUB_TOKEN = get_github_token()
-
-# Limit concurrent pairs (with a GitHub token, 5000 req/hr is plenty)
 MAX_CONCURRENT_PAIRS = 10
+
+# Benchmarks excluded from geomean calculation (sourced from bench_runner.toml)
+EXCLUDED_BENCHMARKS = [
+    "aiohttp",
+    "asyncio_tcp",
+    "asyncio_tcp_ssl",
+    "bench_mp_pool",
+    "concurrent_imap",
+    "deepcopy_reduce",
+    "logging_silent",
+    "pickle",
+    "pickle_dict",
+    "pickle_list",
+    "unpack_sequence",
+    "unpickle",
+    "unpickle_list",
+]
 
 # Lock for thread-safe printing
 print_lock = asyncio.Lock()
@@ -65,48 +79,6 @@ def is_benchmark_json_file(filename: str) -> bool:
     )
 
 
-async def compute_geometric_mean_per_machine(
-    client: httpx.AsyncClient, interpreter_dir: str, jit_dir: str
-) -> dict[str, float]:
-    """
-    Compute per-machine geometric mean speedups using pyperf compare_to.
-
-    Returns a dict mapping machine name to geometric mean ratio.
-    Ratio > 1.0 means JIT is faster.
-    """
-    try:
-        # Get the JIT directory contents to find JSON files
-        jit_contents = await client.get(
-            f"{PYPERF_BENCH_REPO}/contents/results/{jit_dir}",
-            headers=get_github_headers(),
-        )
-        jit_contents.raise_for_status()
-
-        # Collect machine names from JSON files
-        machines_in_dir: list[str] = []
-        for file in jit_contents.json():
-            if is_benchmark_json_file(file["name"]):
-                machine_match = re.search(r"-([^-]+)-[^-]+-python-", file["name"])
-                if machine_match:
-                    machines_in_dir.append(machine_match.group(1))
-
-        # Compute geomean for each machine using pyperf
-        machine_geomeans: dict[str, float] = {}
-        for machine in machines_in_dir:
-            geomean = await compute_geomean_with_pyperf(
-                client, interpreter_dir, jit_dir, machine
-            )
-            if geomean is not None:
-                machine_geomeans[machine] = geomean
-                await log(f"Computed geomean for {machine}: {geomean}")
-
-        return machine_geomeans
-
-    except Exception as e:
-        await log(f"Error computing geometric means: {e}")
-        return {}
-
-
 def parse_pyperf_geomean(output: str) -> float | None:
     """Parse geometric mean from pyperf compare_to output.
 
@@ -124,224 +96,6 @@ def parse_pyperf_geomean(output: str) -> float | None:
             return 1.0 / value  # e.g., 1.02x slower = 1/1.02 ≈ 0.98
         return value
     return None
-
-
-async def compute_geomean_with_pyperf(
-    client: httpx.AsyncClient, interpreter_dir: str, jit_dir: str, machine: str
-) -> float | None:
-    """
-    Compute geometric mean using pyperf compare_to.
-    Downloads JSON files for the specified machine and runs pyperf comparison.
-    """
-    try:
-        # Get directory contents
-        interpreter_resp, jit_resp = await asyncio.gather(
-            client.get(
-                f"{PYPERF_BENCH_REPO}/contents/results/{interpreter_dir}",
-                headers=get_github_headers(),
-            ),
-            client.get(
-                f"{PYPERF_BENCH_REPO}/contents/results/{jit_dir}",
-                headers=get_github_headers(),
-            ),
-        )
-        interpreter_resp.raise_for_status()
-        jit_resp.raise_for_status()
-
-        # Find JSON files for this machine
-        interpreter_json_url = None
-        jit_json_url = None
-
-        for f in interpreter_resp.json():
-            if is_benchmark_json_file(f["name"]) and f"-{machine}-" in f["name"]:
-                interpreter_json_url = f["download_url"]
-                break
-
-        for f in jit_resp.json():
-            if is_benchmark_json_file(f["name"]) and f"-{machine}-" in f["name"]:
-                jit_json_url = f["download_url"]
-                break
-
-        if not interpreter_json_url or not jit_json_url:
-            return None
-
-        # Download JSON files
-        interpreter_json_resp, jit_json_resp = await asyncio.gather(
-            client.get(interpreter_json_url), client.get(jit_json_url)
-        )
-        interpreter_json_resp.raise_for_status()
-        jit_json_resp.raise_for_status()
-
-        # Write to temp files and run pyperf compare_to
-        with (
-            tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False
-            ) as base_file,
-            tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False
-            ) as head_file,
-        ):
-            base_file.write(interpreter_json_resp.text)
-            head_file.write(jit_json_resp.text)
-            base_path = base_file.name
-            head_path = head_file.name
-
-        try:
-            result = subprocess.run(
-                ["pyperf", "compare_to", base_path, head_path],
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-            if result.returncode != 0:
-                await log(
-                    f"pyperf compare_to failed for {machine} "
-                    f"(exit code {result.returncode}): {result.stderr.strip()}"
-                )
-            geomean = parse_pyperf_geomean(result.stdout)
-            if geomean is None and result.stdout.strip():
-                await log(
-                    f"Could not parse geomean from pyperf output for {machine}: "
-                    f"{result.stdout[:200]}"
-                )
-            return geomean
-        finally:
-            Path(base_path).unlink(missing_ok=True)
-            Path(head_path).unlink(missing_ok=True)
-
-    except Exception as e:
-        await log(
-            f"Error computing geomean with pyperf for {machine}: {type(e).__name__}: {e}"
-        )
-        return None
-
-
-async def compute_hpt_comparison(
-    client: httpx.AsyncClient, interpreter_dir: str, jit_dir: str
-) -> dict[str, float] | None:
-    """
-    Download JSON files for both runs and compute HPT comparison.
-    Returns dict with reliability and percentiles, or None if comparison fails.
-    """
-    try:
-        # Get directory contents in parallel
-        interpreter_contents, jit_contents = await asyncio.gather(
-            client.get(
-                f"{PYPERF_BENCH_REPO}/contents/results/{interpreter_dir}",
-                headers=get_github_headers(),
-            ),
-            client.get(
-                f"{PYPERF_BENCH_REPO}/contents/results/{jit_dir}",
-                headers=get_github_headers(),
-            ),
-        )
-        interpreter_contents.raise_for_status()
-        jit_contents.raise_for_status()
-
-        # Find JSON file URLs
-        interpreter_json_url = None
-        jit_json_url = None
-
-        for file in interpreter_contents.json():
-            if is_benchmark_json_file(file["name"]):
-                interpreter_json_url = file["download_url"]
-                break
-
-        for file in jit_contents.json():
-            if is_benchmark_json_file(file["name"]):
-                jit_json_url = file["download_url"]
-                break
-
-        if not interpreter_json_url or not jit_json_url:
-            await log("Could not find JSON files for HPT comparison")
-            return None
-
-        # Download both JSON files in parallel
-        interpreter_response, jit_response = await asyncio.gather(
-            client.get(interpreter_json_url),
-            client.get(jit_json_url),
-        )
-        interpreter_response.raise_for_status()
-        jit_response.raise_for_status()
-
-        # Write to temporary files and run HPT comparison
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_path = Path(tmpdir)
-            interpreter_path = tmp_path / "interpreter.json"
-            jit_path = tmp_path / "jit.json"
-
-            interpreter_path.write_text(interpreter_response.text)
-            jit_path.write_text(jit_response.text)
-
-            report = hpt.make_report(str(interpreter_path), str(jit_path))
-
-            # Parse the report to extract percentiles
-            lines = report.strip().split("\n")
-            hpt_data: dict[str, float] = {}
-
-            def extract_value(line: str, pattern: str) -> float | None:
-                """Extract a numeric value from a line using a regex pattern."""
-                match = re.search(pattern, line)
-                return float(match.group(1)) if match else None
-
-            for line in lines:
-                if "Reliability score:" in line:
-                    if value := extract_value(line, r"(\d+\.?\d*)%"):
-                        hpt_data["reliability"] = value
-                elif "90% likely to have" in line:
-                    if value := extract_value(line, r"(\d+\.?\d*)x"):
-                        hpt_data["percentile_90"] = value
-                elif "95% likely to have" in line:
-                    if value := extract_value(line, r"(\d+\.?\d*)x"):
-                        hpt_data["percentile_95"] = value
-                elif "99% likely to have" in line:
-                    if value := extract_value(line, r"(\d+\.?\d*)x"):
-                        hpt_data["percentile_99"] = value
-
-            return hpt_data
-
-    except Exception as e:
-        await log(f"Error running HPT comparison: {e}")
-        return None
-
-
-async def get_fork_from_directory(
-    client: httpx.AsyncClient, dir_name: str
-) -> str | None:
-    """
-    Get the fork name from a benchmark directory by checking the JSON filename.
-    For this site, we only ingest data from the "python" fork.
-
-    Returns the fork name (e.g., "python", "savannahostrowski") or None if unable to parse.
-    """
-    try:
-        dir_response = await client.get(
-            f"{PYPERF_BENCH_REPO}/contents/results/{dir_name}",
-            headers=get_github_headers(),
-        )
-        dir_response.raise_for_status()
-        files = dir_response.json()
-
-        # Find the benchmark JSON file
-        json_file = None
-        for file in files:
-            if file["type"] == "file" and is_benchmark_json_file(file["name"]):
-                json_file = file
-                break
-
-        if not json_file:
-            return None
-
-        # Parse fork from filename
-        # Format: bm-{date}-{machine}-{arch}-{fork}-{ref}-{version}-{commit}.json
-        filename_parts = json_file["name"].split("-")
-        if len(filename_parts) >= 6:
-            return filename_parts[4]  # The fork is the 5th part (0-indexed: 4)
-
-        return None
-    except Exception as e:
-        await log(f"Error getting fork for {dir_name}: {e}")
-        return None
 
 
 async def get_existing_directory_names() -> set[str]:
@@ -377,325 +131,614 @@ async def get_existing_directory_names() -> set[str]:
         return all_dirs - incomplete_dirs
 
 
-async def fetch_all_benchmark_pairs(
-    client: httpx.AsyncClient,
-    skip_existing: bool = True,
-) -> list[tuple[str, str]]:
-    """
-    Fetch all complete benchmark pairs (interpreter and JIT) from the repository.
-    Only returns pairs where:
-    - Both interpreter and JIT runs exist for the same commit
-    - Both runs are from the 'python' fork (not other forks like savannahostrowski, faster-cpython, etc.)
-    - (if skip_existing=True) The pair hasn't already been fully processed
+class DataLoader:
+    def __init__(self, sources_path: Path):
+        self._sources_path = sources_path
+        self._client: httpx.AsyncClient
+        self._url: str = ""
+        self._fork_filter: str = "python"
 
-    Returns list of (interpreter_dir, jit_dir) tuples, sorted by date (oldest first).
-    """
-    # Get existing directories from database to skip already-processed pairs
-    existing_dirs: set[str] = set()
-    if skip_existing:
-        existing_dirs = await get_existing_directory_names()
-        await log(f"Found {len(existing_dirs)} existing directories in database.")
+    async def run(self):
+        await init_db()
 
-    response = await client.get(
-        f"{PYPERF_BENCH_REPO}/contents/results",
-        headers=get_github_headers(),
-    )
-    response.raise_for_status()
-    dirs = response.json()
+        transport = httpx.AsyncHTTPTransport(retries=3)
+        async with httpx.AsyncClient(
+            transport=transport,
+            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+            timeout=httpx.Timeout(60.0),
+        ) as self._client:
+            print(f"Processing sources from {self._sources_path}")
+            with open(self._sources_path) as f:
+                config = yaml.safe_load(f)
+                for source in config["sources"]:
+                    self._url = "https://api.github.com/repos/" + source["repo"]
+                    self._fork_filter = source.get("fork_filter", "python")
+                    await log(f"Processing source: {source['repo']}")
+                    await self._process_source(source)
 
-    await log(f"Found {len(dirs)} entries in results directory.")
-
-    groups: dict[str, dict[str, Any]] = {}
-    for dir in dirs:
-        if dir["type"] != "dir":
-            continue
-        match = re.match(PATTERN, dir["name"])
-        if match:
-            date, version, commit_hash, _ = match.groups()
-            is_jit, has_tailcall = parse_run_flags(dir["name"])
-
-            # Create separate groups for tailcall vs non-tailcall runs
-            # This ensures TAILCALL pairs with JIT,TAILCALL, and plain pairs with JIT
-            tailcall_key = "tailcall" if has_tailcall else "standard"
-            key = f"{date}-{version}-{commit_hash}-{tailcall_key}"
-
-            if key not in groups:
-                groups[key] = {
-                    "interpreter": None,
-                    "jit": None,
-                    "date": date,
-                    "has_tailcall": has_tailcall,
-                }
-
-            if is_jit:
-                groups[key]["jit"] = dir["name"]
-            else:
-                groups[key]["interpreter"] = dir["name"]
-
-    # Filter to only complete pairs from 'python' fork
-    # Group by date+tailcall_type and keep only the latest pair per group
-    # This allows both standard and tailcall pairs for the same date
-    pairs_by_date_and_type: dict[str, dict[str, Any]] = {}
-    for key in groups.keys():
-        group = groups[key]
-        if group["interpreter"] and group["jit"]:
-            date = group["date"]
-            tailcall_type = "tailcall" if group["has_tailcall"] else "standard"
-            date_type_key = f"{date}-{tailcall_type}"
-            # Keep the latest pair per date+type (directory names sort chronologically by commit)
-            if (
-                date_type_key not in pairs_by_date_and_type
-                or group["jit"] > pairs_by_date_and_type[date_type_key]["jit"]
-            ):
-                pairs_by_date_and_type[date_type_key] = group
-
-    # Filter pairs that need processing
-    pairs_to_check: list[dict[str, Any]] = []
-    skipped_existing = 0
-    for date_type_key in sorted(pairs_by_date_and_type.keys()):
-        group = pairs_by_date_and_type[date_type_key]
-        # Skip if both directories already exist in database
-        if (
-            skip_existing
-            and group["interpreter"] in existing_dirs
-            and group["jit"] in existing_dirs
-        ):
-            skipped_existing += 1
-            continue
-        pairs_to_check.append(group)
-
-    # Check forks in parallel
-    async def check_pair_fork(group: dict[str, Any]) -> tuple[str, str] | None:
-        interpreter_fork, jit_fork = await asyncio.gather(
-            get_fork_from_directory(client, group["interpreter"]),
-            get_fork_from_directory(client, group["jit"]),
-        )
-        if interpreter_fork == "python" and jit_fork == "python":
-            return (group["interpreter"], group["jit"])
-        else:
-            await log(
-                f"Skipping pair {group['interpreter']} / {group['jit']} (fork: {interpreter_fork}/{jit_fork})"
-            )
-            return None
-
-    # Run fork checks in parallel
-    results = await asyncio.gather(*[check_pair_fork(g) for g in pairs_to_check])
-    complete_pairs = [r for r in results if r is not None]
-
-    await log(
-        f"Found {len(complete_pairs)} new benchmark pairs to process from 'python' fork"
-    )
-    if skipped_existing > 0:
-        await log(f"Skipped {skipped_existing} pairs already in database")
-    return complete_pairs
-
-
-async def load_benchmark_run(
-    client: httpx.AsyncClient,
-    dir_name: str,
-    hpt_data: dict[str, float] | None = None,
-    geometric_mean_per_machine: dict[str, float] | None = None,
-):
-    """Load a benchmark run from the given directory name into the database.
-
-    Args:
-        client: Shared HTTP client
-        dir_name: The directory name of the benchmark run
-        hpt_data: Optional HPT comparison data (only for JIT runs)
-        geometric_mean_per_machine: Optional dict mapping machine name to geometric mean speedup (only for JIT runs)
-
-    Note: Fork filtering is done during fetch phase, so this function assumes
-    the directory is from the 'python' fork.
-    """
-    match = re.match(PATTERN, dir_name)
-    if not match:
-        await log(f"Directory name {dir_name} does not match expected pattern.")
-        return
-    date_str, version, commit_hash, _ = match.groups()
-    run_date = datetime.strptime(date_str, "%Y%m%d")
-    is_jit, has_tailcall = parse_run_flags(dir_name)
-
-    contents_url = f"{PYPERF_BENCH_REPO}/contents/results/{dir_name}"
-    response = await client.get(contents_url, headers=get_github_headers())
-    response.raise_for_status()
-    files = response.json()
-
-    # Find ALL benchmark JSON files (one per machine)
-    json_files = [f for f in files if is_benchmark_json_file(f["name"])]
-
-    if not json_files:
-        await log(f"No JSON benchmark files found in directory {dir_name}.")
-        return
-
-    # Download all JSON files in parallel
-    async def download_json(
-        json_file: dict[str, Any],
-    ) -> tuple[dict[str, Any], dict[str, Any]]:
-        json_url: str = json_file["download_url"]
-        json_response = await client.get(json_url)
-        json_response.raise_for_status()
-        return json_file, json_response.json()
-
-    downloaded: list[tuple[dict[str, Any], dict[str, Any]]] = await asyncio.gather(
-        *[download_json(f) for f in json_files]
-    )
-
-    # Process each downloaded file
-    for json_file, benchmark_data in downloaded:
-        filename: str = json_file["name"]
-        machine_match = re.search(r"-([^-]+)-[^-]+-python-", filename)
-        machine = machine_match.group(1) if machine_match else "unknown"
-
-        # Extract longer commit hash from JSON filename
-        # Filename format: bm-{date}-{machine}-{arch}-python-{COMMIT_HASH}-{version}-{short_hash}.json
-        # The commit hash is typically 20+ characters
-        full_commit_hash = commit_hash  # Default to short hash from directory
-        hash_match = re.search(r"-python-([a-f0-9]{20,})-", filename)
-        if hash_match:
-            full_commit_hash = hash_match.group(1)
-
-        async with async_session_maker() as session:
-            # Check if run already exists
-            existing_result = await session.exec(
-                select(BenchmarkRun).where(
-                    BenchmarkRun.directory_name == dir_name,
-                    BenchmarkRun.machine == machine,
-                )
-            )
-            existing_run = existing_result.first()
-
-            # Get this machine's geometric mean from the per-machine dict
-            machine_geometric_mean = (geometric_mean_per_machine or {}).get(machine)
-
-            # If run exists and had null geomean but we now have one, update it
-            if existing_run:
-                if (
-                    existing_run.geometric_mean_speedup is None
-                    and machine_geometric_mean is not None
-                ):
-                    existing_run.geometric_mean_speedup = machine_geometric_mean
-                    session.add(existing_run)
-                    await session.commit()
-                    await log(
-                        f"Updated geomean for {dir_name} ({machine}): {machine_geometric_mean}"
-                    )
-                else:
-                    await log(
-                        f"BenchmarkRun for {dir_name} ({machine}) already exists, skipping."
-                    )
-                continue
-
-            benchmark_run = BenchmarkRun(
-                directory_name=dir_name,
-                run_date=run_date,
-                python_version=version,
-                commit_hash=full_commit_hash,
-                is_jit=is_jit,
-                machine=machine,
-                has_tailcall=has_tailcall,
-                hpt_reliability=hpt_data.get("reliability") if hpt_data else None,
-                hpt_percentile_90=hpt_data.get("percentile_90") if hpt_data else None,
-                hpt_percentile_95=hpt_data.get("percentile_95") if hpt_data else None,
-                hpt_percentile_99=hpt_data.get("percentile_99") if hpt_data else None,
-                geometric_mean_speedup=machine_geometric_mean,
-            )
-            session.add(benchmark_run)
-            await session.flush()  # To get the ID assigned
-
-            if not benchmark_run.id:
-                await log(f"Failed to create BenchmarkRun for {dir_name} ({machine}).")
-                continue
-
-            benchmarks = benchmark_data.get("benchmarks", [])
-            for pyperf_benchmark in benchmarks:
-                bench_metadata = pyperf_benchmark.get("metadata", {})
-                stats = compute_benchmark_statistics(pyperf_benchmark)
-
-                benchmark = Benchmark(
-                    run_id=benchmark_run.id,
-                    name=bench_metadata.get("name", "unknown"),
-                    mean=stats["mean"],
-                    median=stats["median"],
-                    stddev=stats["stddev"],
-                    min_value=stats["min_value"],
-                    max_value=stats["max_value"],
-                    raw_data=pyperf_benchmark,
-                )
-                session.add(benchmark)
-            await session.commit()
-            await log(
-                f"Loaded BenchmarkRun {dir_name} ({machine}) with {len(benchmarks)} benchmarks."
-            )
-
-
-async def process_pair(
-    client: httpx.AsyncClient,
-    interpreter_dir: str,
-    jit_dir: str,
-    pair_num: int,
-    total_pairs: int,
-):
-    """Process a single interpreter/JIT pair."""
-    await log(
-        f"\n[{pair_num}/{total_pairs}] Processing pair: {interpreter_dir} and {jit_dir}"
-    )
-
-    # Run interpreter load, geometric mean extraction, and HPT comparison in parallel
-    # (interpreter load doesn't depend on the other two)
-    interpreter_task = load_benchmark_run(client, interpreter_dir)
-    geomean_task = compute_geometric_mean_per_machine(client, interpreter_dir, jit_dir)
-    hpt_task = compute_hpt_comparison(client, interpreter_dir, jit_dir)
-
-    # Wait for all three to complete
-    _, geometric_mean_per_machine, hpt_data = await asyncio.gather(
-        interpreter_task, geomean_task, hpt_task
-    )
-
-    # Load JIT run with the computed data
-    await load_benchmark_run(
-        client,
-        jit_dir,
-        hpt_data=hpt_data,
-        geometric_mean_per_machine=geometric_mean_per_machine,
-    )
-
-
-async def main():
-    await init_db()
-
-    # Use a single shared HTTP client with connection pooling and retries
-    transport = httpx.AsyncHTTPTransport(retries=3)
-    async with httpx.AsyncClient(
-        transport=transport,
-        limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
-        timeout=httpx.Timeout(60.0),
-    ) as client:
-        # Fetch all complete benchmark pairs (both interpreter and JIT)
-        pairs = await fetch_all_benchmark_pairs(client)
+    async def _process_source(self, source: dict[str, Any]):
+        pairs = await self._fetch_all_benchmark_pairs()
         if not pairs:
-            await log("No complete benchmark pairs found.")
+            await log("No complete benchmark pairs found, skipping.")
             return
 
         await log(
             f"\nProcessing {len(pairs)} benchmark pairs (max {MAX_CONCURRENT_PAIRS} concurrent)..."
         )
 
-        # Process pairs with limited concurrency using a semaphore
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_PAIRS)
 
         async def process_with_semaphore(pair_data: tuple[int, tuple[str, str]]):
             i, (interpreter_dir, jit_dir) = pair_data
             async with semaphore:
-                await process_pair(client, interpreter_dir, jit_dir, i, len(pairs))
+                await self._process_pair(interpreter_dir, jit_dir, i, len(pairs))
 
-        # Process all pairs concurrently (limited by semaphore)
-        # Use 1-based indexing for pair numbers for logging, e.g. [1/N], [2/N], ...
         await asyncio.gather(
             *[process_with_semaphore((i, pair)) for i, pair in enumerate(pairs, 1)]
         )
 
-    await log(f"\nCompleted! Processed {len(pairs)} benchmark pairs.")
+        await log(f"\nCompleted source {source['repo']}! Processed {len(pairs)} pairs.")
+
+    async def _process_pair(
+        self,
+        interpreter_dir: str,
+        jit_dir: str,
+        pair_num: int,
+        total_pairs: int,
+    ):
+        """Process a single interpreter/JIT pair."""
+        try:
+            await log(
+                f"\n[{pair_num}/{total_pairs}] Processing pair: {interpreter_dir} and {jit_dir}"
+            )
+
+            # Run interpreter load, geometric mean extraction, and HPT comparison in parallel
+            # (interpreter load doesn't depend on the other two)
+            interpreter_task = self._load_benchmark_run(interpreter_dir)
+            geomean_task = self._compute_geometric_mean_per_machine(
+                interpreter_dir, jit_dir
+            )
+            hpt_task = self._compute_hpt_comparison(interpreter_dir, jit_dir)
+
+            # Wait for all three to complete
+            _, geometric_mean_per_machine, hpt_data = await asyncio.gather(
+                interpreter_task, geomean_task, hpt_task
+            )
+
+            # Load JIT run with the computed data
+            await self._load_benchmark_run(
+                jit_dir,
+                hpt_data=hpt_data,
+                geometric_mean_per_machine=geometric_mean_per_machine,
+            )
+        except Exception as e:
+            await log(
+                f"[{pair_num}/{total_pairs}] Error processing pair "
+                f"{interpreter_dir} / {jit_dir}: {e}"
+            )
+
+    async def _compute_geometric_mean_per_machine(
+        self, interpreter_dir: str, jit_dir: str
+    ) -> dict[str, float]:
+        """
+        Compute per-machine geometric mean speedups using pyperf compare_to.
+
+        Returns a dict mapping machine name to geometric mean ratio.
+        Ratio > 1.0 means JIT is faster.
+        """
+        try:
+            # Get the JIT directory contents to find JSON files
+            jit_contents = await self._client.get(
+                f"{self._url}/contents/results/{jit_dir}",
+                headers=get_github_headers(),
+            )
+            jit_contents.raise_for_status()
+
+            # Collect machine names from JSON files
+            machines_in_dir: list[str] = []
+            for file in jit_contents.json():
+                if is_benchmark_json_file(file["name"]):
+                    machine_match = re.search(r"-([^-]+)-[^-]+-python-", file["name"])
+                    if machine_match:
+                        machines_in_dir.append(machine_match.group(1))
+
+            # Compute geomean for each machine using pyperf
+            machine_geomeans: dict[str, float] = {}
+            for machine in machines_in_dir:
+                geomean = await self._compute_geomean_with_pyperf(
+                    interpreter_dir, jit_dir, machine
+                )
+                if geomean is not None:
+                    machine_geomeans[machine] = geomean
+                    await log(f"Computed geomean for {machine}: {geomean}")
+
+            return machine_geomeans
+
+        except Exception as e:
+            await log(f"Error computing geometric means: {e}")
+            return {}
+
+    async def _compute_geomean_with_pyperf(
+        self, interpreter_dir: str, jit_dir: str, machine: str
+    ) -> float | None:
+        """
+        Compute geometric mean using pyperf compare_to.
+        Downloads JSON files for the specified machine and runs pyperf comparison.
+        """
+        try:
+            # Get directory contents
+            interpreter_resp, jit_resp = await asyncio.gather(
+                self._client.get(
+                    f"{self._url}/contents/results/{interpreter_dir}",
+                    headers=get_github_headers(),
+                ),
+                self._client.get(
+                    f"{self._url}/contents/results/{jit_dir}",
+                    headers=get_github_headers(),
+                ),
+            )
+            interpreter_resp.raise_for_status()
+            jit_resp.raise_for_status()
+
+            # Find JSON files for this machine
+            interpreter_json_url = None
+            jit_json_url = None
+
+            for f in interpreter_resp.json():
+                if is_benchmark_json_file(f["name"]) and f"-{machine}-" in f["name"]:
+                    interpreter_json_url = f["download_url"]
+                    break
+
+            for f in jit_resp.json():
+                if is_benchmark_json_file(f["name"]) and f"-{machine}-" in f["name"]:
+                    jit_json_url = f["download_url"]
+                    break
+
+            if not interpreter_json_url or not jit_json_url:
+                return None
+
+            # Download JSON files
+            interpreter_json_resp, jit_json_resp = await asyncio.gather(
+                self._client.get(interpreter_json_url), self._client.get(jit_json_url)
+            )
+            interpreter_json_resp.raise_for_status()
+            jit_json_resp.raise_for_status()
+
+            # Filter out excluded benchmarks from JSON data
+            def filter_benchmarks(raw_json: str) -> str:
+                data = json.loads(raw_json)
+                data["benchmarks"] = [
+                    b
+                    for b in data.get("benchmarks", [])
+                    if b.get("metadata", {}).get("name") not in EXCLUDED_BENCHMARKS
+                ]
+                return json.dumps(data)
+
+            # Write filtered data to temp files and run pyperf compare_to
+            with (
+                tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".json", delete=False
+                ) as base_file,
+                tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".json", delete=False
+                ) as head_file,
+            ):
+                base_file.write(filter_benchmarks(interpreter_json_resp.text))
+                head_file.write(filter_benchmarks(jit_json_resp.text))
+                base_path = base_file.name
+                head_path = head_file.name
+
+            try:
+                result = subprocess.run(
+                    ["pyperf", "compare_to", base_path, head_path],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                if result.returncode != 0:
+                    await log(
+                        f"pyperf compare_to failed for {machine} "
+                        f"(exit code {result.returncode}): {result.stderr.strip()}"
+                    )
+                geomean = parse_pyperf_geomean(result.stdout)
+                if geomean is None and result.stdout.strip():
+                    await log(
+                        f"Could not parse geomean from pyperf output for {machine}: "
+                        f"{result.stdout[:200]}"
+                    )
+                return geomean
+            finally:
+                Path(base_path).unlink(missing_ok=True)
+                Path(head_path).unlink(missing_ok=True)
+
+        except Exception as e:
+            await log(
+                f"Error computing geomean with pyperf for {machine}: {type(e).__name__}: {e}"
+            )
+            return None
+
+    async def _compute_hpt_comparison(
+        self, interpreter_dir: str, jit_dir: str
+    ) -> dict[str, float] | None:
+        """
+        Download JSON files for both runs and compute HPT comparison.
+        Returns dict with reliability and percentiles, or None if comparison fails.
+        """
+        try:
+            # Get directory contents in parallel
+            interpreter_contents, jit_contents = await asyncio.gather(
+                self._client.get(
+                    f"{self._url}/contents/results/{interpreter_dir}",
+                    headers=get_github_headers(),
+                ),
+                self._client.get(
+                    f"{self._url}/contents/results/{jit_dir}",
+                    headers=get_github_headers(),
+                ),
+            )
+            interpreter_contents.raise_for_status()
+            jit_contents.raise_for_status()
+
+            # Find JSON file URLs
+            interpreter_json_url = None
+            jit_json_url = None
+
+            for file in interpreter_contents.json():
+                if is_benchmark_json_file(file["name"]):
+                    interpreter_json_url = file["download_url"]
+                    break
+
+            for file in jit_contents.json():
+                if is_benchmark_json_file(file["name"]):
+                    jit_json_url = file["download_url"]
+                    break
+
+            if not interpreter_json_url or not jit_json_url:
+                await log("Could not find JSON files for HPT comparison")
+                return None
+
+            # Download both JSON files in parallel
+            interpreter_response, jit_response = await asyncio.gather(
+                self._client.get(interpreter_json_url),
+                self._client.get(jit_json_url),
+            )
+            interpreter_response.raise_for_status()
+            jit_response.raise_for_status()
+
+            # Write to temporary files and run HPT comparison
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmp_path = Path(tmpdir)
+                interpreter_path = tmp_path / "interpreter.json"
+                jit_path = tmp_path / "jit.json"
+
+                interpreter_path.write_text(interpreter_response.text)
+                jit_path.write_text(jit_response.text)
+
+                report = hpt.make_report(str(interpreter_path), str(jit_path))
+
+                # Parse the report to extract percentiles
+                lines = report.strip().split("\n")
+                hpt_data: dict[str, float] = {}
+
+                def extract_value(line: str, pattern: str) -> float | None:
+                    """Extract a numeric value from a line using a regex pattern."""
+                    match = re.search(pattern, line)
+                    return float(match.group(1)) if match else None
+
+                for line in lines:
+                    if "Reliability score:" in line:
+                        if value := extract_value(line, r"(\d+\.?\d*)%"):
+                            hpt_data["reliability"] = value
+                    elif "90% likely to have" in line:
+                        if value := extract_value(line, r"(\d+\.?\d*)x"):
+                            hpt_data["percentile_90"] = value
+                    elif "95% likely to have" in line:
+                        if value := extract_value(line, r"(\d+\.?\d*)x"):
+                            hpt_data["percentile_95"] = value
+                    elif "99% likely to have" in line:
+                        if value := extract_value(line, r"(\d+\.?\d*)x"):
+                            hpt_data["percentile_99"] = value
+
+                return hpt_data
+
+        except Exception as e:
+            await log(f"Error running HPT comparison: {e}")
+            return None
+
+    async def _get_fork_from_directory(self, dir_name: str) -> str | None:
+        """
+        Get the fork name from a benchmark directory by checking the JSON filename.
+        For this site, we only ingest data from the "python" fork.
+
+        Returns the fork name (e.g., "python", "savannahostrowski") or None if unable to parse.
+        """
+        try:
+            dir_response = await self._client.get(
+                f"{self._url}/contents/results/{dir_name}",
+                headers=get_github_headers(),
+            )
+            dir_response.raise_for_status()
+            files = dir_response.json()
+
+            # Find the benchmark JSON file
+            json_file = None
+            for file in files:
+                if file["type"] == "file" and is_benchmark_json_file(file["name"]):
+                    json_file = file
+                    break
+
+            if not json_file:
+                return None
+
+            # Parse fork from filename
+            # Format: bm-{date}-{machine}-{arch}-{fork}-{ref}-{version}-{commit}.json
+            filename_parts = json_file["name"].split("-")
+            if len(filename_parts) >= 6:
+                return filename_parts[4]  # The fork is the 5th part (0-indexed: 4)
+
+            return None
+        except Exception as e:
+            await log(f"Error getting fork for {dir_name}: {e}")
+            return None
+
+    async def _fetch_all_benchmark_pairs(
+        self, skip_existing: bool = True
+    ) -> list[tuple[str, str]]:
+        """
+        Fetch all complete benchmark pairs (interpreter and JIT) from the repository.
+        Only returns pairs where:
+        - Both interpreter and JIT runs exist for the same commit
+        - Both runs are from the 'python' fork (not other forks like savannahostrowski, faster-cpython, etc.)
+        - (if skip_existing=True) The pair hasn't already been fully processed
+
+        Returns list of (interpreter_dir, jit_dir) tuples, sorted by date (oldest first).
+        """
+        # Get existing directories from database to skip already-processed pairs
+        existing_dirs: set[str] = set()
+        if skip_existing:
+            existing_dirs = await get_existing_directory_names()
+            await log(f"Found {len(existing_dirs)} existing directories in database.")
+
+        response = await self._client.get(
+            f"{self._url}/contents/results",
+            headers=get_github_headers(),
+        )
+        response.raise_for_status()
+        dirs = response.json()
+
+        await log(f"Found {len(dirs)} entries in results directory.")
+
+        groups: dict[str, dict[str, Any]] = {}
+        for dir in dirs:
+            if dir["type"] != "dir":
+                continue
+            match = re.match(PATTERN, dir["name"])
+            if match:
+                date, version, commit_hash, _ = match.groups()
+                is_jit, has_tailcall = parse_run_flags(dir["name"])
+
+                # Create separate groups for tailcall vs non-tailcall runs
+                # This ensures TAILCALL pairs with JIT,TAILCALL, and plain pairs with JIT
+                tailcall_key = "tailcall" if has_tailcall else "standard"
+                key = f"{date}-{version}-{commit_hash}-{tailcall_key}"
+
+                if key not in groups:
+                    groups[key] = {
+                        "interpreter": None,
+                        "jit": None,
+                        "date": date,
+                        "has_tailcall": has_tailcall,
+                    }
+
+                if is_jit:
+                    groups[key]["jit"] = dir["name"]
+                else:
+                    groups[key]["interpreter"] = dir["name"]
+
+        # Filter to only complete pairs from 'python' fork
+        # Group by date+tailcall_type and keep only the latest pair per group
+        # This allows both standard and tailcall pairs for the same date
+        pairs_by_date_and_type: dict[str, dict[str, Any]] = {}
+        for key in groups.keys():
+            group = groups[key]
+            if group["interpreter"] and group["jit"]:
+                date = group["date"]
+                tailcall_type = "tailcall" if group["has_tailcall"] else "standard"
+                date_type_key = f"{date}-{tailcall_type}"
+                # Keep the latest pair per date+type (directory names sort chronologically by commit)
+                if (
+                    date_type_key not in pairs_by_date_and_type
+                    or group["jit"] > pairs_by_date_and_type[date_type_key]["jit"]
+                ):
+                    pairs_by_date_and_type[date_type_key] = group
+
+        # Filter pairs that need processing
+        pairs_to_check: list[dict[str, Any]] = []
+        skipped_existing = 0
+        for date_type_key in sorted(pairs_by_date_and_type.keys()):
+            group = pairs_by_date_and_type[date_type_key]
+            # Skip if both directories already exist in database
+            if (
+                skip_existing
+                and group["interpreter"] in existing_dirs
+                and group["jit"] in existing_dirs
+            ):
+                skipped_existing += 1
+                continue
+            pairs_to_check.append(group)
+
+        # Check forks in parallel
+        async def check_pair_fork(group: dict[str, Any]) -> tuple[str, str] | None:
+            interpreter_fork, jit_fork = await asyncio.gather(
+                self._get_fork_from_directory(group["interpreter"]),
+                self._get_fork_from_directory(group["jit"]),
+            )
+            if interpreter_fork == self._fork_filter and jit_fork == self._fork_filter:
+                return (group["interpreter"], group["jit"])
+            else:
+                await log(
+                    f"Skipping pair {group['interpreter']} / {group['jit']} "
+                    f"(fork: {interpreter_fork}/{jit_fork}, expected: {self._fork_filter})"
+                )
+                return None
+
+        # Run fork checks in parallel
+        results = await asyncio.gather(*[check_pair_fork(g) for g in pairs_to_check])
+        complete_pairs = [r for r in results if r is not None]
+
+        await log(
+            f"Found {len(complete_pairs)} new benchmark pairs to process from '{self._fork_filter}' fork"
+        )
+        if skipped_existing > 0:
+            await log(f"Skipped {skipped_existing} pairs already in database")
+        return complete_pairs
+
+    async def _load_benchmark_run(
+        self,
+        dir_name: str,
+        hpt_data: dict[str, float] | None = None,
+        geometric_mean_per_machine: dict[str, float] | None = None,
+    ):
+        """Load a benchmark run from the given directory name into the database.
+
+        Args:
+            dir_name: The directory name of the benchmark run
+            hpt_data: Optional HPT comparison data (only for JIT runs)
+            geometric_mean_per_machine: Optional dict mapping machine name to geometric mean speedup (only for JIT runs)
+
+        Note: Fork filtering is done during fetch phase, so this function assumes
+        the directory is from the 'python' fork.
+        """
+        match = re.match(PATTERN, dir_name)
+        if not match:
+            await log(f"Directory name {dir_name} does not match expected pattern.")
+            return
+        date_str, version, commit_hash, _ = match.groups()
+        run_date = datetime.strptime(date_str, "%Y%m%d")
+        is_jit, has_tailcall = parse_run_flags(dir_name)
+
+        contents_url = f"{self._url}/contents/results/{dir_name}"
+        response = await self._client.get(contents_url, headers=get_github_headers())
+        response.raise_for_status()
+        files = response.json()
+
+        # Find ALL benchmark JSON files (one per machine)
+        json_files = [f for f in files if is_benchmark_json_file(f["name"])]
+
+        if not json_files:
+            await log(f"No JSON benchmark files found in directory {dir_name}.")
+            return
+
+        # Download all JSON files in parallel
+        async def download_json(
+            json_file: dict[str, Any],
+        ) -> tuple[dict[str, Any], dict[str, Any]]:
+            json_url: str = json_file["download_url"]
+            json_response = await self._client.get(json_url)
+            json_response.raise_for_status()
+            return json_file, json_response.json()
+
+        downloaded: list[tuple[dict[str, Any], dict[str, Any]]] = await asyncio.gather(
+            *[download_json(f) for f in json_files]
+        )
+
+        # Process each downloaded file
+        for json_file, benchmark_data in downloaded:
+            filename: str = json_file["name"]
+            machine_match = re.search(r"-([^-]+)-[^-]+-python-", filename)
+            machine = machine_match.group(1) if machine_match else "unknown"
+
+            # Extract longer commit hash from JSON filename
+            # Filename format: bm-{date}-{machine}-{arch}-python-{COMMIT_HASH}-{version}-{short_hash}.json
+            # The commit hash is typically 20+ characters
+            full_commit_hash = commit_hash  # Default to short hash from directory
+            hash_match = re.search(r"-python-([a-f0-9]{20,})-", filename)
+            if hash_match:
+                full_commit_hash = hash_match.group(1)
+
+            async with async_session_maker() as session:
+                # Check if run already exists
+                existing_result = await session.exec(
+                    select(BenchmarkRun).where(
+                        BenchmarkRun.directory_name == dir_name,
+                        BenchmarkRun.machine == machine,
+                    )
+                )
+                existing_run = existing_result.first()
+
+                # Get this machine's geometric mean from the per-machine dict
+                machine_geometric_mean = (geometric_mean_per_machine or {}).get(machine)
+
+                # If run exists and had null geomean but we now have one, update it
+                if existing_run:
+                    if (
+                        existing_run.geometric_mean_speedup is None
+                        and machine_geometric_mean is not None
+                    ):
+                        existing_run.geometric_mean_speedup = machine_geometric_mean
+                        session.add(existing_run)
+                        await session.commit()
+                        await log(
+                            f"Updated geomean for {dir_name} ({machine}): {machine_geometric_mean}"
+                        )
+                    else:
+                        await log(
+                            f"BenchmarkRun for {dir_name} ({machine}) already exists, skipping."
+                        )
+                    continue
+
+                benchmark_run = BenchmarkRun(
+                    directory_name=dir_name,
+                    run_date=run_date,
+                    python_version=version,
+                    commit_hash=full_commit_hash,
+                    is_jit=is_jit,
+                    machine=machine,
+                    has_tailcall=has_tailcall,
+                    hpt_reliability=hpt_data.get("reliability") if hpt_data else None,
+                    hpt_percentile_90=hpt_data.get("percentile_90")
+                    if hpt_data
+                    else None,
+                    hpt_percentile_95=hpt_data.get("percentile_95")
+                    if hpt_data
+                    else None,
+                    hpt_percentile_99=hpt_data.get("percentile_99")
+                    if hpt_data
+                    else None,
+                    geometric_mean_speedup=machine_geometric_mean,
+                )
+                session.add(benchmark_run)
+                await session.flush()  # To get the ID assigned
+
+                if not benchmark_run.id:
+                    await log(
+                        f"Failed to create BenchmarkRun for {dir_name} ({machine})."
+                    )
+                    continue
+
+                benchmarks = benchmark_data.get("benchmarks", [])
+                for pyperf_benchmark in benchmarks:
+                    bench_metadata = pyperf_benchmark.get("metadata", {})
+                    stats = compute_benchmark_statistics(pyperf_benchmark)
+
+                    benchmark = Benchmark(
+                        run_id=benchmark_run.id,
+                        name=bench_metadata.get("name", "unknown"),
+                        mean=stats["mean"],
+                        median=stats["median"],
+                        stddev=stats["stddev"],
+                        min_value=stats["min_value"],
+                        max_value=stats["max_value"],
+                        raw_data=pyperf_benchmark,
+                    )
+                    session.add(benchmark)
+                await session.commit()
+                await log(
+                    f"Loaded BenchmarkRun {dir_name} ({machine}) with {len(benchmarks)} benchmarks."
+                )
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    path = Path(__file__).parent / "sources.yaml"
+    loader = DataLoader(path)
+    asyncio.run(loader.run())

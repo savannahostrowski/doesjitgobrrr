@@ -1,8 +1,10 @@
-import { type Component } from 'solid-js';
+import { type Component, createResource, For } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
+import { fetchMachines } from '../api';
 
 const About: Component = () => {
   const navigate = useNavigate();
+  const [machines] = createResource(fetchMachines);
 
   return (
     <div class="about-page-wrapper">
@@ -38,75 +40,26 @@ const About: Component = () => {
           </p>
           <h3>Machines</h3>
           <p>
-            All benchmarks are run on dedicated hardware sitting in my homelab with the following specifications:
+            All benchmarks are run on dedicated hardware with the following specifications:
           </p>
 
-          <h4>blueberry (aarch64)</h4>
-          <ul>
-            <li>
-              <strong>Device:</strong>{' '}
-              <a
-                href="https://www.raspberrypi.com/products/raspberry-pi-5/?variant=raspberry-pi-5-8gb"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Raspberry Pi 5
-              </a>
-            </li>
-            <li><strong>RAM:</strong> 8GB</li>
-            <li>
-              <strong>Storage:</strong>{' '}
-              <a
-                href="https://www.raspberrypi.com/products/ssd/?variant=ssd-256"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                256GB SSD
-              </a>
-            </li>
-            <li>
-              <strong>Cooling:</strong>{' '}
-              <a
-                href="https://www.raspberrypi.com/products/cooler/"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                External Cooler
-              </a>
-            </li>
-            <li><strong>OS:</strong> Debian GNU/Linux 12 (bookworm)</li>
-            <li><strong>Name:</strong> "blueberry" because it's a Pi!</li>
-          </ul>
-
-          <h4>ripley (x86_64)</h4>
-          <ul>
-            <li><strong>CPU:</strong> Intel(R) Core(TM) i5-8400 CPU @ 2.80GHz (6 cores)</li>
-            <li><strong>RAM:</strong> 8GB</li>
-            <li><strong>Storage:</strong> 500GB SSD</li>
-            <li><strong>OS:</strong> Ubuntu 24.04</li>
-            <li><strong>Name:</strong> "ripley" because Alien is one of my favourite movies of all time!</li>
-          </ul>
-
-          <h4>jones (aarch64)</h4>
-          <ul>
-            <li>
-              <strong>Device:</strong>{' '}
-                MacBook Pro
-            </li>
-            <li><strong>CPU:</strong> Apple M3 Pro chip with 11-core CPU, 14-core GPU, 16-core Neural Engine</li>
-            <li><strong>RAM:</strong> 18GB unified memory</li>
-            <li><strong>Storage:</strong> 512GB SSD</li>
-            <li><strong>OS:</strong> macOS</li>
-            <li><strong>Name:</strong> "jones" is Ripley's cat in Alien!</li>
-          </ul>
-
-          <h4>prometheus (x86_64)</h4>
-          <ul>
-            <li><strong>CPU:</strong> AMD Ryzen 5 3600X 6-Core Processor @ 3.80 GHz</li>
-            <li><strong>RAM:</strong> 16GB</li>
-            <li><strong>OS:</strong> Windows 11 Pro</li>
-            <li><strong>Name:</strong> "prometheus" is the ship in the Alien prequel!</li>
-          </ul>
+          <For each={Object.entries(machines() || {})}>
+            {([name, info]) => (
+              <>
+                <h4>{name} ({info.arch})</h4>
+                <ul>
+                  <li><strong>Description:</strong> {info.description}</li>
+                  <li><strong>OS:</strong> {info.os}</li>
+                  <li>
+                    <strong>Owner:</strong>{' '}
+                    {info.owner_email
+                      ? <a href={`mailto:${info.owner_email}`}>{info.owner}</a>
+                      : info.owner}
+                  </li>
+                </ul>
+              </>
+            )}
+          </For>
 
           <h3>Contact</h3>
           <p>

@@ -1,4 +1,4 @@
-import type { HistoricalResponse } from './types';
+import type { HistoricalResponse, MachinesMap } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -114,6 +114,27 @@ export async function fetchHistoricalByDate(date: string, forceRefresh = false):
   setCachedData(cacheKey, data);
 
   return data;
+}
+
+// In-memory cache for machines (rarely changes, no need for localStorage)
+let machinesCache: { data: MachinesMap; timestamp: number } | null = null;
+
+/**
+ * Fetch machine metadata (colors, arch, descriptions) from the API.
+ * Cached in memory with the same TTL as other data.
+ */
+export async function fetchMachines(forceRefresh = false): Promise<MachinesMap> {
+  if (!forceRefresh && machinesCache && Date.now() - machinesCache.timestamp < CACHE_TTL) {
+    return machinesCache.data;
+  }
+
+  const response = await fetch(`${API_URL}/api/machines`, { cache: 'no-cache' });
+  if (!response.ok) {
+    throw new Error('Failed to fetch machines');
+  }
+  const json = await response.json();
+  machinesCache = { data: json.machines, timestamp: Date.now() };
+  return json.machines;
 }
 
 // Helper to clear the cache manually

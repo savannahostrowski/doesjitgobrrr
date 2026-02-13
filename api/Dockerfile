@@ -13,6 +13,7 @@ RUN pip install uv
 # Copy project files
 COPY pyproject.toml .
 COPY *.py .
+COPY sources.yaml .
 
 # Sync dependencies (production only, no dev dependencies)
 RUN uv sync --no-dev
