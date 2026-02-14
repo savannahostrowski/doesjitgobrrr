@@ -4,7 +4,7 @@ import re
 import subprocess
 import tempfile
 import yaml
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +23,9 @@ from sqlmodel import select
 #   bm-20251215-3.15.0a2+-bef63d2-JIT,TAILCALL (JIT + tailcall)
 PATTERN = r"bm-(\d{8})-([\d\.a-z\+]+)-([a-f0-9]+)(?:-(JIT,TAILCALL|JIT|TAILCALL))?"
 GITHUB_TOKEN = get_github_token()
-MAX_CONCURRENT_PAIRS = 10
+MAX_CONCURRENT_PAIRS = 3
+# Only retry incomplete pairs from the last N days to avoid snowballing
+INCOMPLETE_RETRY_DAYS = 14
 
 # Benchmarks excluded from geomean calculation (sourced from bench_runner.toml)
 EXCLUDED_BENCHMARKS = [
@@ -102,8 +104,9 @@ async def get_existing_directory_names() -> set[str]:
     """Get directory names that are fully processed in the database.
 
     A directory is considered fully processed only if all its JIT runs
-    have a non-null geometric_mean_speedup. This ensures pairs with
-    missing geomean data (e.g., due to transient failures) get re-processed.
+    have a non-null geometric_mean_speedup. Incomplete pairs are only
+    retried if they are within INCOMPLETE_RETRY_DAYS to prevent an
+    ever-growing backlog of re-processing attempts.
     """
     async with async_session_maker() as session:
         all_dirs_result = await session.exec(
@@ -111,20 +114,22 @@ async def get_existing_directory_names() -> set[str]:
         )
         all_dirs = set(all_dirs_result.all())
 
-        # Find JIT directories that have at least one machine with null geomean
+        # Find JIT directories with null geomean, but only recent ones
+        retry_cutoff = datetime.now() - timedelta(days=INCOMPLETE_RETRY_DAYS)
         incomplete_result = await session.exec(
             select(BenchmarkRun.directory_name)
             .distinct()
             .where(
                 BenchmarkRun.is_jit == True,  # noqa: E712
                 BenchmarkRun.geometric_mean_speedup == None,  # noqa: E711
+                BenchmarkRun.run_date >= retry_cutoff,
             )
         )
         incomplete_dirs = set(incomplete_result.all())
 
         if incomplete_dirs:
             print(
-                f"Found {len(incomplete_dirs)} JIT directories with missing geomean data, "
+                f"Found {len(incomplete_dirs)} recent JIT directories with missing geomean data, "
                 f"will re-process: {incomplete_dirs}"
             )
 
@@ -137,6 +142,21 @@ class DataLoader:
         self._client: httpx.AsyncClient
         self._url: str = ""
         self._fork_filter: str = "python"
+        self._dir_contents_cache: dict[str, list[dict[str, Any]]] = {}
+
+    async def _get_dir_contents(self, dir_name: str) -> list[dict[str, Any]]:
+        """Fetch and cache directory contents from GitHub API."""
+        if dir_name in self._dir_contents_cache:
+            return self._dir_contents_cache[dir_name]
+
+        response = await self._client.get(
+            f"{self._url}/contents/results/{dir_name}",
+            headers=get_github_headers(),
+        )
+        response.raise_for_status()
+        contents = response.json()
+        self._dir_contents_cache[dir_name] = contents
+        return contents
 
     async def run(self):
         await init_db()
@@ -144,7 +164,7 @@ class DataLoader:
         transport = httpx.AsyncHTTPTransport(retries=3)
         async with httpx.AsyncClient(
             transport=transport,
-            limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+            limits=httpx.Limits(max_connections=10, max_keepalive_connections=5),
             timeout=httpx.Timeout(60.0),
         ) as self._client:
             print(f"Processing sources from {self._sources_path}")
@@ -187,25 +207,40 @@ class DataLoader:
         total_pairs: int,
     ):
         """Process a single interpreter/JIT pair."""
+        await log(
+            f"\n[{pair_num}/{total_pairs}] Processing pair: {interpreter_dir} and {jit_dir}"
+        )
+
+        # Run all three tasks concurrently, collecting errors instead of failing fast
+        interpreter_task = self._load_benchmark_run(interpreter_dir)
+        geomean_task = self._compute_geometric_mean_per_machine(
+            interpreter_dir, jit_dir
+        )
+        hpt_task = self._compute_hpt_comparison(interpreter_dir, jit_dir)
+
+        results = await asyncio.gather(
+            interpreter_task, geomean_task, hpt_task, return_exceptions=True
+        )
+
+        # Log any exceptions from the parallel tasks
+        task_names = ["interpreter load", "geomean computation", "HPT comparison"]
+        for name, result in zip(task_names, results):
+            if isinstance(result, Exception):
+                await log(
+                    f"[{pair_num}/{total_pairs}] {name} failed for "
+                    f"{interpreter_dir}: {type(result).__name__}: {result}"
+                )
+
+        # Extract results, using defaults for failed tasks
+        geometric_mean_per_machine: dict[str, float] = (
+            results[1] if isinstance(results[1], dict) else {}
+        )
+        hpt_data: dict[str, float] | None = (
+            results[2] if isinstance(results[2], dict) else None
+        )
+
+        # Always attempt to load the JIT run, even if other tasks failed
         try:
-            await log(
-                f"\n[{pair_num}/{total_pairs}] Processing pair: {interpreter_dir} and {jit_dir}"
-            )
-
-            # Run interpreter load, geometric mean extraction, and HPT comparison in parallel
-            # (interpreter load doesn't depend on the other two)
-            interpreter_task = self._load_benchmark_run(interpreter_dir)
-            geomean_task = self._compute_geometric_mean_per_machine(
-                interpreter_dir, jit_dir
-            )
-            hpt_task = self._compute_hpt_comparison(interpreter_dir, jit_dir)
-
-            # Wait for all three to complete
-            _, geometric_mean_per_machine, hpt_data = await asyncio.gather(
-                interpreter_task, geomean_task, hpt_task
-            )
-
-            # Load JIT run with the computed data
             await self._load_benchmark_run(
                 jit_dir,
                 hpt_data=hpt_data,
@@ -213,8 +248,8 @@ class DataLoader:
             )
         except Exception as e:
             await log(
-                f"[{pair_num}/{total_pairs}] Error processing pair "
-                f"{interpreter_dir} / {jit_dir}: {e}"
+                f"[{pair_num}/{total_pairs}] JIT load failed for "
+                f"{jit_dir}: {type(e).__name__}: {e}"
             )
 
     async def _compute_geometric_mean_per_machine(
@@ -228,15 +263,11 @@ class DataLoader:
         """
         try:
             # Get the JIT directory contents to find JSON files
-            jit_contents = await self._client.get(
-                f"{self._url}/contents/results/{jit_dir}",
-                headers=get_github_headers(),
-            )
-            jit_contents.raise_for_status()
+            jit_files = await self._get_dir_contents(jit_dir)
 
             # Collect machine names from JSON files
             machines_in_dir: list[str] = []
-            for file in jit_contents.json():
+            for file in jit_files:
                 if is_benchmark_json_file(file["name"]):
                     machine_match = re.search(r"-([^-]+)-[^-]+-python-", file["name"])
                     if machine_match:
@@ -266,30 +297,22 @@ class DataLoader:
         Downloads JSON files for the specified machine and runs pyperf comparison.
         """
         try:
-            # Get directory contents
-            interpreter_resp, jit_resp = await asyncio.gather(
-                self._client.get(
-                    f"{self._url}/contents/results/{interpreter_dir}",
-                    headers=get_github_headers(),
-                ),
-                self._client.get(
-                    f"{self._url}/contents/results/{jit_dir}",
-                    headers=get_github_headers(),
-                ),
+            # Get directory contents (cached)
+            interpreter_files, jit_files = await asyncio.gather(
+                self._get_dir_contents(interpreter_dir),
+                self._get_dir_contents(jit_dir),
             )
-            interpreter_resp.raise_for_status()
-            jit_resp.raise_for_status()
 
             # Find JSON files for this machine
             interpreter_json_url = None
             jit_json_url = None
 
-            for f in interpreter_resp.json():
+            for f in interpreter_files:
                 if is_benchmark_json_file(f["name"]) and f"-{machine}-" in f["name"]:
                     interpreter_json_url = f["download_url"]
                     break
 
-            for f in jit_resp.json():
+            for f in jit_files:
                 if is_benchmark_json_file(f["name"]) and f"-{machine}-" in f["name"]:
                     jit_json_url = f["download_url"]
                     break
@@ -365,30 +388,22 @@ class DataLoader:
         Returns dict with reliability and percentiles, or None if comparison fails.
         """
         try:
-            # Get directory contents in parallel
-            interpreter_contents, jit_contents = await asyncio.gather(
-                self._client.get(
-                    f"{self._url}/contents/results/{interpreter_dir}",
-                    headers=get_github_headers(),
-                ),
-                self._client.get(
-                    f"{self._url}/contents/results/{jit_dir}",
-                    headers=get_github_headers(),
-                ),
+            # Get directory contents (cached)
+            interpreter_files, jit_files = await asyncio.gather(
+                self._get_dir_contents(interpreter_dir),
+                self._get_dir_contents(jit_dir),
             )
-            interpreter_contents.raise_for_status()
-            jit_contents.raise_for_status()
 
             # Find JSON file URLs
             interpreter_json_url = None
             jit_json_url = None
 
-            for file in interpreter_contents.json():
+            for file in interpreter_files:
                 if is_benchmark_json_file(file["name"]):
                     interpreter_json_url = file["download_url"]
                     break
 
-            for file in jit_contents.json():
+            for file in jit_files:
                 if is_benchmark_json_file(file["name"]):
                     jit_json_url = file["download_url"]
                     break
@@ -453,12 +468,7 @@ class DataLoader:
         Returns the fork name (e.g., "python", "savannahostrowski") or None if unable to parse.
         """
         try:
-            dir_response = await self._client.get(
-                f"{self._url}/contents/results/{dir_name}",
-                headers=get_github_headers(),
-            )
-            dir_response.raise_for_status()
-            files = dir_response.json()
+            files = await self._get_dir_contents(dir_name)
 
             # Find the benchmark JSON file
             json_file = None
@@ -617,10 +627,7 @@ class DataLoader:
         run_date = datetime.strptime(date_str, "%Y%m%d")
         is_jit, has_tailcall = parse_run_flags(dir_name)
 
-        contents_url = f"{self._url}/contents/results/{dir_name}"
-        response = await self._client.get(contents_url, headers=get_github_headers())
-        response.raise_for_status()
-        files = response.json()
+        files = await self._get_dir_contents(dir_name)
 
         # Find ALL benchmark JSON files (one per machine)
         json_files = [f for f in files if is_benchmark_json_file(f["name"])]

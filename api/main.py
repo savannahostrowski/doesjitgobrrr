@@ -379,7 +379,7 @@ def reload_data_task():
             print(f"STDOUT: {result.stdout}")
             print(f"STDERR: {result.stderr}")
     except subprocess.TimeoutExpired:
-        print("Data reload timed out after 5 minutes")
+        print("Data reload timed out after 30 minutes")
     except Exception as e:
         print(f"Error during data reload: {e}")
 
