@@ -1,6 +1,6 @@
 import type { HistoricalResponse, MachinesMap } from './types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
 // Cache configuration
 const CACHE_KEY_SUMMARY_PREFIX = 'historical_summary_cache_';
@@ -116,16 +116,41 @@ export async function fetchHistoricalByDate(date: string, forceRefresh = false):
   return data;
 }
 
-// In-memory cache for machines (rarely changes, no need for localStorage)
-let machinesCache: { data: MachinesMap; timestamp: number } | null = null;
+const CACHE_KEY_MACHINES = 'machines_cache';
+const MACHINES_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+interface CachedMachines {
+  data: MachinesMap;
+  timestamp: number;
+}
+
+// In-memory cache so navigations within the same session are instant
+let machinesMemoryCache: MachinesMap | null = null;
 
 /**
  * Fetch machine metadata (colors, arch, descriptions) from the API.
- * Cached in memory with the same TTL as other data.
+ * Cached in memory (instant on route changes) and localStorage (24h persistence).
  */
 export async function fetchMachines(forceRefresh = false): Promise<MachinesMap> {
-  if (!forceRefresh && machinesCache && Date.now() - machinesCache.timestamp < CACHE_TTL) {
-    return machinesCache.data;
+  // In-memory cache: instant return, no async overhead
+  if (!forceRefresh && machinesMemoryCache) {
+    return machinesMemoryCache;
+  }
+
+  if (!forceRefresh) {
+    try {
+      const raw = globalThis.localStorage.getItem(CACHE_KEY_MACHINES);
+      if (raw) {
+        const cached: CachedMachines = JSON.parse(raw);
+        if (Date.now() - cached.timestamp < MACHINES_CACHE_TTL) {
+          machinesMemoryCache = cached.data;
+          return cached.data;
+        }
+        globalThis.localStorage.removeItem(CACHE_KEY_MACHINES);
+      }
+    } catch {
+      // fall through to fetch
+    }
   }
 
   const response = await fetch(`${API_URL}/api/machines`, { cache: 'no-cache' });
@@ -133,7 +158,15 @@ export async function fetchMachines(forceRefresh = false): Promise<MachinesMap> 
     throw new Error('Failed to fetch machines');
   }
   const json = await response.json();
-  machinesCache = { data: json.machines, timestamp: Date.now() };
+  machinesMemoryCache = json.machines;
+
+  try {
+    const cacheData: CachedMachines = { data: json.machines, timestamp: Date.now() };
+    globalThis.localStorage.setItem(CACHE_KEY_MACHINES, JSON.stringify(cacheData));
+  } catch {
+    // localStorage may be full or unavailable
+  }
+
   return json.machines;
 }
 

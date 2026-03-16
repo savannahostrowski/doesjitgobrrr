@@ -1,4 +1,4 @@
-import { type Component, type Setter, onMount, onCleanup, createEffect, createMemo, createSignal, createResource, For, on, Show } from 'solid-js';
+import { type Component, type Setter, onCleanup, createEffect, createMemo, createSignal, createResource, For, on, Show } from 'solid-js';
 import type { Data, Layout, Config, PlotlyHTMLElement } from 'plotly.js';
 
 import type { BenchmarkRun, DateRange, GoalLines, MachinesMap } from '../types';
@@ -413,13 +413,9 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
     });
   };
 
-  onMount(() => {
-    renderChart();
-  });
-
   createEffect(
     on([() => props.data, theme, () => props.goalLines, machines], () => {
-      if (!chartDiv) {
+      if (!chartDiv || !machines()) {
         return;
       }
 

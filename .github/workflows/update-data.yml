@@ -10,9 +10,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Trigger production data reload
+      - name: Trigger Pi data reload
         run: |
           curl -X POST https://api.doesjitgobrrr.com/api/admin/reload-data \
+            -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -v
+      - name: Trigger FastAPI Cloud data reload
+        run: |
+          curl -X POST https://doesjitgobrrr.fastapicloud.dev/api/admin/reload-data \
             -H "Authorization: Bearer ${{ secrets.ADMIN_TOKEN }}" \
             -H "Content-Type: application/json" \
             -v

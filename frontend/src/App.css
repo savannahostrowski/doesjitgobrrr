@@ -703,6 +703,14 @@ footer {
   background: var(--bg-primary);
   border-top: 2px solid var(--border-primary);
   margin-top: auto;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 480px) {
+  footer {
+    font-size: 0.8rem;
+    padding: 1rem;
+  }
 }
 
 footer a {

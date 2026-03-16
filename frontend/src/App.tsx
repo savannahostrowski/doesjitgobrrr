@@ -255,6 +255,15 @@ const Layout: Component<RouteSectionProps> = (props) => {
           >
             Savannah Ostrowski
           </a>
+          {" · "}
+          Deployed on ⚡{" "}
+          <a
+            href="https://fastapicloud.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            FastAPI Cloud
+          </a>
         </p>
       </footer>
     </>

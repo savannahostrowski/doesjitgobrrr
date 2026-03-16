@@ -1,51 +1,63 @@
 import os
-from pathlib import Path
+import ssl
+from urllib.parse import urlparse, urlunparse
+
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlmodel import SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 
-def get_postgres_password() -> str:
-    """Get PostgreSQL password from Docker secret or environment variable."""
-    secret_file = Path("/run/secrets/postgres_password")
-    if secret_file.exists():
-        return secret_file.read_text().strip()
-    return os.getenv("POSTGRES_PASSWORD", "benchmarks")
+def _prepare_database_url() -> tuple[str, dict[str, object]]:
+    """Prepare the database URL and connect_args for asyncpg.
+
+    Neon/FastAPI Cloud provides URLs like:
+        postgresql://user:pass@host/db?sslmode=require&channel_binding=require
+
+    asyncpg doesn't understand these query params. We strip ALL query
+    params from the URL and handle SSL via connect_args instead.
+    """
+    raw_url = os.getenv(
+        "DATABASE_URL",
+        "postgresql+asyncpg://benchmarks:benchmarks@localhost:5432/benchmarks",
+    )
+
+    parsed = urlparse(raw_url)
+    has_ssl = "sslmode" in (parsed.query or "") or "ssl" in (parsed.query or "")
+
+    # Rewrite driver prefix for async
+    scheme = parsed.scheme
+    if scheme == "postgresql":
+        scheme = "postgresql+asyncpg"
+
+    # Strip all query params — asyncpg chokes on sslmode, channel_binding, etc.
+    clean_url = urlunparse(parsed._replace(scheme=scheme, query=""))
+
+    # If SSL was requested, pass it properly via connect_args
+    connect_args: dict[str, object] = {}
+    if has_ssl:
+        connect_args["ssl"] = ssl.create_default_context()
+
+    return clean_url, connect_args
 
 
 def get_admin_token() -> str | None:
-    """Get admin token from Docker secret or environment variable."""
-    secret_file = Path("/run/secrets/admin_token")
-    if secret_file.exists():
-        return secret_file.read_text().strip()
+    """Get admin token from environment variable."""
     return os.getenv("ADMIN_TOKEN")
 
 
 def get_github_token() -> str | None:
-    """Get GitHub token from Docker secret or environment variable."""
-    secret_file = Path("/run/secrets/github_token")
-    if secret_file.exists():
-        return secret_file.read_text().strip()
+    """Get GitHub token from environment variable."""
     return os.getenv("GITHUB_TOKEN")
 
 
-def get_database_url() -> str:
-    """Construct database URL with password from secret or environment."""
-    if database_url := os.getenv("DATABASE_URL"):
-        return database_url
-
-    password = get_postgres_password()
-    host = os.getenv("POSTGRES_HOST", "localhost")
-    return f"postgresql+asyncpg://benchmarks:{password}@{host}:5432/benchmarks"
-
-
-DATABASE_URL = get_database_url()
+DATABASE_URL, _connect_args = _prepare_database_url()
 
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
-    pool_pre_ping=True,  # Test connections before using them to avoid stale connections
-    pool_recycle=3600,  # Recycle connections after 1 hour
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    connect_args=_connect_args,
 )
 
 async_session_maker = async_sessionmaker(
