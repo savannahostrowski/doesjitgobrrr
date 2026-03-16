@@ -391,8 +391,8 @@ if STATIC_DIR.exists():
     # SPA catch-all: serve index.html for any non-API route
     @app.get("/{path:path}")
     async def spa_fallback(path: str):
-        file_path = STATIC_DIR / path
-        if file_path.exists() and file_path.is_file():
+        file_path = (STATIC_DIR / path).resolve()
+        if file_path.is_relative_to(STATIC_DIR) and file_path.is_file():
             return FileResponse(file_path)
         return FileResponse(STATIC_DIR / "index.html")
 
