@@ -4,51 +4,37 @@
   justify-content: center;
   min-height: 50vh;
   padding: 4rem 2rem;
-  animation: fadeIn 0.3s ease-in;
+  animation: errorFadeIn 0.4s ease-out;
 }
 
 .error-content {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
 .error-icon-wrapper {
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+  background: var(--bg-tertiary);
   border-radius: 50%;
-  animation: shake 0.5s ease-in-out;
-  box-shadow: 0 4px 12px var(--shadow-accent);
+  border: 1px solid var(--border-primary);
 }
 
 .error-icon {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   color: var(--error);
-  stroke-width: 2;
-}
-
-@keyframes shake {
-  0%, 100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-8px);
-  }
-  75% {
-    transform: translateX(8px);
-  }
 }
 
 .error-text {
-  font-size: 1.3rem;
+  font-size: 1rem;
   font-weight: 500;
-  color: var(--error);
+  color: var(--text-secondary);
   margin: 0;
   text-align: center;
 }
@@ -57,39 +43,36 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  border-radius: 10px;
-  font-size: 1rem;
-  font-weight: 600;
+  padding: 0.625rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
-  border: none;
+  transition: all 0.15s;
+  border: 1px solid var(--border-primary);
   outline: none;
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
-  color: white;
-  box-shadow: 0 4px 12px var(--shadow-accent);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .retry-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px var(--shadow-accent);
-  filter: brightness(1.1);
+  border-color: var(--border-accent);
+  background: var(--accent-muted);
 }
 
 .retry-button:active {
-  transform: translateY(0);
+  transform: scale(0.98);
 }
 
 .retry-icon {
-  width: 18px;
-  height: 18px;
-  stroke-width: 2;
+  width: 16px;
+  height: 16px;
 }
 
-@keyframes fadeIn {
+@keyframes errorFadeIn {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -104,23 +87,22 @@
   }
 
   .error-icon-wrapper {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
   }
 
   .error-icon {
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
   }
 
   .error-text {
-    font-size: 1.1rem;
+    font-size: 0.9375rem;
   }
 
   .retry-button {
-    padding: 0.875rem 1.75rem;
     width: 100%;
-    max-width: 300px;
+    max-width: 240px;
     justify-content: center;
   }
 }

@@ -6,7 +6,8 @@ import { fetchMachines } from '../api';
 
 interface DetailViewProps {
   runs: BenchmarkRun[];
-  onBack: () => void;
+  prevDate: string | null;
+  nextDate: string | null;
 }
 
 interface MachineComparisonRow {
@@ -161,10 +162,8 @@ const DetailView: Component<DetailViewProps> = (props) => {
 
   const totalBenchmarksForMachine = (machine: string) => {
     const runs = runsByMachine().get(machine);
-    if (!runs) return '0 benchmarks';
-
-    const count = Object.keys(runs.nonJit.benchmarks).length;
-    return `${count} benchmarks`;
+    if (!runs) return 0;
+    return Object.keys(runs.nonJit.benchmarks).length;
   };
 
   const formatDate = (dateStr: string) => {
@@ -192,23 +191,37 @@ const DetailView: Component<DetailViewProps> = (props) => {
 
   return (
     <>
-      <div class="back-button-container">
-        <button class="back-button" onClick={() => props.onBack()}>
-          ← Back to Home
-        </button>
+      {/* Run date navigation */}
+      <div class="run-nav">
+        <a
+          href={props.prevDate ? `/run/${props.prevDate}` : undefined}
+          class={`run-nav-btn ${!props.prevDate ? 'disabled' : ''}`}
+          aria-disabled={!props.prevDate}
+        >
+          ← Prev
+        </a>
+        <span class="run-nav-date">
+          {primaryRun() ? formatDate(primaryRun()!.date) : ''}
+        </span>
+        <a
+          href={props.nextDate ? `/run/${props.nextDate}` : undefined}
+          class={`run-nav-btn ${!props.nextDate ? 'disabled' : ''}`}
+          aria-disabled={!props.nextDate}
+        >
+          Next →
+        </a>
       </div>
 
-      <section class="summary-compact">
-        <h2>Benchmark Run Details</h2>
-        <ul class="summary-list">
-          <li>
-            <span class="label">Date:</span> {primaryRun() ? formatDate(primaryRun()!.date) : '-'}
-          </li>
-          <li>
-            <span class="label">Python Version:</span> {primaryRun()?.python_version || '-'}
-          </li>
-          <li>
-            <span class="label">Commit:</span>{' '}
+      {/* Run metadata bar */}
+      <div class="run-meta-bar">
+        <div class="run-meta-item">
+          <span class="run-meta-label">Python</span>
+          <span class="run-meta-value">{primaryRun()?.python_version || '-'}</span>
+        </div>
+        <div class="run-meta-divider" />
+        <div class="run-meta-item">
+          <span class="run-meta-label">Commit</span>
+          <span class="run-meta-value">
             {primaryRun() ? (
               <a
                 href={`https://github.com/python/cpython/commit/${primaryRun()!.commit}`}
@@ -220,63 +233,63 @@ const DetailView: Component<DetailViewProps> = (props) => {
             ) : (
               '-'
             )}
-          </li>
-        </ul>
-
-        <div class="machine-stats-grid">
-          <For each={availableMachines()}>
-            {(machine) => {
-              const runs = runsByMachine().get(machine)!;
-              const speedupData = getSpeedupForMachine(machine);
-              const hasTailcall = runs.jit.has_tailcall || runs.nonJit.has_tailcall;
-              return (
-                <div class="machine-stats-card">
-                  <h3 class="machine-stats-heading">
-                    <span>{machine} ({machines()?.[machine]?.arch || 'unknown'})</span>
-                    <Show when={hasTailcall}>
-                      <span class="badge tailcall">tail calls enabled</span>
-                    </Show>
-                  </h3>
-                  <ul class="machine-stats-list">
-                    <li>
-                      <span class="label">Benchmarks:</span> {totalBenchmarksForMachine(machine)}
-                    </li>
-                    <Show when={speedupData !== null}>
-                      <li>
-                        <span class="label">Geometric Mean:</span>{' '}
-                        <span class={speedupData!.className}>{speedupData!.text}</span>
-                      </li>
-                    </Show>
-                    <Show when={runs.jit.hpt?.percentile_99}>
-                      <li>
-                        <span class="label">HPT 99th %ile:</span> {runs.jit.hpt!.percentile_99?.toFixed(2)}x
-                      </li>
-                    </Show>
-                    <li>
-                      <span class="label">Raw Data:</span>{' '}
-                      <a
-                        href={getRawDataUrl(runs.jit)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        JIT
-                      </a>
-                      {', '}
-                      <a
-                        href={getRawDataUrl(runs.nonJit)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Interpreter
-                      </a>
-                    </li>
-                  </ul>
-                </div>
-              );
-            }}
-          </For>
+          </span>
         </div>
-      </section>
+      </div>
+
+      {/* Machine performance cards */}
+      <div class="machine-cards-grid">
+        <For each={availableMachines()}>
+          {(machine) => {
+            const runs = runsByMachine().get(machine)!;
+            const speedupData = getSpeedupForMachine(machine);
+            const hasTailcall = runs.jit.has_tailcall || runs.nonJit.has_tailcall;
+            const benchmarkCount = totalBenchmarksForMachine(machine);
+            return (
+              <div class="machine-perf-card">
+                <div class="machine-perf-header">
+                  <div class="machine-perf-name">
+                    <span class="machine-perf-machine">{machine}</span>
+                    <span class="machine-perf-arch">{machines()?.[machine]?.arch || 'unknown'}</span>
+                  </div>
+                  <Show when={hasTailcall}>
+                    <span class="badge tailcall">tail calls</span>
+                  </Show>
+                </div>
+
+                <Show when={speedupData !== null}>
+                  <div class="machine-perf-hero">
+                    <span class={`machine-perf-value ${speedupData!.className}`}>{speedupData!.text}</span>
+                    <span class="machine-perf-sublabel">geometric mean</span>
+                  </div>
+                </Show>
+
+                <div class="machine-perf-stats">
+                  <div class="machine-perf-stat">
+                    <span class="machine-perf-stat-value">{benchmarkCount}</span>
+                    <span class="machine-perf-stat-label">benchmarks</span>
+                  </div>
+                  <Show when={runs.jit.hpt?.percentile_99}>
+                    <div class="machine-perf-stat">
+                      <span class="machine-perf-stat-value">{runs.jit.hpt!.percentile_99?.toFixed(2)}x</span>
+                      <span class="machine-perf-stat-label">HPT p99</span>
+                    </div>
+                  </Show>
+                </div>
+
+                <div class="machine-perf-links">
+                  <a href={getRawDataUrl(runs.jit)} target="_blank" rel="noopener noreferrer">
+                    JIT data ↗
+                  </a>
+                  <a href={getRawDataUrl(runs.nonJit)} target="_blank" rel="noopener noreferrer">
+                    Interpreter data ↗
+                  </a>
+                </div>
+              </div>
+            );
+          }}
+        </For>
+      </div>
 
       {/* Tabs */}
       <Show when={availableMachines().length > 0}>
@@ -371,7 +384,7 @@ const DetailView: Component<DetailViewProps> = (props) => {
           <Show when={selectedTab() === machine}>
             <BenchmarkTable
               data={comparisonDataForMachine(machine)}
-              title={`Benchmark Results - ${machine}`}
+              title={`Benchmark Results — ${machine}`}
             />
           </Show>
         )}
