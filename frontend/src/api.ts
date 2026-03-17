@@ -170,6 +170,32 @@ export async function fetchMachines(forceRefresh = false): Promise<MachinesMap> 
   return json.machines;
 }
 
+// In-memory cache for available dates
+let availableDatesCache: string[] | null = null;
+
+/**
+ * Fetch the list of all available benchmark run dates (sorted ascending).
+ * Uses the lightweight summary endpoint and caches in memory.
+ */
+export async function fetchAvailableDates(): Promise<string[]> {
+  if (availableDatesCache) {
+    return availableDatesCache;
+  }
+
+  const summary = await fetchHistoricalSummary(1000);
+  const dateSet = new Set<string>();
+
+  for (const machineRuns of Object.values(summary.machines || {})) {
+    for (const run of machineRuns) {
+      const dateStr = run.date.split('T')[0];
+      dateSet.add(dateStr);
+    }
+  }
+
+  availableDatesCache = Array.from(dateSet).sort();
+  return availableDatesCache;
+}
+
 // Helper to clear the cache manually
 export function clearHistoricalDataCache(): void {
   try {

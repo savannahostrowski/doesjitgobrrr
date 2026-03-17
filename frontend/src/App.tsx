@@ -7,7 +7,7 @@ import DetailView from './components/DetailView';
 import About from './components/About';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorState from './components/ErrorState';
-import { fetchHistoricalByDate, fetchHistoricalSummary } from './api';
+import { fetchHistoricalByDate, fetchHistoricalSummary, fetchAvailableDates } from './api';
 import type { BenchmarkRun, DateRange, GoalLines } from './types';
 import { isValidGoalValue } from './types';
 import './App.css';
@@ -144,12 +144,29 @@ const ChartView: Component = () => {
 
 const DetailViewRoute: Component = () => {
   const params = useParams();
-  const navigate = useNavigate();
   // Fetch data only for the specific date from URL
   const [historicalData] = createResource(
     () => params.date,
     (date) => fetchHistoricalByDate(date)
   );
+  // Fetch available dates for prev/next navigation
+  const [availableDates] = createResource(fetchAvailableDates);
+
+  const prevDate = () => {
+    const dates = availableDates();
+    const date = params.date;
+    if (!dates || !date) return null;
+    const idx = dates.indexOf(date);
+    return idx > 0 ? dates[idx - 1] : null;
+  };
+
+  const nextDate = () => {
+    const dates = availableDates();
+    const date = params.date;
+    if (!dates || !date) return null;
+    const idx = dates.indexOf(date);
+    return idx >= 0 && idx < dates.length - 1 ? dates[idx + 1] : null;
+  };
 
   // Flatten machines data into a single array
   const allRuns = () => {
@@ -214,10 +231,6 @@ const DetailViewRoute: Component = () => {
     });
   };
 
-  const handleBack = () => {
-    navigate('/');
-  };
-
   return (
     <Show
       when={!historicalData.loading}
@@ -226,13 +239,13 @@ const DetailViewRoute: Component = () => {
       <Show
         when={runsOnDate().length > 0}
         fallback={
-          <>
+          <div class="empty-state">
             <p>No data found for this date.</p>
-            <button onClick={handleBack}>← Back to Chart</button>
-          </>
+            <a href="/">← Back to Home</a>
+          </div>
         }
       >
-        <DetailView runs={runsOnDate()} onBack={handleBack} />
+        <DetailView runs={runsOnDate()} prevDate={prevDate()} nextDate={nextDate()} />
       </Show>
     </Show>
   );

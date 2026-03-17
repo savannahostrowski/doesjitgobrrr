@@ -17,46 +17,39 @@ declare const Plotly: {
 };
 import { useTheme } from '../ThemeContext';
 
-const DEFAULT_COLOR = '#6b7280';
+const DEFAULT_COLOR = '#71717a';
 
-// Theme colors
+// Theme colors – professional: readable, structured, confident
 const COLORS = {
-  // Text colors
   text: {
-    dark: '#e5e7eb',
-    light: '#1a1a1a',
+    dark: '#d4d4d8',
+    light: '#3f3f46',
   },
-  // Title/accent colors
   title: {
-    dark: '#c4b5fd',
-    light: '#6d28d9',
+    dark: '#a1a1aa',
+    light: '#52525b',
   },
-  // Grid lines
   grid: {
-    dark: 'rgba(139, 92, 246, 0.15)',
-    light: 'rgba(124, 58, 237, 0.2)',
+    dark: 'rgba(255, 255, 255, 0.06)',
+    light: 'rgba(0, 0, 0, 0.06)',
   },
-  // Zero line
   zeroline: {
-    dark: 'rgba(139, 92, 246, 0.5)',
-    light: 'rgba(124, 58, 237, 0.5)',
+    dark: 'rgba(255, 255, 255, 0.2)',
+    light: 'rgba(0, 0, 0, 0.15)',
   },
-  // Marker outline
   markerOutline: {
-    dark: '#1a1a1a',
+    dark: '#18181b',
     light: '#ffffff',
   },
-  // Hover label
   hoverBg: {
-    dark: 'rgba(26, 26, 26, 0.95)',
-    light: 'rgba(255, 255, 255, 0.95)',
+    dark: '#1c1c1f',
+    light: '#ffffff',
   },
   hoverBorder: {
-    dark: '#8b5cf6',
-    light: '#7c3aed',
+    dark: '#3f3f46',
+    light: '#d4d4d8',
   },
-  // Hint text
-  hintText: '#9ca3af',
+  hintText: '#71717a',
 } as const;
 
 const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
@@ -65,12 +58,11 @@ const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
   { value: 'all', label: 'All time' },
 ];
 
-// Goal line colors - distinct from machine colors (purple, blue, green)
-// Using warm/neutral tones that work in both light and dark mode
+// Goal line colors – muted but readable
 const GOAL_LINE_COLORS = {
-  5: '#f97316',      // orange - visible in both modes, distinct from data
-  10: '#ef4444',     // red - clear warning/goal color
-  custom: '#06b6d4', // cyan - complements purple theme, distinct from blue
+  5: '#f59e0b',      // amber
+  10: '#ef4444',     // red
+  custom: '#06b6d4', // cyan
 } as const;
 
 interface PerformanceChartProps {
@@ -159,13 +151,14 @@ function createTraces(
       hovertemplate: `${machine}: %{text}${hoverHint}<extra></extra>`,
       line: {
         color,
-        width: 3,
+        width: 2.5,
         shape: 'spline',
         smoothing: 0.8,
       },
       marker: {
         color,
-        size: 10,
+        size: 7,
+        symbol: 'circle',
         line: {
           color: COLORS.markerOutline[mode],
           width: 2,
@@ -184,10 +177,10 @@ function createLayout(mode: ThemeMode, goalLines: GoalLines): Partial<Layout> {
   const gridColor = COLORS.grid[mode];
 
   const isMobile = window.innerWidth < MOBILE_BREAKPOINT;
-  const titleSize = isMobile ? 14 : 18;
-  const yAxisTitleSize = isMobile ? 11 : 14;
-  const tickFontSize = isMobile ? 10 : 12;
-  const leftMargin = isMobile ? 70 : 100;
+  const titleSize = isMobile ? 14 : 16;
+  const yAxisTitleSize = isMobile ? 11 : 13;
+  const tickFontSize = isMobile ? 10 : 11;
+  const leftMargin = isMobile ? 68 : 95;
   const hasGoalLines = goalLines.show5 || goalLines.show10 || goalLines.custom !== null;
   const rightMargin = hasGoalLines ? (isMobile ? 70 : 90) : 10;
 
@@ -206,7 +199,7 @@ function createLayout(mode: ThemeMode, goalLines: GoalLines): Partial<Layout> {
       y1: -5,
       line: {
         color: GOAL_LINE_COLORS[5],
-        width: 2,
+        width: 1.5,
         dash: 'dash',
       },
     });
@@ -217,10 +210,11 @@ function createLayout(mode: ThemeMode, goalLines: GoalLines): Partial<Layout> {
       y: -5,
       text: isMobile ? '5%' : '5% faster',
       showarrow: false,
-      font: { color: GOAL_LINE_COLORS[5], size: 11 },
+      font: { color: GOAL_LINE_COLORS[5], size: 10 },
       xanchor: 'left',
       yanchor: 'middle',
-      xshift: 8,
+      xshift: 6,
+      opacity: 0.8,
     });
   }
 
@@ -235,7 +229,7 @@ function createLayout(mode: ThemeMode, goalLines: GoalLines): Partial<Layout> {
       y1: -10,
       line: {
         color: GOAL_LINE_COLORS[10],
-        width: 2,
+        width: 1.5,
         dash: 'dash',
       },
     });
@@ -246,10 +240,11 @@ function createLayout(mode: ThemeMode, goalLines: GoalLines): Partial<Layout> {
       y: -10,
       text: isMobile ? '10%' : '10% faster',
       showarrow: false,
-      font: { color: GOAL_LINE_COLORS[10], size: 11 },
+      font: { color: GOAL_LINE_COLORS[10], size: 10 },
       xanchor: 'left',
       yanchor: 'middle',
-      xshift: 8,
+      xshift: 6,
+      opacity: 0.8,
     });
   }
 
@@ -264,7 +259,7 @@ function createLayout(mode: ThemeMode, goalLines: GoalLines): Partial<Layout> {
       y1: -goalLines.custom,
       line: {
         color: GOAL_LINE_COLORS.custom,
-        width: 2,
+        width: 1.5,
         dash: 'dash',
       },
     });
@@ -275,18 +270,19 @@ function createLayout(mode: ThemeMode, goalLines: GoalLines): Partial<Layout> {
       y: -goalLines.custom,
       text: isMobile ? `${goalLines.custom}%` : `${goalLines.custom}% faster`,
       showarrow: false,
-      font: { color: GOAL_LINE_COLORS.custom, size: 11 },
+      font: { color: GOAL_LINE_COLORS.custom, size: 10 },
       xanchor: 'left',
       yanchor: 'middle',
-      xshift: 8,
+      xshift: 6,
+      opacity: 0.8,
     });
   }
 
   return {
     title: {
-      text: '<b>JIT vs. Interpreter Benchmark Execution Time</b><br><sub>(Geometric Mean)</sub>',
+      text: 'JIT vs. Interpreter · Geometric Mean',
       font: {
-        family: '-apple-system, BlinkMacSystemFont, segoe ui, Roboto, sans-serif',
+        family: 'Sora, -apple-system, BlinkMacSystemFont, sans-serif',
         size: titleSize,
         color: titleColor,
       },
@@ -294,23 +290,37 @@ function createLayout(mode: ThemeMode, goalLines: GoalLines): Partial<Layout> {
       xanchor: 'center' as const,
     },
     xaxis: {
-      tickfont: { color: textColor, size: tickFontSize },
+      tickfont: {
+        family: 'Sora, -apple-system, BlinkMacSystemFont, sans-serif',
+        color: textColor,
+        size: tickFontSize,
+      },
       gridcolor: gridColor,
-      linecolor: gridColor,
+      linecolor: 'transparent',
       tickformat: '%b %d',
+      showline: false,
     },
     yaxis: {
       title: {
-        text: '<b>Performance Difference</b>',
-        font: { color: titleColor, size: yAxisTitleSize },
-        standoff: isMobile ? 10 : 20,
+        text: 'Performance Difference',
+        font: {
+          family: 'Sora, -apple-system, BlinkMacSystemFont, sans-serif',
+          color: titleColor,
+          size: yAxisTitleSize,
+        },
+        standoff: isMobile ? 10 : 16,
       },
-      tickfont: { color: textColor, size: tickFontSize },
+      tickfont: {
+        family: 'Sora, -apple-system, BlinkMacSystemFont, sans-serif',
+        color: textColor,
+        size: tickFontSize,
+      },
       gridcolor: gridColor,
-      linecolor: gridColor,
+      linecolor: 'transparent',
+      showline: false,
       zeroline: true,
       zerolinecolor: COLORS.zeroline[mode],
-      zerolinewidth: 2,
+      zerolinewidth: 1.5,
       range: [-20, 20],
       ticksuffix: '%',
       tickvals: [-20, -15, -10, -5, 0, 5, 10, 15, 20],
@@ -324,14 +334,14 @@ function createLayout(mode: ThemeMode, goalLines: GoalLines): Partial<Layout> {
       bgcolor: COLORS.hoverBg[mode],
       bordercolor: COLORS.hoverBorder[mode],
       font: {
-        color: textColor,
-        family: '-apple-system, BlinkMacSystemFont, segoe ui, Roboto, sans-serif',
-        size: 13,
+        color: mode === 'dark' ? '#fafafa' : '#18181b',
+        family: 'Sora, -apple-system, BlinkMacSystemFont, sans-serif',
+        size: 12,
       },
     },
     plot_bgcolor: 'rgba(0,0,0,0)',
     paper_bgcolor: 'rgba(0,0,0,0)',
-    margin: { t: isMobile ? 60 : 80, r: rightMargin, b: 40, l: leftMargin },
+    margin: { t: isMobile ? 50 : 60, r: rightMargin, b: 40, l: leftMargin },
     autosize: true,
     shapes,
     annotations,
