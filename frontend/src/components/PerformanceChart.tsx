@@ -170,8 +170,49 @@ function createTraces(
   return traces;
 }
 
+/** Compute a symmetric y-axis range and ticks that fit all data + goal lines */
+function computeYAxis(
+  jitRunsByMachine: Map<string, ParsedRun[]>,
+  goalLines: GoalLines,
+  isMobile: boolean,
+): { range: [number, number]; tickvals: number[]; ticktext: string[] } {
+  // Collect all y-values (performance difference %)
+  let maxAbs = 20; // minimum range
+  jitRunsByMachine.forEach(runs => {
+    runs.forEach(r => {
+      const speedup = r.speedup || 1.0;
+      const yVal = Math.abs((1 - speedup) * 100);
+      if (yVal > maxAbs) maxAbs = yVal;
+    });
+  });
+
+  // Also account for goal lines
+  if (goalLines.show5) maxAbs = Math.max(maxAbs, 5);
+  if (goalLines.show10) maxAbs = Math.max(maxAbs, 10);
+  if (goalLines.custom !== null) maxAbs = Math.max(maxAbs, goalLines.custom);
+
+  // Round up to next multiple of 5, with a little padding
+  const limit = Math.ceil((maxAbs + 2) / 5) * 5;
+
+  // Build tick values every 5%
+  const tickvals: number[] = [];
+  for (let v = -limit; v <= limit; v += 5) {
+    tickvals.push(v);
+  }
+
+  const ticktext = tickvals.map((v) => {
+    const label = v >= 0 ? `+${v}%` : `${v}%`;
+    if (!isMobile && v === -limit) return `${v}% (faster)`;
+    if (!isMobile && v === limit) return `+${v}% (slower)`;
+    if (v === 0) return '0%';
+    return label;
+  });
+
+  return { range: [-limit, limit], tickvals, ticktext };
+}
+
 /** Create Plotly layout configuration */
-function createLayout(mode: ThemeMode, goalLines: GoalLines): Partial<Layout> {
+function createLayout(mode: ThemeMode, goalLines: GoalLines, jitRunsByMachine: Map<string, ParsedRun[]>): Partial<Layout> {
   const textColor = COLORS.text[mode];
   const titleColor = COLORS.title[mode];
   const gridColor = COLORS.grid[mode];
@@ -321,12 +362,7 @@ function createLayout(mode: ThemeMode, goalLines: GoalLines): Partial<Layout> {
       zeroline: true,
       zerolinecolor: COLORS.zeroline[mode],
       zerolinewidth: 1.5,
-      range: [-20, 20],
-      ticksuffix: '%',
-      tickvals: [-20, -15, -10, -5, 0, 5, 10, 15, 20],
-      ticktext: isMobile
-        ? ['-20%', '-15%', '-10%', '-5%', '0%', '+5%', '+10%', '+15%', '+20%']
-        : ['-20% (faster)', '-15%', '-10%', '-5%', '0%', '+5%', '+10%', '+15%', '+20% (slower)'],
+      ...computeYAxis(jitRunsByMachine, goalLines, isMobile),
     },
     showlegend: false,
     hovermode: 'x unified' as const,
@@ -395,7 +431,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
     const jitRunsByMachine = groupAndDeduplicateByMachine(parsedJitRuns());
     const machinesData = machines() || {};
     const traces = createTraces(jitRunsByMachine, mode, machinesData);
-    const layout = createLayout(mode, props.goalLines);
+    const layout = createLayout(mode, props.goalLines, jitRunsByMachine);
 
     // Capture the click handler to avoid stale closure issues
     const onPointClick = props.onPointClick;
@@ -553,7 +589,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
         </For>
       </div>
       <p class="chart-subtext">
-        <a href="/about">Learn more about these benchmark runs</a>
+        <a href="/about">Learn more about these benchmark runs and machines</a>
       </p>
     </div>
   );

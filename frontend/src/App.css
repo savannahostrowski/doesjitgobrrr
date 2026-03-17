@@ -790,6 +790,16 @@ footer a:hover {
     font-size: 0.75rem;
     padding: 1rem;
   }
+
+  .footer-separator {
+    display: none;
+  }
+
+  footer p {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
 }
 
 /* ── Chart View ── */

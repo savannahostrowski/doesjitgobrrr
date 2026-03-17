@@ -260,23 +260,23 @@ const Layout: Component<RouteSectionProps> = (props) => {
       </main>
       <footer>
         <p>
-          Made with 🖤 by 
+          <span class="footer-line">Made with 🖤 by{" "}
           <a
             href="https://github.com/savannahostrowski"
             target="_blank"
             rel="noopener noreferrer"
           >
             Savannah Ostrowski
-          </a>
-          {" · "}
-          Deployed on ⚡{" "}
+          </a></span>
+          <span class="footer-separator">{" · "}</span>
+          <span class="footer-line">Deployed on ⚡{" "}
           <a
             href="https://fastapicloud.com"
             target="_blank"
             rel="noopener noreferrer"
           >
             FastAPI Cloud
-          </a>
+          </a></span>
         </p>
       </footer>
     </>
