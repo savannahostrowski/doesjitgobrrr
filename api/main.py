@@ -1,5 +1,5 @@
+import asyncio
 import pathlib
-import subprocess
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -10,8 +10,9 @@ import yaml
 from database import get_admin_token, get_session, init_db
 from fastapi import BackgroundTasks, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.staticfiles import StaticFiles
 from models import BenchmarkRun
 from sqlmodel import desc, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -51,15 +52,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:5173",
-        "http://localhost:8084",  # Frontend in Docker
-        "https://*.github.io",
-        "https://*.savannah.dev",  # Cloudflare tunnel
-        "https://doesjitgobrrr.com",
-        "https://www.doesjitgobrrr.com",
-        "https://isthejitfasteryet.com",
-        "https://www.isthejitfasteryet.com",
-        "https://api.doesjitgobrrr.com",
-        "https://api.isthejitfasteryet.com",
+        "http://localhost:8084",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -363,23 +356,12 @@ async def get_benchmark_trend(
 
 def reload_data_task():
     """Background task to reload benchmark data."""
+    from load_data import DataLoader
+
     try:
-        result = subprocess.run(
-            ["uv", "run", "python", "load_data.py"],
-            cwd="/app",
-            capture_output=True,
-            text=True,
-            timeout=1800,  # 30 minute timeout
-        )
-        if result.returncode == 0:
-            print("Data reload completed successfully")
-            print(result.stdout)
-        else:
-            print(f"Data reload failed with return code {result.returncode}")
-            print(f"STDOUT: {result.stdout}")
-            print(f"STDERR: {result.stderr}")
-    except subprocess.TimeoutExpired:
-        print("Data reload timed out after 30 minutes")
+        loader = DataLoader(SOURCES_PATH)
+        asyncio.run(loader.run())
+        print("Data reload completed successfully")
     except Exception as e:
         print(f"Error during data reload: {e}")
 
@@ -395,6 +377,24 @@ async def reload_data(
         "status": "Data reload triggered",
         "message": "Reload is running in the background",
     }
+
+
+# --- Static file serving (frontend) ---
+STATIC_DIR = pathlib.Path(__file__).parent / "static"
+
+if STATIC_DIR.exists():
+    # Serve static assets (JS, CSS, images) at /assets/
+    assets_dir = STATIC_DIR / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    # SPA catch-all: serve index.html for any non-API route
+    @app.get("/{path:path}")
+    async def spa_fallback(path: str):
+        file_path = (STATIC_DIR / path).resolve()
+        if file_path.is_relative_to(STATIC_DIR) and file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(STATIC_DIR / "index.html")
 
 
 if __name__ == "__main__":
