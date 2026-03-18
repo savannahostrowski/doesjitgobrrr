@@ -29,6 +29,10 @@ jobs:
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v7
 
+      - name: Upgrade FastAPI Cloud CLI
+        working-directory: api
+        run: uv add "fastapi[standard]" --upgrade
+
       - name: Deploy to FastAPI Cloud
         working-directory: api
         run: uv run fastapi deploy
