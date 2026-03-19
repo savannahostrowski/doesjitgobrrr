@@ -29,6 +29,14 @@ jobs:
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v7
 
+      - name: Debug token
+        run: |
+          echo "Token length: ${#FASTAPI_CLOUD_TOKEN}"
+          echo "App ID: $FASTAPI_CLOUD_APP_ID"
+        env:
+          FASTAPI_CLOUD_TOKEN: ${{ secrets.FASTAPI_CLOUD_TOKEN }}
+          FASTAPI_CLOUD_APP_ID: ${{ secrets.FASTAPI_CLOUD_APP_ID }}
+
       - name: Deploy to FastAPI Cloud
         working-directory: api
         run: uv run fastapi deploy
