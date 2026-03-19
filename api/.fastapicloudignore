@@ -1,2 +1,1 @@
-# Include frontend build (gitignored but needed for deployment)
 !static/
