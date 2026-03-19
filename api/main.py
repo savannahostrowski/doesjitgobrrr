@@ -1,4 +1,3 @@
-import asyncio
 import pathlib
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -354,13 +353,13 @@ async def get_benchmark_trend(
     return {"benchmark_name": name, "days": days, "trend": trend_data}
 
 
-def reload_data_task():
+async def reload_data_task():
     """Background task to reload benchmark data."""
     from load_data import DataLoader
 
     try:
         loader = DataLoader(SOURCES_PATH)
-        asyncio.run(loader.run())
+        await loader.run()
         print("Data reload completed successfully")
     except Exception as e:
         print(f"Error during data reload: {e}")
