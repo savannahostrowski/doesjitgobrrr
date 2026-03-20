@@ -576,7 +576,12 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
         </div>
       </div>
       <div class={`chart-container ${props.isLoading ? 'chart-loading' : ''}`}>
-        <div ref={chartDiv} style={{ width: '100%', height: '100%', cursor: 'pointer' }} />
+        <div
+          ref={chartDiv}
+          role="img"
+          aria-label="JIT vs interpreter geometric mean speedup over time. Click a data point to view detailed benchmark results for that date."
+          style={{ width: '100%', height: '100%', cursor: 'pointer' }}
+        />
       </div>
       <div class="chart-legend">
         <For each={Object.entries(machines() || {})}>

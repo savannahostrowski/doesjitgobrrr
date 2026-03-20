@@ -254,13 +254,14 @@ const DetailViewRoute: Component = () => {
 const Layout: Component<RouteSectionProps> = (props) => {
   return (
     <>
+      <a href="#main-content" class="skip-link">Skip to main content</a>
       <Header />
-      <main>
+      <main id="main-content">
         {props.children}
       </main>
       <footer>
         <p>
-          <span class="footer-line">Made with 🖤 by{" "}
+          <span class="footer-line">Made with <span aria-hidden="true">🖤</span> by{" "}
           <a
             href="https://github.com/savannahostrowski"
             target="_blank"
@@ -269,7 +270,7 @@ const Layout: Component<RouteSectionProps> = (props) => {
             Savannah Ostrowski
           </a></span>
           <span class="footer-separator">{" · "}</span>
-          <span class="footer-line">Deployed on ⚡{" "}
+          <span class="footer-line">Deployed on <span aria-hidden="true">⚡</span>{" "}
           <a
             href="https://fastapicloud.com"
             target="_blank"
