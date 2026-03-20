@@ -168,6 +168,14 @@ const DetailViewRoute: Component = () => {
     return idx >= 0 && idx < dates.length - 1 ? dates[idx + 1] : null;
   };
 
+  // Prefetch adjacent dates in the background so navigation is instant
+  createEffect(() => {
+    const prev = prevDate();
+    const next = nextDate();
+    if (prev) fetchHistoricalByDate(prev);
+    if (next) fetchHistoricalByDate(next);
+  });
+
   // Flatten machines data into a single array
   const allRuns = () => {
     const data = historicalData();
