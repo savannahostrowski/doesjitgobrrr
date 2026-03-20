@@ -2,11 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏎️</text></svg>" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <title>does JIT go brrr?</title>
+    <meta name="description" content="Track Python's experimental JIT compiler performance vs the standard interpreter over time. Daily benchmarks across multiple machines using pyperformance." />
+    <meta name="author" content="Savannah Ostrowski" />
+    <link rel="canonical" href="https://doesjitgobrrr.com/" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
@@ -21,6 +24,20 @@
     <meta name="twitter:title" content="does JIT go brrr? | Python JIT Performance Tracker" />
     <meta name="twitter:description" content="Track Python's experimental JIT compiler performance vs the standard interpreter over time. Daily benchmarks across multiple machines using pyperformance." />
     <meta name="twitter:image" content="https://doesjitgobrrr.com/social.png" />
+    <!-- Structured data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "does JIT go brrr?",
+      "url": "https://doesjitgobrrr.com/",
+      "description": "Track Python's experimental JIT compiler performance vs the standard interpreter over time. Daily benchmarks across multiple machines using pyperformance.",
+      "author": {
+        "@type": "Person",
+        "name": "Savannah Ostrowski"
+      }
+    }
+    </script>
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
   </head>
   <body>

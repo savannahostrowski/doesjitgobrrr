@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "social": "node generate-social.mjs"
   },
   "dependencies": {
     "@solidjs/router": "^0.15.4",
@@ -17,12 +18,15 @@
     "yaml": "^2.8.2"
   },
   "devDependencies": {
+    "@fontsource/sora": "^5.2.8",
+    "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^24.10.0",
     "@types/plotly.js": "^3.0.8",
     "@typescript-eslint/eslint-plugin": "^8.46.4",
     "@typescript-eslint/parser": "^8.46.4",
     "eslint": "^9.39.1",
     "eslint-plugin-solid": "^0.14.5",
+    "satori": "^0.26.0",
     "typescript": "~5.9.3",
     "vite": "^7.2.2",
     "vite-plugin-solid": "^2.11.10"
