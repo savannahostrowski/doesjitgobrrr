@@ -26,7 +26,7 @@ See [pyperf_bench](https://github.com/savannahostrowski/pyperf_bench) for a work
 
 ### Which commit to benchmark
 
-To keep all machines benchmarking the same CPython commit each night, [pyperf_bench](https://github.com/savannahostrowski/pyperf_bench) writes to `commit.txt` file daily at 6pm PST containing the latest CPython `main` SHA. Your nightly workflow should read this file before starting benchmarks.
+To keep all machines benchmarking the same CPython commit each night, [pyperf_bench](https://github.com/savannahostrowski/pyperf_bench) writes to `commit.txt` file daily at 3pm PST (11pm UTC) containing the latest CPython `main` SHA. Your nightly workflow should read this file before starting benchmarks.
 This ensures consistent cross-machine comparisons on the dashboard.
 
 ## 3. Add your source to `api/sources.yaml`
