@@ -111,7 +111,9 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
     <section class="benchmarks">
       <h2>{props.title || 'Benchmark Results'}</h2>
       <div class="table-controls">
+        <label for="benchmark-search" class="sr-only">Search benchmarks</label>
         <input
+          id="benchmark-search"
           type="text"
           placeholder="Search benchmarks..."
           value={searchQuery()}
@@ -123,6 +125,7 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
           <thead>
             <tr>
               <th
+                scope="col"
                 data-sort="name"
                 classList={{
                   'sort-asc': sortColumn() === 'name' && sortDirection() === 'asc',
@@ -133,6 +136,7 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
                 Benchmark Name <span class="sort-indicator" />
               </th>
               <th
+                scope="col"
                 data-sort="nonjit_mean"
                 classList={{
                   'sort-asc': sortColumn() === 'nonjit_mean' && sortDirection() === 'asc',
@@ -143,6 +147,7 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
                 Interpreter Mean <span class="sort-indicator" />
               </th>
               <th
+                scope="col"
                 data-sort="jit_mean"
                 classList={{
                   'sort-asc': sortColumn() === 'jit_mean' && sortDirection() === 'asc',
@@ -153,6 +158,7 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
                 JIT Mean <span class="sort-indicator" />
               </th>
               <th
+                scope="col"
                 data-sort="diff"
                 classList={{
                   'sort-asc': sortColumn() === 'diff' && sortDirection() === 'asc',
@@ -163,6 +169,7 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
                 Difference <span class="sort-indicator" />
               </th>
               <th
+                scope="col"
                 data-sort="speedup"
                 classList={{
                   'sort-asc': sortColumn() === 'speedup' && sortDirection() === 'asc',

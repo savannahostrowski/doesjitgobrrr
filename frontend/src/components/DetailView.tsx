@@ -193,23 +193,21 @@ const DetailView: Component<DetailViewProps> = (props) => {
     <>
       {/* Run date navigation */}
       <div class="run-nav">
-        <a
-          href={props.prevDate ? `/run/${props.prevDate}` : undefined}
-          class={`run-nav-btn ${!props.prevDate ? 'disabled' : ''}`}
-          aria-disabled={!props.prevDate}
+        <Show
+          when={props.prevDate}
+          fallback={<span class="run-nav-btn disabled" aria-disabled="true">← Prev</span>}
         >
-          ← Prev
-        </a>
+          <a href={`/run/${props.prevDate}`} class="run-nav-btn">← Prev</a>
+        </Show>
         <span class="run-nav-date">
           {primaryRun() ? formatDate(primaryRun()!.date) : ''}
         </span>
-        <a
-          href={props.nextDate ? `/run/${props.nextDate}` : undefined}
-          class={`run-nav-btn ${!props.nextDate ? 'disabled' : ''}`}
-          aria-disabled={!props.nextDate}
+        <Show
+          when={props.nextDate}
+          fallback={<span class="run-nav-btn disabled" aria-disabled="true">Next →</span>}
         >
-          Next →
-        </a>
+          <a href={`/run/${props.nextDate}`} class="run-nav-btn">Next →</a>
+        </Show>
       </div>
 
       {/* Run metadata bar */}
@@ -320,7 +318,9 @@ const DetailView: Component<DetailViewProps> = (props) => {
         <section class="benchmarks">
           <h2>Cross-Machine Comparison</h2>
           <div class="table-controls">
+            <label for="compare-search" class="sr-only">Search benchmarks</label>
             <input
+              id="compare-search"
               type="text"
               placeholder="Search benchmarks..."
               value={compareSearchQuery()}
@@ -332,6 +332,7 @@ const DetailView: Component<DetailViewProps> = (props) => {
               <thead>
                 <tr>
                   <th
+                    scope="col"
                     data-sort="name"
                     classList={{
                       'sort-asc': compareSortColumn() === 'name' && compareSortDirection() === 'asc',
@@ -344,6 +345,7 @@ const DetailView: Component<DetailViewProps> = (props) => {
                   <For each={availableMachines()}>
                     {(machine) => (
                       <th
+                        scope="col"
                         data-sort={machine}
                         classList={{
                           'sort-asc': compareSortColumn() === machine && compareSortDirection() === 'asc',
