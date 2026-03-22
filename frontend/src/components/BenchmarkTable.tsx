@@ -1,6 +1,7 @@
 import { type Component, createSignal, For } from 'solid-js';
 import type { ComparisonRow, SortColumn, SortDirection } from '../types';
 import { formatTime, compareValues, formatSpeedup } from '../utils';
+import './BenchmarkTable.css';
 
 
 const PYSTON_BENCHMARKS = new Set(['aiohttp', 'djangocms', 'flaskblogging', 'gevent_hub', 'gunicorn', 'json', 'mypy2', 'pycparser', 'pylint', 'pytorch_alexnet_inference', 'thrift']);

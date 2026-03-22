@@ -1,0 +1,202 @@
+/* ── About Page ── */
+.about-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.about-layout {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 2rem 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.about-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 12px;
+  padding: 1.75rem 2rem;
+}
+
+.about-card-compact {
+  padding: 1.25rem 2rem;
+}
+
+.about-card-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.75rem;
+  letter-spacing: -0.02em;
+}
+
+.about-text {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.about-text-secondary {
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+  margin-bottom: 1rem;
+}
+
+.about-text a {
+  color: var(--accent-secondary);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+
+.about-text a:hover {
+  color: var(--accent-primary);
+  text-decoration: underline;
+}
+
+/* Link pills */
+.about-links-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.about-link-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.4375rem 0.875rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 100px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.about-link-pill:hover {
+  border-color: var(--border-accent);
+  color: var(--text-primary);
+  background: var(--accent-muted);
+}
+
+.about-link-pill svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.about-link-pill:hover svg {
+  opacity: 0.9;
+}
+
+/* Machine cards */
+.about-machines-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+
+.about-machine-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  padding: 1.125rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  transition: border-color 0.15s;
+}
+
+.about-machine-card:hover {
+  border-color: var(--border-accent);
+}
+
+.about-machine-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.about-machine-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.about-machine-arch {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+}
+
+.about-machine-desc {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.about-machine-details {
+  display: flex;
+  gap: 1.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-primary);
+}
+
+.about-machine-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+}
+
+.about-machine-detail-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.about-machine-detail-value {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.about-machine-detail-value a {
+  color: var(--accent-secondary);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.about-machine-detail-value a:hover {
+  color: var(--accent-primary);
+}
+
+@media (min-width: 1240px) {
+  .about-layout {
+    padding-top: 1rem;
+  }
+}
+
+@media (max-width: 1024px) {
+  .about-layout {
+    padding: 0 1rem 2rem;
+  }
+
+  .about-card {
+    padding: 1.25rem;
+  }
+
+  .about-machines-grid {
+    grid-template-columns: 1fr;
+  }
+}

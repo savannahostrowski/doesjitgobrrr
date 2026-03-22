@@ -1,5 +1,6 @@
 import { type Component, createSignal, Show } from 'solid-js';
 import { useTheme } from '../ThemeContext';
+import './Header.css';
 
 const Header: Component = () => {
   const { theme, toggleTheme } = useTheme();

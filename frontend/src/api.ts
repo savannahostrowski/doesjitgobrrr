@@ -1,6 +1,7 @@
 import { createResource, createRoot } from 'solid-js';
 import type { Resource } from 'solid-js';
 import type { HistoricalResponse, MachinesMap } from './types';
+import { CACHE_TTL_MS } from './constants';
 
 export type { Resource };
 
@@ -9,7 +10,6 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 // Cache configuration
 const CACHE_KEY_SUMMARY_PREFIX = 'historical_summary_cache_';
 const CACHE_KEY_DATE_PREFIX = 'historical_date_cache_';
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 interface CachedData {
   data: HistoricalResponse;
@@ -25,7 +25,7 @@ function getCachedData(cacheKey: string): HistoricalResponse | null {
     const now = Date.now();
 
     // Check if cache is still valid
-    if (now - cachedData.timestamp < CACHE_TTL) {
+    if (now - cachedData.timestamp < CACHE_TTL_MS) {
       // Also validate the cache has actual data
       const machines = cachedData.data?.machines || {};
       const totalRuns = Object.values(machines).reduce((sum, runs) => sum + runs.length, 0);
