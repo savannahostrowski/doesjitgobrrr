@@ -1,9 +1,8 @@
-import { type Component, createResource, For } from 'solid-js';
-import { fetchMachines } from '../api';
+import { type Component, For } from 'solid-js';
+import { machinesResource as machines } from '../api';
 import './About.css';
 
 const About: Component = () => {
-  const [machines] = createResource(fetchMachines);
 
   return (
     <div class="about-page">
