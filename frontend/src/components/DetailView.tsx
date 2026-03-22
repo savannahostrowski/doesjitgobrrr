@@ -1,6 +1,7 @@
 import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import type { BenchmarkRun, ComparisonRow } from '../types';
 import BenchmarkTable from './BenchmarkTable';
+import './DetailView.css';
 import { compareValues, formatSpeedup, formatSpeedupPercent } from '../utils';
 import { machinesResource as machines } from '../api';
 

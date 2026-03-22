@@ -1,21 +1,15 @@
-import { type Component, type Setter, onCleanup, createEffect, createMemo, createSignal, For, on, Show } from 'solid-js';
-import type { Data, Layout, Config, PlotlyHTMLElement } from 'plotly.js';
+import { type Component, type Setter, onCleanup, createEffect, createMemo, For, on, Show } from 'solid-js';
+import type { Data, Layout, Config } from 'plotly.js';
 
 import type { BenchmarkRun, DateRange, GoalLines, MachinesMap } from '../types';
-import { isValidGoalValue, GOAL_LINE_MIN, GOAL_LINE_MAX } from '../types';
 import { machinesResource as machines } from '../api';
 
 // Plotly is loaded via CDN in index.html
-declare const Plotly: {
-  newPlot(
-    element: HTMLDivElement,
-    data: Data[],
-    layout?: Partial<Layout>,
-    config?: Partial<Config>
-  ): Promise<PlotlyHTMLElement>;
-  purge(element: HTMLDivElement): void;
-};
+declare const Plotly: typeof import('plotly.js');
 import { useTheme } from '../ThemeContext';
+import CustomGoalInput from './CustomGoalInput';
+import { MOBILE_BREAKPOINT } from '../constants';
+import './PerformanceChart.css';
 
 const DEFAULT_COLOR = '#71717a';
 
@@ -111,6 +105,46 @@ function groupAndDeduplicateByMachine(runs: ParsedRun[]): Map<string, ParsedRun[
 
   return byMachine;
 }
+
+function buildGoalLineShape(
+  y: number,
+  color: string,
+  labelFull: string,
+  labelShort: string,
+  isMobile: boolean
+): { shape: NonNullable<Partial<Layout>['shapes']>[number]; annotation: NonNullable<Partial<Layout>['annotations']>[number] } {
+  return {
+    shape: {
+      type: 'line',
+      xref: 'paper',
+      x0: 0,
+      x1: 1,
+      yref: 'y',
+      y0: y,
+      y1: y,
+      line: {
+        color,
+        width: 1.5,
+        dash: 'dash',
+      },
+    },
+    annotation: {
+      xref: 'paper',
+      x: 1,
+      yref: 'y',
+      y: y,
+      text: isMobile ? labelShort : labelFull,
+      showarrow: false,
+      font: { color, size: 10 },
+      xanchor: 'left',
+      yanchor: 'middle',
+      xshift: 6,
+      opacity: 0.8,
+    },
+  };
+}
+
+
 
 /** Create Plotly traces from grouped machine data */
 function createTraces(
@@ -229,94 +263,18 @@ function createLayout(mode: ThemeMode, goalLines: GoalLines, jitRunsByMachine: M
   const shapes: Partial<Layout>['shapes'] = [];
   const annotations: Partial<Layout>['annotations'] = [];
 
-  if (goalLines.show5) {
-    shapes.push({
-      type: 'line',
-      xref: 'paper',
-      x0: 0,
-      x1: 1,
-      yref: 'y',
-      y0: -5,
-      y1: -5,
-      line: {
-        color: GOAL_LINE_COLORS[5],
-        width: 1.5,
-        dash: 'dash',
-      },
-    });
-    annotations.push({
-      xref: 'paper',
-      x: 1,
-      yref: 'y',
-      y: -5,
-      text: isMobile ? '5%' : '5% faster',
-      showarrow: false,
-      font: { color: GOAL_LINE_COLORS[5], size: 10 },
-      xanchor: 'left',
-      yanchor: 'middle',
-      xshift: 6,
-      opacity: 0.8,
-    });
-  }
+  const goalEntries: Array<{ active: boolean; y: number; color: string; labelFull: string; labelShort: string }> = [
+    { active: goalLines.show5, y: 5, color: GOAL_LINE_COLORS[5], labelFull: '5% faster', labelShort: '5%' },
+    { active: goalLines.show10, y: 10, color: GOAL_LINE_COLORS[10], labelFull: '10% faster', labelShort: '10%' },
+    { active: goalLines.custom !== null, y: goalLines.custom ?? 0, color: GOAL_LINE_COLORS.custom, labelFull: `${goalLines.custom}% faster`, labelShort: `${goalLines.custom}%` },
+  ];
 
-  if (goalLines.show10) {
-    shapes.push({
-      type: 'line',
-      xref: 'paper',
-      x0: 0,
-      x1: 1,
-      yref: 'y',
-      y0: -10,
-      y1: -10,
-      line: {
-        color: GOAL_LINE_COLORS[10],
-        width: 1.5,
-        dash: 'dash',
-      },
-    });
-    annotations.push({
-      xref: 'paper',
-      x: 1,
-      yref: 'y',
-      y: -10,
-      text: isMobile ? '10%' : '10% faster',
-      showarrow: false,
-      font: { color: GOAL_LINE_COLORS[10], size: 10 },
-      xanchor: 'left',
-      yanchor: 'middle',
-      xshift: 6,
-      opacity: 0.8,
-    });
-  }
-
-  if (goalLines.custom !== null) {
-    shapes.push({
-      type: 'line',
-      xref: 'paper',
-      x0: 0,
-      x1: 1,
-      yref: 'y',
-      y0: -goalLines.custom,
-      y1: -goalLines.custom,
-      line: {
-        color: GOAL_LINE_COLORS.custom,
-        width: 1.5,
-        dash: 'dash',
-      },
-    });
-    annotations.push({
-      xref: 'paper',
-      x: 1,
-      yref: 'y',
-      y: -goalLines.custom,
-      text: isMobile ? `${goalLines.custom}%` : `${goalLines.custom}% faster`,
-      showarrow: false,
-      font: { color: GOAL_LINE_COLORS.custom, size: 10 },
-      xanchor: 'left',
-      yanchor: 'middle',
-      xshift: 6,
-      opacity: 0.8,
-    });
+  for (const entry of goalEntries) {
+    if (entry.active) {
+      const { shape, annotation } = buildGoalLineShape(-entry.y, entry.color, entry.labelFull, entry.labelShort, isMobile);
+      shapes.push(shape);
+      annotations.push(annotation);
+    }
   }
 
   return {
@@ -390,13 +348,9 @@ const PLOTLY_CONFIG: Partial<Config> = {
   scrollZoom: false,
 };
 
-// Breakpoint for mobile layout (matches CSS media queries)
-const MOBILE_BREAKPOINT = 768;
-
 const PerformanceChart: Component<PerformanceChartProps> = (props) => {
   let chartDiv: HTMLDivElement | undefined;
   const { theme } = useTheme();
-  const [customInputError, setCustomInputError] = createSignal<string | null>(null);
   // Parse dates once upfront for all JIT runs with valid speedup
   const parsedJitRuns = createMemo(() => {
     return props.data
@@ -523,54 +477,12 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
             <span class="goal-line-indicator" style={{ background: GOAL_LINE_COLORS[10] }} />
             10% (3.16)
           </button>
-          <div class={`custom-goal-input ${props.goalLines.custom !== null ? 'has-value' : ''} ${customInputError() ? 'has-error' : ''}`}>
-            <span class="goal-line-indicator" style={{ background: GOAL_LINE_COLORS.custom }} />
-            <input
-              type="number"
-              min={GOAL_LINE_MIN}
-              max={GOAL_LINE_MAX}
-              step="1"
-              placeholder="Custom %"
-              value={props.goalLines.custom !== null ? `${props.goalLines.custom}` : ''}
-              onKeyDown={(e) => {
-                // Block non-numeric keys (e, E, +, -, .)
-                if (['e', 'E', '+', '-', '.'].includes(e.key)) {
-                  e.preventDefault();
-                }
-              }}
-              onInput={(e) => {
-                const val = e.currentTarget.value;
-                if (val === '') {
-                  setCustomInputError(null);
-                  props.onGoalLinesChange(prev => ({ ...prev, custom: null }));
-                } else {
-                  const num = parseInt(val, 10);
-                  if (isValidGoalValue(num)) {
-                    setCustomInputError(null);
-                    props.onGoalLinesChange(prev => ({ ...prev, custom: num }));
-                  } else {
-                    setCustomInputError(`${GOAL_LINE_MIN}-${GOAL_LINE_MAX} only`);
-                  }
-                }
-              }}
-              onBlur={() => setCustomInputError(null)}
-              disabled={props.isLoading}
-              title={`Custom goal line (${GOAL_LINE_MIN}-${GOAL_LINE_MAX}%)`}
-            />
-            <Show when={customInputError()}>
-              <span class="custom-goal-error">{customInputError()}</span>
-            </Show>
-            <Show when={!customInputError() && props.goalLines.custom !== null}>
-              <button
-                type="button"
-                class="custom-goal-clear"
-                onClick={() => props.onGoalLinesChange(prev => ({ ...prev, custom: null }))}
-                title="Clear"
-              >
-                ×
-              </button>
-            </Show>
-          </div>
+          <CustomGoalInput
+            goalLines={props.goalLines}
+            onGoalLinesChange={props.onGoalLinesChange}
+            disabled={props.isLoading}
+            color={GOAL_LINE_COLORS.custom}
+          />
         </div>
       </div>
       <div class={`chart-container ${props.isLoading ? 'chart-loading' : ''}`}>
