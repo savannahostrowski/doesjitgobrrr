@@ -1,9 +1,9 @@
-import { type Component, type Setter, onCleanup, createEffect, createMemo, createSignal, createResource, For, on, Show } from 'solid-js';
+import { type Component, type Setter, onCleanup, createEffect, createMemo, createSignal, For, on, Show } from 'solid-js';
 import type { Data, Layout, Config, PlotlyHTMLElement } from 'plotly.js';
 
 import type { BenchmarkRun, DateRange, GoalLines, MachinesMap } from '../types';
 import { isValidGoalValue, GOAL_LINE_MIN, GOAL_LINE_MAX } from '../types';
-import { fetchMachines } from '../api';
+import { machinesResource as machines } from '../api';
 
 // Plotly is loaded via CDN in index.html
 declare const Plotly: {
@@ -397,8 +397,6 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
   let chartDiv: HTMLDivElement | undefined;
   const { theme } = useTheme();
   const [customInputError, setCustomInputError] = createSignal<string | null>(null);
-  const [machines] = createResource(fetchMachines);
-
   // Parse dates once upfront for all JIT runs with valid speedup
   const parsedJitRuns = createMemo(() => {
     return props.data

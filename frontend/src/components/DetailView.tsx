@@ -1,8 +1,8 @@
-import { type Component, createMemo, createSignal, createResource, For, Show } from 'solid-js';
+import { type Component, createMemo, createSignal, For, Show } from 'solid-js';
 import type { BenchmarkRun, ComparisonRow } from '../types';
 import BenchmarkTable from './BenchmarkTable';
 import { compareValues, formatSpeedup, formatSpeedupPercent } from '../utils';
-import { fetchMachines } from '../api';
+import { machinesResource as machines } from '../api';
 
 interface DetailViewProps {
   runs: BenchmarkRun[];
@@ -16,8 +16,6 @@ interface MachineComparisonRow {
 }
 
 const DetailView: Component<DetailViewProps> = (props) => {
-  const [machines] = createResource(fetchMachines);
-
   // Group runs by machine - memoized to avoid recomputation
   const runsByMachine = createMemo(() => {
     const grouped = new Map<string, { nonJit?: BenchmarkRun; jit?: BenchmarkRun }>();

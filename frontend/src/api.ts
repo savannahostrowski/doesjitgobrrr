@@ -1,4 +1,8 @@
+import { createResource, createRoot } from 'solid-js';
+import type { Resource } from 'solid-js';
 import type { HistoricalResponse, MachinesMap } from './types';
+
+export type { Resource };
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
 
@@ -169,6 +173,12 @@ export async function fetchMachines(forceRefresh = false): Promise<MachinesMap> 
 
   return json.machines;
 }
+
+// Singleton resource — created once, shared across all components so machine
+// names never flash "unknown" when navigating between detail pages.
+export const machinesResource: Resource<MachinesMap> = createRoot(() =>
+  createResource(fetchMachines)[0]
+);
 
 // In-memory cache for available dates
 let availableDatesCache: string[] | null = null;
