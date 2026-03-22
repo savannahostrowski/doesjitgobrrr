@@ -24,6 +24,7 @@ export default [
         fetch: 'readonly',
         HTMLCanvasElement: 'readonly',
         HTMLDivElement: 'readonly',
+        ResizeObserver: 'readonly',
         console: 'readonly',
       },
     },

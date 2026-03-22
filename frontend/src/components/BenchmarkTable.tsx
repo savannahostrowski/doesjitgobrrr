@@ -1,4 +1,4 @@
-import { type Component, createSignal, For } from 'solid-js';
+import { type Component, createSignal, For, onMount, onCleanup } from 'solid-js';
 import type { ComparisonRow, SortColumn, SortDirection } from '../types';
 import { formatTime, compareValues, formatSpeedup } from '../utils';
 import './BenchmarkTable.css';
@@ -46,6 +46,20 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
   const [sortColumn, setSortColumn] = createSignal<SortColumn>('name');
   const [sortDirection, setSortDirection] = createSignal<SortDirection>('asc');
   const [searchQuery, setSearchQuery] = createSignal('');
+
+  let tableWrapperEl!: HTMLDivElement;
+  let topScrollEl!: HTMLDivElement;
+  let topScrollInnerEl!: HTMLDivElement;
+
+  onMount(() => {
+    const syncWidth = () => {
+      topScrollInnerEl.style.width = `${tableWrapperEl.scrollWidth}px`;
+    };
+    syncWidth();
+    const ro = new ResizeObserver(syncWidth);
+    ro.observe(tableWrapperEl);
+    onCleanup(() => ro.disconnect());
+  });
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn() === column) {
@@ -121,7 +135,18 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
           onInput={(e) => setSearchQuery(e.currentTarget.value)}
         />
       </div>
-      <div class="table-wrapper">
+      <div
+        class="table-scroll-top"
+        ref={topScrollEl}
+        onScroll={() => { tableWrapperEl.scrollLeft = topScrollEl.scrollLeft; }}
+      >
+        <div ref={topScrollInnerEl} />
+      </div>
+      <div
+        class="table-wrapper"
+        ref={tableWrapperEl}
+        onScroll={() => { topScrollEl.scrollLeft = tableWrapperEl.scrollLeft; }}
+      >
         <table>
           <thead>
             <tr>

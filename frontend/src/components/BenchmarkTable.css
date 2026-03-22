@@ -173,6 +173,62 @@ tr.jit-faster:hover {
   opacity: 1;
 }
 
+/* ── Top scroll mirror ── */
+.table-scroll-top {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--border-primary);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background: var(--bg-tertiary);
+}
+
+.table-scroll-top > div {
+  height: 1px;
+}
+
+.table-scroll-top::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-scroll-top::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: 10px 10px 0 0;
+}
+
+.table-scroll-top::-webkit-scrollbar-thumb {
+  background: var(--border-accent);
+  border-radius: 3px;
+}
+
+.table-scroll-top::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+.table-scroll-top + .table-wrapper {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+/* ── Tables ── */
+.table-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-wrapper::-webkit-scrollbar-track {
+  background: var(--bg-tertiary);
+  border-radius: 0 0 10px 10px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--border-accent);
+  border-radius: 3px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
 @media (max-width: 1024px) {
   th, td {
     padding: 0.625rem 0.5rem;

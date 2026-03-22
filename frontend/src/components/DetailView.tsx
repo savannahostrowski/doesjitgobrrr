@@ -376,6 +376,7 @@ const DetailView: Component<DetailViewProps> = (props) => {
               </tbody>
             </table>
           </div>
+          <p class="table-scroll-hint">← scroll for more columns →</p>
         </section>
       </Show>
 
