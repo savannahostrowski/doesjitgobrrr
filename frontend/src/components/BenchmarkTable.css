@@ -173,6 +173,22 @@ tr.jit-faster:hover {
   opacity: 1;
 }
 
+/* ── Drag-to-scroll ── */
+.table-wrapper {
+  cursor: grab;
+}
+
+.table-wrapper.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.table-wrapper.is-dragging * {
+  user-select: none;
+  cursor: grabbing;
+  pointer-events: none;
+}
+
 /* ── Top scroll mirror ── */
 .table-scroll-top {
   overflow-x: auto;
@@ -227,6 +243,23 @@ tr.jit-faster:hover {
 
 .table-wrapper::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
+}
+
+@media (max-width: 640px) {
+  /* Custom scrollbars are invisible on iOS — hide the top mirror and use a fade instead */
+  .table-scroll-top {
+    display: none;
+  }
+
+  .table-scroll-top + .table-wrapper {
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+  }
+
+  .table-wrapper {
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 2.5rem), transparent 100%);
+    mask-image: linear-gradient(to right, black calc(100% - 2.5rem), transparent 100%);
+  }
 }
 
 @media (max-width: 1024px) {

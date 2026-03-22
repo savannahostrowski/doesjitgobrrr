@@ -51,6 +51,30 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
   let topScrollEl!: HTMLDivElement;
   let topScrollInnerEl!: HTMLDivElement;
 
+  let tableDragStartX = 0;
+  let tableDragScrollLeft = 0;
+  let isTableDragging = false;
+
+  const onTableDragStart = (e: MouseEvent) => {
+    e.preventDefault();
+    isTableDragging = true;
+    tableDragStartX = e.pageX - tableWrapperEl.offsetLeft;
+    tableDragScrollLeft = tableWrapperEl.scrollLeft;
+    tableWrapperEl.classList.add('is-dragging');
+  };
+
+  const onTableDragMove = (e: MouseEvent) => {
+    if (!isTableDragging) return;
+    e.preventDefault();
+    const x = e.pageX - tableWrapperEl.offsetLeft;
+    tableWrapperEl.scrollLeft = tableDragScrollLeft - (x - tableDragStartX);
+  };
+
+  const onTableDragEnd = () => {
+    isTableDragging = false;
+    tableWrapperEl.classList.remove('is-dragging');
+  };
+
   onMount(() => {
     const syncWidth = () => {
       topScrollInnerEl.style.width = `${tableWrapperEl.scrollWidth}px`;
@@ -146,6 +170,10 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
         class="table-wrapper"
         ref={tableWrapperEl}
         onScroll={() => { topScrollEl.scrollLeft = tableWrapperEl.scrollLeft; }}
+        onMouseDown={onTableDragStart}
+        onMouseMove={onTableDragMove}
+        onMouseUp={onTableDragEnd}
+        onMouseLeave={onTableDragEnd}
       >
         <table>
           <thead>

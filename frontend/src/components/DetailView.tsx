@@ -47,6 +47,56 @@ const DetailView: Component<DetailViewProps> = (props) => {
   });
 
   const availableMachines = createMemo(() => Array.from(runsByMachine().keys()).sort());
+
+  // Drag-to-scroll for benchmark tabs
+  let tabsEl: HTMLDivElement | undefined;
+  let tabsDragStartX = 0;
+  let tabsDragScrollLeft = 0;
+  let isTabsDragging = false;
+
+  const onTabsDragStart = (e: MouseEvent) => {
+    isTabsDragging = true;
+    tabsDragStartX = e.pageX - (tabsEl?.offsetLeft ?? 0);
+    tabsDragScrollLeft = tabsEl?.scrollLeft ?? 0;
+    tabsEl?.classList.add('is-dragging');
+  };
+
+  const onTabsDragMove = (e: MouseEvent) => {
+    if (!isTabsDragging || !tabsEl) return;
+    e.preventDefault();
+    const x = e.pageX - tabsEl.offsetLeft;
+    tabsEl.scrollLeft = tabsDragScrollLeft - (x - tabsDragStartX);
+  };
+
+  const onTabsDragEnd = () => {
+    isTabsDragging = false;
+    tabsEl?.classList.remove('is-dragging');
+  };
+
+  // Drag-to-scroll for machine cards
+  let cardsGridEl: HTMLDivElement | undefined;
+  let dragStartX = 0;
+  let dragScrollLeft = 0;
+  let isDragging = false;
+
+  const onCardsDragStart = (e: MouseEvent) => {
+    isDragging = true;
+    dragStartX = e.pageX - (cardsGridEl?.offsetLeft ?? 0);
+    dragScrollLeft = cardsGridEl?.scrollLeft ?? 0;
+    cardsGridEl?.classList.add('is-dragging');
+  };
+
+  const onCardsDragMove = (e: MouseEvent) => {
+    if (!isDragging || !cardsGridEl) return;
+    e.preventDefault();
+    const x = e.pageX - cardsGridEl.offsetLeft;
+    cardsGridEl.scrollLeft = dragScrollLeft - (x - dragStartX);
+  };
+
+  const onCardsDragEnd = () => {
+    isDragging = false;
+    cardsGridEl?.classList.remove('is-dragging');
+  };
   // Initialize selectedTab lazily - use first machine or 'compare'
   const getInitialTab = () => availableMachines()[0] || 'compare';
   const [selectedTab, setSelectedTab] = createSignal<string>(getInitialTab());
@@ -235,7 +285,14 @@ const DetailView: Component<DetailViewProps> = (props) => {
       </div>
 
       {/* Machine performance cards */}
-      <div class="machine-cards-grid">
+      <div
+        class="machine-cards-grid"
+        ref={cardsGridEl}
+        onMouseDown={onCardsDragStart}
+        onMouseMove={onCardsDragMove}
+        onMouseUp={onCardsDragEnd}
+        onMouseLeave={onCardsDragEnd}
+      >
         <For each={availableMachines()}>
           {(machine) => {
             const runs = runsByMachine().get(machine)!;
@@ -290,7 +347,14 @@ const DetailView: Component<DetailViewProps> = (props) => {
 
       {/* Tabs */}
       <Show when={availableMachines().length > 0}>
-        <div class="benchmark-tabs">
+        <div
+          class="benchmark-tabs"
+          ref={tabsEl}
+          onMouseDown={onTabsDragStart}
+          onMouseMove={onTabsDragMove}
+          onMouseUp={onTabsDragEnd}
+          onMouseLeave={onTabsDragEnd}
+        >
           <For each={availableMachines()}>
             {(machine) => (
               <button

@@ -25,6 +25,7 @@ export default [
         HTMLCanvasElement: 'readonly',
         HTMLDivElement: 'readonly',
         ResizeObserver: 'readonly',
+        MouseEvent: 'readonly',
         console: 'readonly',
       },
     },

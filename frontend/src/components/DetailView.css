@@ -202,6 +202,15 @@
 
 /* ── Benchmark Tabs ── */
 .benchmark-tabs {
+  cursor: grab;
+}
+
+.benchmark-tabs.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.benchmark-tabs {
   display: flex;
   gap: 0;
   margin: 1.25rem 2rem 0 2rem;
@@ -357,6 +366,22 @@
   }
 }
 
+/* ── Comparison table scroll hint (mobile only) ── */
+.table-scroll-hint {
+  display: none;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 0.625rem;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 640px) {
+  .table-scroll-hint {
+    display: block;
+  }
+}
+
 @media (max-width: 640px) {
   .run-nav {
     padding: 0.75rem 1rem;
@@ -366,6 +391,17 @@
   .run-meta-bar {
     margin: 0.5rem 0.75rem;
     padding: 0.75rem 1rem;
+  }
+
+  /* Drag-to-scroll cursor */
+  .machine-cards-grid {
+    cursor: grab;
+  }
+
+  .machine-cards-grid.is-dragging {
+    cursor: grabbing;
+    user-select: none;
+    scroll-snap-type: none;
   }
 
   /* Horizontal scroll strip — shows ~1 card + sliver of next */
@@ -390,6 +426,11 @@
     min-width: 240px;
     max-width: 300px;
     scroll-snap-align: start;
+  }
+
+  .machine-cards-grid {
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 3rem), transparent 100%);
+    mask-image: linear-gradient(to right, black calc(100% - 3rem), transparent 100%);
   }
 
   .benchmark-tabs {
