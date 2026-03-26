@@ -40,11 +40,6 @@ def _prepare_database_url() -> tuple[str, dict[str, object]]:
     return clean_url, connect_args
 
 
-def get_admin_token() -> str | None:
-    """Get admin token from environment variable."""
-    return os.getenv("ADMIN_TOKEN")
-
-
 def get_github_token() -> str | None:
     """Get GitHub token from environment variable."""
     return os.getenv("GITHUB_TOKEN")
