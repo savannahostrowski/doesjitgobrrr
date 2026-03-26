@@ -6,11 +6,10 @@ from typing import Any
 
 import fastapi
 import yaml
-from database import get_admin_token, get_session, init_db
-from fastapi import BackgroundTasks, HTTPException, Security
+from database import get_session, init_db
+from fastapi import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from models import BenchmarkRun
 from sqlmodel import desc, select
@@ -18,20 +17,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 
 SOURCES_PATH = pathlib.Path(__file__).parent / "sources.yaml"
-
-
-# Security for admin endpoints
-security = HTTPBearer()
-
-
-def verify_admin_token(credentials: HTTPAuthorizationCredentials = Security(security)):
-    """Verify the admin token for protected endpoints."""
-    admin_token = get_admin_token()
-    if not admin_token:
-        raise HTTPException(status_code=500, detail="Admin token not configured")
-    if credentials.credentials != admin_token:
-        raise HTTPException(status_code=403, detail="Invalid admin token")
-    return credentials
 
 
 @asynccontextmanager
@@ -351,31 +336,6 @@ async def get_benchmark_trend(
             )
 
     return {"benchmark_name": name, "days": days, "trend": trend_data}
-
-
-async def reload_data_task():
-    """Background task to reload benchmark data."""
-    from load_data import DataLoader
-
-    try:
-        loader = DataLoader(SOURCES_PATH)
-        await loader.run()
-        print("Data reload completed successfully")
-    except Exception as e:
-        print(f"Error during data reload: {e}")
-
-
-@app.post("/api/admin/reload-data")
-async def reload_data(
-    background_tasks: BackgroundTasks,
-    credentials: HTTPAuthorizationCredentials = Security(verify_admin_token),
-):
-    """Admin endpoint to trigger data reload from GitHub."""
-    background_tasks.add_task(reload_data_task)
-    return {
-        "status": "Data reload triggered",
-        "message": "Reload is running in the background",
-    }
 
 
 # --- Static file serving (frontend) ---

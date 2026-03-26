@@ -10,6 +10,7 @@ from typing import Any
 
 import hpt
 import httpx
+from sqlalchemy.exc import IntegrityError
 from database import async_session_maker, get_github_token, init_db
 from models import Benchmark, BenchmarkRun, compute_benchmark_statistics
 from sqlmodel import select
@@ -715,7 +716,13 @@ class DataLoader:
                     geometric_mean_speedup=machine_geometric_mean,
                 )
                 session.add(benchmark_run)
-                await session.flush()  # To get the ID assigned
+                try:
+                    await session.flush()  # To get the ID assigned
+                except IntegrityError:
+                    await log(
+                        f"BenchmarkRun for {dir_name} ({machine}) already exists (concurrent insert), skipping."
+                    )
+                    continue
 
                 if not benchmark_run.id:
                     await log(
