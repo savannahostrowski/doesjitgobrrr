@@ -51,7 +51,9 @@ engine = create_async_engine(
     DATABASE_URL,
     echo=False,
     pool_pre_ping=True,
-    pool_recycle=3600,
+    pool_recycle=300,
+    pool_size=5,
+    max_overflow=10,
     connect_args=_connect_args,
 )
 
