@@ -56,16 +56,17 @@ const BenchmarkTable: Component<BenchmarkTableProps> = (props) => {
   let isTableDragging = false;
 
   const onTableDragStart = (e: MouseEvent) => {
-    e.preventDefault();
     isTableDragging = true;
     tableDragStartX = e.pageX - tableWrapperEl.offsetLeft;
     tableDragScrollLeft = tableWrapperEl.scrollLeft;
-    tableWrapperEl.classList.add('is-dragging');
   };
 
   const onTableDragMove = (e: MouseEvent) => {
     if (!isTableDragging) return;
     e.preventDefault();
+    if (!tableWrapperEl.classList.contains('is-dragging')) {
+      tableWrapperEl.classList.add('is-dragging');
+    }
     const x = e.pageX - tableWrapperEl.offsetLeft;
     tableWrapperEl.scrollLeft = tableDragScrollLeft - (x - tableDragStartX);
   };
