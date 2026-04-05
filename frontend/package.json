@@ -26,7 +26,7 @@
     "eslint-plugin-solid": "^0.14.5",
     "satori": "^0.26.0",
     "typescript": "~6.0.2",
-    "vite": "^7.2.2",
+    "vite": "^8.0.3",
     "vite-plugin-solid": "^2.11.11"
   }
 }
