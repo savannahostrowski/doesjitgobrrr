@@ -22,7 +22,7 @@
     "@types/plotly.js": "^3.0.8",
     "@typescript-eslint/eslint-plugin": "^8.58.0",
     "@typescript-eslint/parser": "^8.58.1",
-    "eslint": "^10.2.0",
+    "eslint": "^9.39.1",
     "eslint-plugin-solid": "^0.14.5",
     "satori": "^0.26.0",
     "typescript": "~6.0.2",
