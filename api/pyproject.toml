@@ -13,7 +13,7 @@ dependencies = [
     "numpy>=2.0.0",
     "pyperf>=2.7.0",
     "pyyaml>=6.0",
-    "sqlmodel>=0.0.27",
+    "sqlmodel>=0.0.38",
 ]
 
 [dependency-groups]
