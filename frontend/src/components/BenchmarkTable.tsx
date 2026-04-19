@@ -13,6 +13,7 @@ const SPECIAL_BENCHMARK_NAME_MAPPING: Record<string, string[]> = {
   'bench_thread_pool': ['concurrent_imap'],
   'concurrent_imap': ['bench_mp_pool', 'bench_thread_pool'],
   'deepcopy': ['deepcopy', 'deepcopy_memo', 'deepcopy_reduce'],
+  'fastapi': ['fastapi_http'],
   'gc_collect': ['create_gc_cycles'],
   'genshi': ['genshi_text', 'genshi_xml'],
   'logging': ['logging_format', 'logging_silent', 'logging_simple'],
@@ -33,7 +34,7 @@ function benchmarkNameUrl(benchmarkName: string): string {
   }
   const baseName = Object.entries(SPECIAL_BENCHMARK_NAME_MAPPING)
     .find(([, variants]) => variants.includes(benchmarkName))?.[0] ?? benchmarkName;
-  return `https://github.com/python/pyperformance/tree/main/pyperformance/data-files/benchmarks/bm_${baseName}/run_benchmark.py`;
+  return `https://github.com/python/pyperformance/blob/main/pyperformance/data-files/benchmarks/bm_${baseName}/run_benchmark.py`;
 }
 
 
