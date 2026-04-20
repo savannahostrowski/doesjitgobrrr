@@ -20,7 +20,7 @@
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^25.6.0",
     "@types/plotly.js": "^3.0.8",
-    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.2",
     "@typescript-eslint/parser": "^8.58.2",
     "eslint": "^9.39.1",
     "eslint-plugin-solid": "^0.14.5",
