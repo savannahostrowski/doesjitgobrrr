@@ -18,7 +18,7 @@
   "devDependencies": {
     "@fontsource/sora": "^5.2.8",
     "@resvg/resvg-js": "^2.6.2",
-    "@types/node": "^24.10.0",
+    "@types/node": "^25.6.0",
     "@types/plotly.js": "^3.0.8",
     "@typescript-eslint/eslint-plugin": "^8.58.0",
     "@typescript-eslint/parser": "^8.58.1",
