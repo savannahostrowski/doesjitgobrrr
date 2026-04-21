@@ -21,7 +21,7 @@ repos:
       #   stages: [commit]
       - id: frontend-lockfile-sync
         name: frontend lockfile sync
-        entry: bash -c 'cd frontend && rm -f package-lock.json && npm install --silent --no-fund --no-audit && git add package-lock.json'
+        entry: bash -c 'cd frontend && rm -rf node_modules package-lock.json && npm install --silent --no-fund --no-audit && git add package-lock.json'
         language: system
         pass_filenames: false
         files: '^frontend/package\.json$'
