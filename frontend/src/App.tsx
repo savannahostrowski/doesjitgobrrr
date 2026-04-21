@@ -1,13 +1,29 @@
-import { type Component, createResource, createSignal, createEffect, Show } from 'solid-js';
-import { Router, Route, useNavigate, useParams, type RouteSectionProps } from '@solidjs/router';
-import { ThemeProvider } from './ThemeContext';
-import Header from './components/Header';
-import PerformanceChart from './components/PerformanceChart';
-import DetailView from './components/DetailView';
+import {
+  Route,
+  Router,
+  type RouteSectionProps,
+  useNavigate,
+  useParams,
+} from '@solidjs/router';
+import {
+  type Component,
+  createEffect,
+  createResource,
+  createSignal,
+  Show,
+} from 'solid-js';
+import {
+  fetchAvailableDates,
+  fetchHistoricalByDate,
+  fetchHistoricalSummary,
+} from './api';
 import About from './components/About';
-import LoadingSpinner from './components/LoadingSpinner';
+import DetailView from './components/DetailView';
 import ErrorState from './components/ErrorState';
-import { fetchHistoricalByDate, fetchHistoricalSummary, fetchAvailableDates } from './api';
+import Header from './components/Header';
+import LoadingSpinner from './components/LoadingSpinner';
+import PerformanceChart from './components/PerformanceChart';
+import { ThemeProvider } from './ThemeContext';
 import type { BenchmarkRun, DateRange, GoalLines } from './types';
 import { isValidGoalValue } from './types';
 import './App.css';
@@ -76,24 +92,28 @@ const ChartView: Component = () => {
   const navigate = useNavigate();
   const [dateRange, setDateRange] = createSignal<DateRange>(30);
   const [historicalData, { refetch }] = createResource(dateRange, (days) =>
-    fetchHistoricalSummary(days === 'all' ? 1000 : days)
+    fetchHistoricalSummary(days === 'all' ? 1000 : days),
   );
 
   // Initialize goal lines from URL
   const [goalLines, setGoalLines] = createSignal<GoalLines>(
-    getInitialGoalLines()
+    getInitialGoalLines(),
   );
 
   // Sync goal lines to URL and localStorage
   createEffect(() => {
     const serialized = serializeGoalLines(goalLines());
-    const cleanUrl = globalThis.location.pathname + (serialized ? `?goals=${serialized}` : '');
+    const cleanUrl =
+      globalThis.location.pathname + (serialized ? `?goals=${serialized}` : '');
     globalThis.history.replaceState(null, '', cleanUrl);
 
     // Persist to localStorage for cross-session persistence
     try {
       // Store 'none' explicitly when all goals are off to distinguish from "never set"
-      globalThis.localStorage.setItem(GOAL_LINES_STORAGE_KEY, serialized || 'none');
+      globalThis.localStorage.setItem(
+        GOAL_LINES_STORAGE_KEY,
+        serialized || 'none',
+      );
     } catch {
       // localStorage may be unavailable in private browsing mode
     }
@@ -147,7 +167,7 @@ const DetailViewRoute: Component = () => {
   // Fetch data only for the specific date from URL
   const [historicalData] = createResource(
     () => params.date,
-    (date) => fetchHistoricalByDate(date)
+    (date) => fetchHistoricalByDate(date),
   );
   // Fetch available dates for prev/next navigation
   const [availableDates] = createResource(fetchAvailableDates);
@@ -199,7 +219,7 @@ const DetailViewRoute: Component = () => {
 
     // For each machine, find its latest commit based on directory_name
     const byMachine = new Map<string, Map<string, BenchmarkRun[]>>();
-    data.forEach(run => {
+    data.forEach((run) => {
       const machine = run.machine || 'unknown';
       if (!byMachine.has(machine)) {
         byMachine.set(machine, new Map());
@@ -232,7 +252,7 @@ const DetailViewRoute: Component = () => {
     });
 
     // Now filter to only include runs from each machine's latest commit
-    return data.filter(run => {
+    return data.filter((run) => {
       const machine = run.machine || 'unknown';
       const latestCommit = machineLatestCommit.get(machine);
       return run.commit === latestCommit;
@@ -240,10 +260,7 @@ const DetailViewRoute: Component = () => {
   };
 
   return (
-    <Show
-      when={!historicalData.loading}
-      fallback={<LoadingSpinner />}
-    >
+    <Show when={!historicalData.loading} fallback={<LoadingSpinner />}>
       <Show
         when={runsOnDate().length > 0}
         fallback={
@@ -253,7 +270,11 @@ const DetailViewRoute: Component = () => {
           </div>
         }
       >
-        <DetailView runs={runsOnDate()} prevDate={prevDate()} nextDate={nextDate()} />
+        <DetailView
+          runs={runsOnDate()}
+          prevDate={prevDate()}
+          nextDate={nextDate()}
+        />
       </Show>
     </Show>
   );
@@ -262,30 +283,34 @@ const DetailViewRoute: Component = () => {
 const Layout: Component<RouteSectionProps> = (props) => {
   return (
     <>
-      <a href="#main-content" class="skip-link">Skip to main content</a>
+      <a href="#main-content" class="skip-link">
+        Skip to main content
+      </a>
       <Header />
-      <main id="main-content">
-        {props.children}
-      </main>
+      <main id="main-content">{props.children}</main>
       <footer>
         <p>
-          <span class="footer-line">Made with <span aria-hidden="true">🖤</span> by{" "}
-          <a
-            href="https://github.com/savannahostrowski"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Savannah Ostrowski
-          </a></span>
-          <span class="footer-separator">{" · "}</span>
-          <span class="footer-line">Deployed on <span aria-hidden="true">⚡</span>{" "}
-          <a
-            href="https://fastapicloud.com"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            FastAPI Cloud
-          </a></span>
+          <span class="footer-line">
+            Made with <span aria-hidden="true">🖤</span> by{' '}
+            <a
+              href="https://github.com/savannahostrowski"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Savannah Ostrowski
+            </a>
+          </span>
+          <span class="footer-separator">{' · '}</span>
+          <span class="footer-line">
+            Deployed on <span aria-hidden="true">⚡</span>{' '}
+            <a
+              href="https://fastapicloud.com"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              FastAPI Cloud
+            </a>
+          </span>
         </p>
       </footer>
     </>

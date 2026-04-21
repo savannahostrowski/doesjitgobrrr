@@ -1,7 +1,7 @@
-import { createResource, createRoot } from 'solid-js';
 import type { Resource } from 'solid-js';
-import type { HistoricalResponse, MachinesMap } from './types';
+import { createResource, createRoot } from 'solid-js';
 import { CACHE_TTL_MS } from './constants';
+import type { HistoricalResponse, MachinesMap } from './types';
 
 export type { Resource };
 
@@ -28,7 +28,10 @@ function getCachedData(cacheKey: string): HistoricalResponse | null {
     if (now - cachedData.timestamp < CACHE_TTL_MS) {
       // Also validate the cache has actual data
       const machines = cachedData.data?.machines || {};
-      const totalRuns = Object.values(machines).reduce((sum, runs) => sum + runs.length, 0);
+      const totalRuns = Object.values(machines).reduce(
+        (sum, runs) => sum + runs.length,
+        0,
+      );
       if (totalRuns === 0) {
         // Empty cache, remove it
         globalThis.localStorage.removeItem(cacheKey);
@@ -66,7 +69,10 @@ function setCachedData(cacheKey: string, data: HistoricalResponse): void {
 /**
  * Fetch summary data for the chart (lightweight, no benchmark details)
  */
-export async function fetchHistoricalSummary(days: number = 100, forceRefresh = false): Promise<HistoricalResponse> {
+export async function fetchHistoricalSummary(
+  days: number = 100,
+  forceRefresh = false,
+): Promise<HistoricalResponse> {
   const cacheKey = `${CACHE_KEY_SUMMARY_PREFIX}${days}`;
 
   // Try to get from cache first (unless force refresh is requested)
@@ -78,9 +84,12 @@ export async function fetchHistoricalSummary(days: number = 100, forceRefresh = 
   }
 
   // If not in cache or force refresh, fetch from API
-  const response = await fetch(`${API_URL}/api/historical/summary?days=${days}`, {
-    cache: 'no-cache', // Always revalidate with server
-  });
+  const response = await fetch(
+    `${API_URL}/api/historical/summary?days=${days}`,
+    {
+      cache: 'no-cache', // Always revalidate with server
+    },
+  );
   if (!response.ok) {
     throw new Error('Failed to fetch data');
   }
@@ -95,7 +104,10 @@ export async function fetchHistoricalSummary(days: number = 100, forceRefresh = 
 /**
  * Fetch full historical data for a specific date (for detail view)
  */
-export async function fetchHistoricalByDate(date: string, forceRefresh = false): Promise<HistoricalResponse> {
+export async function fetchHistoricalByDate(
+  date: string,
+  forceRefresh = false,
+): Promise<HistoricalResponse> {
   const cacheKey = `${CACHE_KEY_DATE_PREFIX}${date}`;
 
   // Try to get from cache first (unless force refresh is requested)
@@ -135,7 +147,9 @@ let machinesMemoryCache: MachinesMap | null = null;
  * Fetch machine metadata (colors, arch, descriptions) from the API.
  * Cached in memory (instant on route changes) and localStorage (24h persistence).
  */
-export async function fetchMachines(forceRefresh = false): Promise<MachinesMap> {
+export async function fetchMachines(
+  forceRefresh = false,
+): Promise<MachinesMap> {
   // In-memory cache: instant return, no async overhead
   if (!forceRefresh && machinesMemoryCache) {
     return machinesMemoryCache;
@@ -157,7 +171,9 @@ export async function fetchMachines(forceRefresh = false): Promise<MachinesMap> 
     }
   }
 
-  const response = await fetch(`${API_URL}/api/machines`, { cache: 'no-cache' });
+  const response = await fetch(`${API_URL}/api/machines`, {
+    cache: 'no-cache',
+  });
   if (!response.ok) {
     throw new Error('Failed to fetch machines');
   }
@@ -165,8 +181,14 @@ export async function fetchMachines(forceRefresh = false): Promise<MachinesMap> 
   machinesMemoryCache = json.machines;
 
   try {
-    const cacheData: CachedMachines = { data: json.machines, timestamp: Date.now() };
-    globalThis.localStorage.setItem(CACHE_KEY_MACHINES, JSON.stringify(cacheData));
+    const cacheData: CachedMachines = {
+      data: json.machines,
+      timestamp: Date.now(),
+    };
+    globalThis.localStorage.setItem(
+      CACHE_KEY_MACHINES,
+      JSON.stringify(cacheData),
+    );
   } catch {
     // localStorage may be full or unavailable
   }
@@ -176,8 +198,8 @@ export async function fetchMachines(forceRefresh = false): Promise<MachinesMap> 
 
 // Singleton resource — created once, shared across all components so machine
 // names never flash "unknown" when navigating between detail pages.
-export const machinesResource: Resource<MachinesMap> = createRoot(() =>
-  createResource(fetchMachines)[0]
+export const machinesResource: Resource<MachinesMap> = createRoot(
+  () => createResource(fetchMachines)[0],
 );
 
 // In-memory cache for available dates
@@ -211,7 +233,10 @@ export function clearHistoricalDataCache(): void {
   try {
     const keys = Object.keys(globalThis.localStorage);
     for (const key of keys) {
-      if (key.startsWith(CACHE_KEY_SUMMARY_PREFIX) || key.startsWith(CACHE_KEY_DATE_PREFIX)) {
+      if (
+        key.startsWith(CACHE_KEY_SUMMARY_PREFIX) ||
+        key.startsWith(CACHE_KEY_DATE_PREFIX)
+      ) {
         globalThis.localStorage.removeItem(key);
       }
     }

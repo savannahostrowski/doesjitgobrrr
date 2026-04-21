@@ -1,4 +1,10 @@
-import { createContext, useContext, createSignal, type Component, type ParentProps } from 'solid-js';
+import {
+  type Component,
+  createContext,
+  createSignal,
+  type ParentProps,
+  useContext,
+} from 'solid-js';
 
 type Theme = 'dark' | 'light';
 

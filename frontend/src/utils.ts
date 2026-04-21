@@ -2,16 +2,16 @@ export function formatTime(seconds: number | null | undefined): string {
   if (seconds === null || seconds === undefined) return '-';
 
   if (seconds < 0.000001) {
-    return (seconds * 1000000000).toFixed(0) + ' ns';
+    return `${(seconds * 1000000000).toFixed(0)} ns`;
   } else if (seconds < 0.001) {
-    return (seconds * 1000000).toFixed(0) + ' μs';
+    return `${(seconds * 1000000).toFixed(0)} μs`;
   } else if (seconds < 1) {
     const ms = seconds * 1000;
     // Remove unnecessary decimal places
-    return (ms >= 100 ? ms.toFixed(0) : ms >= 10 ? ms.toFixed(1) : ms.toFixed(2)) + ' ms';
+    return `${ms >= 100 ? ms.toFixed(0) : ms >= 10 ? ms.toFixed(1) : ms.toFixed(2)} ms`;
   } else {
     // Remove unnecessary decimal places for seconds
-    return (seconds >= 100 ? seconds.toFixed(0) : seconds >= 10 ? seconds.toFixed(1) : seconds.toFixed(2)) + ' s';
+    return `${seconds >= 100 ? seconds.toFixed(0) : seconds >= 10 ? seconds.toFixed(1) : seconds.toFixed(2)} s`;
   }
 }
 
@@ -39,7 +39,7 @@ export function formatSpeedup(speedup: number | null): SpeedupDisplay {
 
   const roundedSpeedup = parseFloat(speedup.toFixed(2));
 
-  if (roundedSpeedup === 1.00) {
+  if (roundedSpeedup === 1.0) {
     return { text: '1.00x', className: 'neutral' };
   } else if (speedup >= 1.0) {
     return { text: `${speedup.toFixed(2)}x faster`, className: 'faster' };
@@ -59,7 +59,7 @@ export function formatSpeedupPercent(speedup: number | null): SpeedupDisplay {
 
   const roundedSpeedup = parseFloat(speedup.toFixed(2));
 
-  if (roundedSpeedup === 1.00) {
+  if (roundedSpeedup === 1.0) {
     return { text: 'same speed', className: 'neutral' };
   } else if (speedup >= 1.0) {
     const percentFaster = ((speedup - 1) * 100).toFixed(1);
@@ -77,7 +77,7 @@ export function formatSpeedupPercent(speedup: number | null): SpeedupDisplay {
 export function compareValues(
   a: string | number | null | undefined,
   b: string | number | null | undefined,
-  direction: 'asc' | 'desc'
+  direction: 'asc' | 'desc',
 ): number {
   // Handle null/undefined values - always sort them to the end
   const aIsNull = a === null || a === undefined;

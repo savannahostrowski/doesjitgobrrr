@@ -1,14 +1,23 @@
-import { type Component, type Setter, onCleanup, createEffect, createMemo, For, on, Show } from 'solid-js';
-import type { Data, Layout, Config } from 'plotly.js';
-
-import type { BenchmarkRun, DateRange, GoalLines, MachinesMap } from '../types';
+import type { Config, Data, Layout } from 'plotly.js';
+import {
+  type Component,
+  createEffect,
+  createMemo,
+  For,
+  on,
+  onCleanup,
+  type Setter,
+  Show,
+} from 'solid-js';
 import { machinesResource as machines } from '../api';
+import type { BenchmarkRun, DateRange, GoalLines, MachinesMap } from '../types';
 
 // Plotly is loaded via CDN in index.html
 declare const Plotly: typeof import('plotly.js');
+
+import { MOBILE_BREAKPOINT } from '../constants';
 import { useTheme } from '../ThemeContext';
 import CustomGoalInput from './CustomGoalInput';
-import { MOBILE_BREAKPOINT } from '../constants';
 import './PerformanceChart.css';
 
 const DEFAULT_COLOR = '#71717a';
@@ -54,8 +63,8 @@ const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
 
 // Goal line colors – muted but readable
 const GOAL_LINE_COLORS = {
-  5: '#f59e0b',      // amber
-  10: '#ef4444',     // red
+  5: '#f59e0b', // amber
+  10: '#ef4444', // red
   custom: '#06b6d4', // cyan
 } as const;
 
@@ -74,11 +83,13 @@ type ParsedRun = BenchmarkRun & { parsedDate: Date; dateStr: string };
 type ThemeMode = 'dark' | 'light';
 
 /** Group runs by machine and deduplicate to keep only the latest run per day */
-function groupAndDeduplicateByMachine(runs: ParsedRun[]): Map<string, ParsedRun[]> {
+function groupAndDeduplicateByMachine(
+  runs: ParsedRun[],
+): Map<string, ParsedRun[]> {
   const byMachine = new Map<string, ParsedRun[]>();
 
   // Group by machine
-  runs.forEach(run => {
+  runs.forEach((run) => {
     const machine = run.machine || 'unknown';
     if (!byMachine.has(machine)) {
       byMachine.set(machine, []);
@@ -90,15 +101,19 @@ function groupAndDeduplicateByMachine(runs: ParsedRun[]): Map<string, ParsedRun[
   byMachine.forEach((machineRuns, machine) => {
     const runsByDate = new Map<string, ParsedRun>();
 
-    machineRuns.forEach(run => {
+    machineRuns.forEach((run) => {
       const existing = runsByDate.get(run.dateStr);
-      if (!existing || (run.directory_name || '') > (existing.directory_name || '')) {
+      if (
+        !existing ||
+        (run.directory_name || '') > (existing.directory_name || '')
+      ) {
         runsByDate.set(run.dateStr, run);
       }
     });
 
-    const deduplicated = Array.from(runsByDate.values())
-      .sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+    const deduplicated = Array.from(runsByDate.values()).sort(
+      (a, b) => a.parsedDate.getTime() - b.parsedDate.getTime(),
+    );
 
     byMachine.set(machine, deduplicated);
   });
@@ -111,8 +126,11 @@ function buildGoalLineShape(
   color: string,
   labelFull: string,
   labelShort: string,
-  isMobile: boolean
-): { shape: NonNullable<Partial<Layout>['shapes']>[number]; annotation: NonNullable<Partial<Layout>['annotations']>[number] } {
+  isMobile: boolean,
+): {
+  shape: NonNullable<Partial<Layout>['shapes']>[number];
+  annotation: NonNullable<Partial<Layout>['annotations']>[number];
+} {
   return {
     shape: {
       type: 'line',
@@ -144,35 +162,35 @@ function buildGoalLineShape(
   };
 }
 
-
-
 /** Create Plotly traces from grouped machine data */
 function createTraces(
   jitRunsByMachine: Map<string, ParsedRun[]>,
   mode: ThemeMode,
-  machines: MachinesMap
+  machines: MachinesMap,
 ): Data[] {
-  const sortedMachines = Array.from(jitRunsByMachine.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]));
+  const sortedMachines = Array.from(jitRunsByMachine.entries()).sort((a, b) =>
+    a[0].localeCompare(b[0]),
+  );
 
   const traces: Data[] = sortedMachines.map(([machine, runs], index) => {
     const color = machines[machine]?.color || DEFAULT_COLOR;
     const arch = machines[machine]?.arch || 'unknown';
     // Only show "Click to view details" hint on the last trace to avoid duplication in unified hover
-    const hoverHint = index === sortedMachines.length - 1
-      ? `<br><span style="font-size:11px;color:${COLORS.hintText}">Click to view details</span>`
-      : '';
+    const hoverHint =
+      index === sortedMachines.length - 1
+        ? `<br><span style="font-size:11px;color:${COLORS.hintText}">Click to view details</span>`
+        : '';
 
     return {
       type: 'scatter' as const,
       mode: 'lines+markers' as const,
       name: `${machine} (${arch})`,
-      x: runs.map(r => r.dateStr),
-      y: runs.map(r => {
+      x: runs.map((r) => r.dateStr),
+      y: runs.map((r) => {
         const speedup = r.speedup || 1.0;
         return (1 - speedup) * 100;
       }),
-      text: runs.map(r => {
+      text: runs.map((r) => {
         const speedup = r.speedup || 1.0;
         if (speedup > 1.0) {
           return `${((speedup - 1) * 100).toFixed(1)}% faster`;
@@ -181,7 +199,7 @@ function createTraces(
         }
         return 'same speed';
       }),
-      customdata: runs.map(r => r.dateStr),
+      customdata: runs.map((r) => r.dateStr),
       hovertemplate: `${machine}: %{text}${hoverHint}<extra></extra>`,
       line: {
         color,
@@ -212,8 +230,8 @@ function computeYAxis(
 ): { range: [number, number]; tickvals: number[]; ticktext: string[] } {
   // Collect all y-values (performance difference %)
   let maxAbs = 20; // minimum range
-  jitRunsByMachine.forEach(runs => {
-    runs.forEach(r => {
+  jitRunsByMachine.forEach((runs) => {
+    runs.forEach((r) => {
       const speedup = r.speedup || 1.0;
       const yVal = Math.abs((1 - speedup) * 100);
       if (yVal > maxAbs) maxAbs = yVal;
@@ -246,7 +264,11 @@ function computeYAxis(
 }
 
 /** Create Plotly layout configuration */
-function createLayout(mode: ThemeMode, goalLines: GoalLines, jitRunsByMachine: Map<string, ParsedRun[]>): Partial<Layout> {
+function createLayout(
+  mode: ThemeMode,
+  goalLines: GoalLines,
+  jitRunsByMachine: Map<string, ParsedRun[]>,
+): Partial<Layout> {
   const textColor = COLORS.text[mode];
   const titleColor = COLORS.title[mode];
   const gridColor = COLORS.grid[mode];
@@ -256,22 +278,53 @@ function createLayout(mode: ThemeMode, goalLines: GoalLines, jitRunsByMachine: M
   const yAxisTitleSize = isMobile ? 11 : 13;
   const tickFontSize = isMobile ? 10 : 11;
   const leftMargin = isMobile ? 68 : 95;
-  const hasGoalLines = goalLines.show5 || goalLines.show10 || goalLines.custom !== null;
+  const hasGoalLines =
+    goalLines.show5 || goalLines.show10 || goalLines.custom !== null;
   const rightMargin = hasGoalLines ? (isMobile ? 70 : 90) : 10;
 
   // Build goal line shapes
   const shapes: Partial<Layout>['shapes'] = [];
   const annotations: Partial<Layout>['annotations'] = [];
 
-  const goalEntries: Array<{ active: boolean; y: number; color: string; labelFull: string; labelShort: string }> = [
-    { active: goalLines.show5, y: 5, color: GOAL_LINE_COLORS[5], labelFull: '5% faster', labelShort: '5%' },
-    { active: goalLines.show10, y: 10, color: GOAL_LINE_COLORS[10], labelFull: '10% faster', labelShort: '10%' },
-    { active: goalLines.custom !== null, y: goalLines.custom ?? 0, color: GOAL_LINE_COLORS.custom, labelFull: `${goalLines.custom}% faster`, labelShort: `${goalLines.custom}%` },
+  const goalEntries: Array<{
+    active: boolean;
+    y: number;
+    color: string;
+    labelFull: string;
+    labelShort: string;
+  }> = [
+    {
+      active: goalLines.show5,
+      y: 5,
+      color: GOAL_LINE_COLORS[5],
+      labelFull: '5% faster',
+      labelShort: '5%',
+    },
+    {
+      active: goalLines.show10,
+      y: 10,
+      color: GOAL_LINE_COLORS[10],
+      labelFull: '10% faster',
+      labelShort: '10%',
+    },
+    {
+      active: goalLines.custom !== null,
+      y: goalLines.custom ?? 0,
+      color: GOAL_LINE_COLORS.custom,
+      labelFull: `${goalLines.custom}% faster`,
+      labelShort: `${goalLines.custom}%`,
+    },
   ];
 
   for (const entry of goalEntries) {
     if (entry.active) {
-      const { shape, annotation } = buildGoalLineShape(-entry.y, entry.color, entry.labelFull, entry.labelShort, isMobile);
+      const { shape, annotation } = buildGoalLineShape(
+        -entry.y,
+        entry.color,
+        entry.labelFull,
+        entry.labelShort,
+        isMobile,
+      );
       shapes.push(shape);
       annotations.push(annotation);
     }
@@ -354,9 +407,9 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
   // Parse dates once upfront for all JIT runs with valid speedup
   const parsedJitRuns = createMemo(() => {
     return props.data
-      .filter(r => r.is_jit && r.speedup !== null && r.speedup !== undefined)
-      .map(r => {
-        const parsedDate = new Date(r.date.split('T')[0] + 'T00:00:00Z');
+      .filter((r) => r.is_jit && r.speedup !== null && r.speedup !== undefined)
+      .map((r) => {
+        const parsedDate = new Date(`${r.date.split('T')[0]}T00:00:00Z`);
         const dateStr = parsedDate.toISOString().split('T')[0];
         return {
           ...r,
@@ -370,7 +423,9 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
   const mostRecentDate = createMemo(() => {
     const runs = parsedJitRuns();
     if (runs.length === 0) return null;
-    const sorted = [...runs].sort((a, b) => b.parsedDate.getTime() - a.parsedDate.getTime());
+    const sorted = [...runs].sort(
+      (a, b) => b.parsedDate.getTime() - a.parsedDate.getTime(),
+    );
     return sorted[0].dateStr;
   });
 
@@ -390,24 +445,31 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
     Plotly.newPlot(chartDiv, traces, layout, PLOTLY_CONFIG).then(() => {
       // Add click handler for points after chart is created
       // @ts-expect-error - Plotly adds 'on' method to the div
-      chartDiv.on('plotly_click', (data: { points: Array<{ customdata: string; x: string }> }) => {
-        if (data.points && data.points.length > 0) {
-          // Find first point with valid customdata
-          for (const point of data.points) {
-            if (point.customdata) {
-              onPointClick(point.customdata);
-              return;
+      chartDiv.on(
+        'plotly_click',
+        (data: { points: Array<{ customdata: string; x: string }> }) => {
+          if (data.points && data.points.length > 0) {
+            // Find first point with valid customdata
+            for (const point of data.points) {
+              if (point.customdata) {
+                onPointClick(point.customdata);
+                return;
+              }
+            }
+            // Fallback: use x value date
+            const point = data.points[0];
+            if (point.x) {
+              // Parse as UTC to avoid timezone issues
+              const dateStr = new Date(
+                `${String(point.x).split('T')[0]}T00:00:00Z`,
+              )
+                .toISOString()
+                .split('T')[0];
+              onPointClick(dateStr);
             }
           }
-          // Fallback: use x value date
-          const point = data.points[0];
-          if (point.x) {
-            // Parse as UTC to avoid timezone issues
-            const dateStr = new Date(String(point.x).split('T')[0] + 'T00:00:00Z').toISOString().split('T')[0];
-            onPointClick(dateStr);
-          }
-        }
-      });
+        },
+      );
     });
   };
 
@@ -419,7 +481,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
 
       Plotly.purge(chartDiv);
       renderChart();
-    })
+    }),
   );
 
   onCleanup(() => {
@@ -445,6 +507,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           <For each={DATE_RANGE_OPTIONS}>
             {(option) => (
               <button
+                type="button"
                 class={`date-range-btn ${props.dateRange === option.value ? 'active' : ''}`}
                 onClick={() => props.onDateRangeChange(option.value)}
                 disabled={props.isLoading}
@@ -460,21 +523,37 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           <button
             type="button"
             class={`goal-line-btn ${props.goalLines.show5 ? 'active' : ''}`}
-            onClick={() => props.onGoalLinesChange(prev => ({ ...prev, show5: !prev.show5 }))}
+            onClick={() =>
+              props.onGoalLinesChange((prev) => ({
+                ...prev,
+                show5: !prev.show5,
+              }))
+            }
             disabled={props.isLoading}
             title="5% faster (3.15 goal)"
           >
-            <span class="goal-line-indicator" style={{ background: GOAL_LINE_COLORS[5] }} />
+            <span
+              class="goal-line-indicator"
+              style={{ background: GOAL_LINE_COLORS[5] }}
+            />
             5% (3.15)
           </button>
           <button
             type="button"
             class={`goal-line-btn ${props.goalLines.show10 ? 'active' : ''}`}
-            onClick={() => props.onGoalLinesChange(prev => ({ ...prev, show10: !prev.show10 }))}
+            onClick={() =>
+              props.onGoalLinesChange((prev) => ({
+                ...prev,
+                show10: !prev.show10,
+              }))
+            }
             disabled={props.isLoading}
             title="10% faster (3.16 goal)"
           >
-            <span class="goal-line-indicator" style={{ background: GOAL_LINE_COLORS[10] }} />
+            <span
+              class="goal-line-indicator"
+              style={{ background: GOAL_LINE_COLORS[10] }}
+            />
             10% (3.16)
           </button>
           <CustomGoalInput
@@ -498,7 +577,9 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           {([machine, info]) => (
             <div class="legend-item">
               <span class="legend-color" style={{ background: info.color }} />
-              <span class="legend-label">{machine} ({info.arch})</span>
+              <span class="legend-label">
+                {machine} ({info.arch})
+              </span>
             </div>
           )}
         </For>

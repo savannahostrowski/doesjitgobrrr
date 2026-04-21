@@ -8,7 +8,7 @@ on:
       - 'frontend/src/**'
       - 'frontend/package.json'
       - 'frontend/package-lock.json'
-      - 'frontend/eslint.config.js'
+      - 'frontend/biome.json'
       - '.github/workflows/lint.yml'
   pull_request:
     branches: [main]
@@ -17,7 +17,7 @@ on:
       - 'frontend/src/**'
       - 'frontend/package.json'
       - 'frontend/package-lock.json'
-      - 'frontend/eslint.config.js'
+      - 'frontend/biome.json'
       - '.github/workflows/lint.yml'
 
 jobs:
@@ -52,8 +52,8 @@ jobs:
           cd api
           uv run ruff format --check .
 
-  eslint:
-    name: Lint TypeScript (ESLint)
+  biome:
+    name: Lint TypeScript (Biome)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -70,7 +70,7 @@ jobs:
           cd frontend
           npm ci
 
-      - name: Run ESLint
+      - name: Run Biome
         run: |
           cd frontend
           npm run lint
