@@ -19,6 +19,13 @@ repos:
       #   pass_filenames: false
       #   always_run: true
       #   stages: [commit]
+      - id: frontend-lockfile-sync
+        name: frontend lockfile sync
+        entry: bash -c 'cd frontend && rm -f package-lock.json && npm install --silent --no-fund --no-audit && git add package-lock.json'
+        language: system
+        pass_filenames: false
+        files: '^frontend/package\.json$'
+        stages: [pre-commit]
       - id: pyright
         name: pyright
         entry: bash -c 'cd api && uv run python -m pyright .'

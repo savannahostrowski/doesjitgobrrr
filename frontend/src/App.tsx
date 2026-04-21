@@ -139,7 +139,7 @@ const ChartView: Component = () => {
 
   return (
     <Show
-      when={hasData() || historicalData.error}
+      when={historicalData.error || hasData()}
       fallback={<LoadingSpinner />}
     >
       <Show when={historicalData.error}>

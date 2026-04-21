@@ -1,0 +1,110 @@
+{
+  "days": 30,
+  "machines": {
+    "blueberry": [
+      {
+        "date": "2026-04-01T00:00:00Z",
+        "commit": "abc123",
+        "python_version": "3.15.0",
+        "is_jit": false,
+        "machine": "blueberry",
+        "directory_name": "bm-20260401-3.15.0-abc123",
+        "has_tailcall": false,
+        "created_at": "2026-04-01T00:00:00Z",
+        "geomean": null,
+        "speedup": null,
+        "benchmarks": {
+          "2to3": { "mean": 0.5, "median": 0.5, "stddev": 0.01, "min_value": 0.49, "max_value": 0.51 },
+          "nbody": { "mean": 0.3, "median": 0.3, "stddev": 0.005, "min_value": 0.295, "max_value": 0.305 },
+          "pidigits": { "mean": 0.2, "median": 0.2, "stddev": 0.003, "min_value": 0.197, "max_value": 0.203 }
+        }
+      },
+      {
+        "date": "2026-04-01T00:00:00Z",
+        "commit": "abc123",
+        "python_version": "3.15.0",
+        "is_jit": true,
+        "machine": "blueberry",
+        "directory_name": "bm-20260401-3.15.0-abc123-jit",
+        "has_tailcall": false,
+        "created_at": "2026-04-01T00:00:00Z",
+        "geomean": 1.07,
+        "speedup": 1.07,
+        "hpt": { "reliability": 0.95, "percentile_90": 1.08, "percentile_95": 1.10, "percentile_99": 1.12 },
+        "benchmarks": {
+          "2to3": { "mean": 0.467, "median": 0.467, "stddev": 0.01, "min_value": 0.46, "max_value": 0.475 },
+          "nbody": { "mean": 0.28, "median": 0.28, "stddev": 0.005, "min_value": 0.275, "max_value": 0.285 },
+          "pidigits": { "mean": 0.19, "median": 0.19, "stddev": 0.003, "min_value": 0.187, "max_value": 0.193 }
+        }
+      },
+      {
+        "date": "2026-04-05T00:00:00Z",
+        "commit": "def456",
+        "python_version": "3.15.0",
+        "is_jit": false,
+        "machine": "blueberry",
+        "directory_name": "bm-20260405-3.15.0-def456",
+        "has_tailcall": false,
+        "created_at": "2026-04-05T00:00:00Z",
+        "geomean": null,
+        "speedup": null,
+        "benchmarks": {
+          "2to3": { "mean": 0.5, "median": 0.5, "stddev": 0.01, "min_value": 0.49, "max_value": 0.51 },
+          "nbody": { "mean": 0.3, "median": 0.3, "stddev": 0.005, "min_value": 0.295, "max_value": 0.305 }
+        }
+      },
+      {
+        "date": "2026-04-05T00:00:00Z",
+        "commit": "def456",
+        "python_version": "3.15.0",
+        "is_jit": true,
+        "machine": "blueberry",
+        "directory_name": "bm-20260405-3.15.0-def456-jit",
+        "has_tailcall": true,
+        "created_at": "2026-04-05T00:00:00Z",
+        "geomean": 1.10,
+        "speedup": 1.10,
+        "hpt": { "reliability": 0.95, "percentile_90": 1.11, "percentile_95": 1.13, "percentile_99": 1.15 },
+        "benchmarks": {
+          "2to3": { "mean": 0.455, "median": 0.455, "stddev": 0.01, "min_value": 0.45, "max_value": 0.46 },
+          "nbody": { "mean": 0.273, "median": 0.273, "stddev": 0.005, "min_value": 0.27, "max_value": 0.28 }
+        }
+      }
+    ],
+    "ripley": [
+      {
+        "date": "2026-04-01T00:00:00Z",
+        "commit": "abc123",
+        "python_version": "3.15.0",
+        "is_jit": false,
+        "machine": "ripley",
+        "directory_name": "bm-20260401-3.15.0-abc123-ripley",
+        "has_tailcall": false,
+        "created_at": "2026-04-01T00:00:00Z",
+        "geomean": null,
+        "speedup": null,
+        "benchmarks": {
+          "2to3": { "mean": 0.4, "median": 0.4, "stddev": 0.01, "min_value": 0.39, "max_value": 0.41 },
+          "nbody": { "mean": 0.25, "median": 0.25, "stddev": 0.005, "min_value": 0.245, "max_value": 0.255 }
+        }
+      },
+      {
+        "date": "2026-04-01T00:00:00Z",
+        "commit": "abc123",
+        "python_version": "3.15.0",
+        "is_jit": true,
+        "machine": "ripley",
+        "directory_name": "bm-20260401-3.15.0-abc123-ripley-jit",
+        "has_tailcall": false,
+        "created_at": "2026-04-01T00:00:00Z",
+        "geomean": 1.04,
+        "speedup": 1.04,
+        "hpt": { "reliability": 0.93, "percentile_90": 1.05, "percentile_95": 1.06, "percentile_99": 1.08 },
+        "benchmarks": {
+          "2to3": { "mean": 0.385, "median": 0.385, "stddev": 0.01, "min_value": 0.38, "max_value": 0.39 },
+          "nbody": { "mean": 0.24, "median": 0.24, "stddev": 0.005, "min_value": 0.235, "max_value": 0.245 }
+        }
+      }
+    ]
+  }
+}
