@@ -41,8 +41,9 @@ test('clicking the overlay dismisses mobile nav', async ({ page }) => {
   const mobileNav = page.locator('.mobile-nav');
   await expect(mobileNav).toHaveClass(/is-open/);
 
-  // Click the overlay in its top-left corner to avoid overlap with the slide-out panel.
-  await page.locator('.mobile-overlay').click({ position: { x: 10, y: 10 } });
+  // Mobile-nav slides in from the left (280px wide), so click far to the right
+  // to hit the overlay rather than the nav panel.
+  await page.locator('.mobile-overlay').click({ position: { x: 350, y: 300 } });
 
   await expect(mobileNav).not.toHaveClass(/is-open/);
 });
