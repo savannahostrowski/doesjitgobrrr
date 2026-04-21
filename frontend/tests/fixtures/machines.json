@@ -1,0 +1,22 @@
+{
+  "machines": {
+    "blueberry": {
+      "description": "Test machine A",
+      "os": "Linux",
+      "arch": "arm64",
+      "color": "#3b82f6",
+      "repo": "test/repo",
+      "owner": "test",
+      "owner_email": "test@example.com"
+    },
+    "ripley": {
+      "description": "Test machine B",
+      "os": "Linux",
+      "arch": "x86_64",
+      "color": "#ef4444",
+      "repo": "test/repo",
+      "owner": "test",
+      "owner_email": "test@example.com"
+    }
+  }
+}

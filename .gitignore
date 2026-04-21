@@ -25,6 +25,11 @@ dist-ssr
 # TypeScript build cache
 *.tsbuildinfo
 
+# Playwright
+/frontend/test-results/
+/frontend/playwright-report/
+/frontend/playwright/.cache/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
