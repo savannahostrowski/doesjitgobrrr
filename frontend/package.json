@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsgo -b && vite build",
     "preview": "vite preview",
     "lint": "eslint src",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsgo --noEmit",
     "social": "node generate-social.mjs"
   },
   "dependencies": {
@@ -22,10 +22,10 @@
     "@types/plotly.js": "^3.0.8",
     "@typescript-eslint/eslint-plugin": "^8.58.2",
     "@typescript-eslint/parser": "^8.58.2",
+    "@typescript/native-preview": "^7.0.0-dev.20260421.2",
     "eslint": "^9.39.1",
     "eslint-plugin-solid": "^0.14.5",
     "satori": "^0.26.0",
-    "typescript": "~6.0.3",
     "vite": "^8.0.8",
     "vite-plugin-solid": "^2.11.12"
   }
