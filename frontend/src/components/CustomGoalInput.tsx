@@ -1,18 +1,25 @@
-import { createSignal, Show, type Component, type Setter } from "solid-js";
-import { GOAL_LINE_MAX, GOAL_LINE_MIN, isValidGoalValue, type GoalLines } from "../types";
+import { type Component, createSignal, type Setter, Show } from 'solid-js';
+import {
+  GOAL_LINE_MAX,
+  GOAL_LINE_MIN,
+  type GoalLines,
+  isValidGoalValue,
+} from '../types';
 
 interface CustomGoalInputProps {
-    goalLines: GoalLines;
-    onGoalLinesChange: Setter<GoalLines>;
-    disabled?: boolean;
-    color: string;
+  goalLines: GoalLines;
+  onGoalLinesChange: Setter<GoalLines>;
+  disabled?: boolean;
+  color: string;
 }
 
 const CustomGoalInput: Component<CustomGoalInputProps> = (props) => {
-    const [error, setError] = createSignal<string | null>(null);
+  const [error, setError] = createSignal<string | null>(null);
 
-    return (
-    <div class={`custom-goal-input ${props.goalLines.custom !== null ? 'has-value' : ''} ${error() ? 'has-error' : ''}`}>
+  return (
+    <div
+      class={`custom-goal-input ${props.goalLines.custom !== null ? 'has-value' : ''} ${error() ? 'has-error' : ''}`}
+    >
       <span class="goal-line-indicator" style={{ background: props.color }} />
       <input
         type="number"
@@ -20,7 +27,9 @@ const CustomGoalInput: Component<CustomGoalInputProps> = (props) => {
         max={GOAL_LINE_MAX}
         step="1"
         placeholder="Custom %"
-        value={props.goalLines.custom !== null ? `${props.goalLines.custom}` : ''}
+        value={
+          props.goalLines.custom !== null ? `${props.goalLines.custom}` : ''
+        }
         onKeyDown={(e) => {
           if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault();
         }}
@@ -28,12 +37,12 @@ const CustomGoalInput: Component<CustomGoalInputProps> = (props) => {
           const val = e.currentTarget.value;
           if (val === '') {
             setError(null);
-            props.onGoalLinesChange(prev => ({ ...prev, custom: null }));
+            props.onGoalLinesChange((prev) => ({ ...prev, custom: null }));
           } else {
             const num = parseInt(val, 10);
             if (isValidGoalValue(num)) {
               setError(null);
-              props.onGoalLinesChange(prev => ({ ...prev, custom: num }));
+              props.onGoalLinesChange((prev) => ({ ...prev, custom: num }));
             } else {
               setError(`${GOAL_LINE_MIN}-${GOAL_LINE_MAX} only`);
             }
@@ -50,7 +59,9 @@ const CustomGoalInput: Component<CustomGoalInputProps> = (props) => {
         <button
           type="button"
           class="custom-goal-clear"
-          onClick={() => props.onGoalLinesChange(prev => ({ ...prev, custom: null }))}
+          onClick={() =>
+            props.onGoalLinesChange((prev) => ({ ...prev, custom: null }))
+          }
           title="Clear"
         >
           ×

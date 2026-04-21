@@ -197,7 +197,7 @@
   margin: 0;
 }
 
-.custom-goal-input input[type=number] {
+.custom-goal-input input[type="number"] {
   -moz-appearance: textfield;
 }
 

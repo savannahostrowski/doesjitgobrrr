@@ -72,7 +72,7 @@
 .run-meta-value a {
   color: var(--accent-secondary);
   text-decoration: none;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-weight: 500;
   transition: color 0.15s;
 }
@@ -168,10 +168,9 @@
 }
 
 .machine-perf-stat-value {
-  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--text-primary);
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 0.8125rem;
 }
 
@@ -321,8 +320,16 @@
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
-    mask-image: linear-gradient(to right, black calc(100% - 3rem), transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, black calc(100% - 3rem), transparent 100%);
+    mask-image: linear-gradient(
+      to right,
+      black calc(100% - 3rem),
+      transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      black calc(100% - 3rem),
+      transparent 100%
+    );
   }
 
   .benchmark-tabs::-webkit-scrollbar {
@@ -429,8 +436,16 @@
   }
 
   .machine-cards-grid {
-    -webkit-mask-image: linear-gradient(to right, black calc(100% - 3rem), transparent 100%);
-    mask-image: linear-gradient(to right, black calc(100% - 3rem), transparent 100%);
+    -webkit-mask-image: linear-gradient(
+      to right,
+      black calc(100% - 3rem),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      black calc(100% - 3rem),
+      transparent 100%
+    );
   }
 
   .benchmark-tabs {

@@ -23,14 +23,14 @@ export interface BenchmarkRun {
   has_tailcall: boolean;
   created_at: string;
   geomean: number | null;
-  speedup: number | null;  // Speedup ratio for JIT runs (nonjit_time / jit_time)
-  hpt?: HPTData;  // HPT statistical comparison data (only for JIT runs)
+  speedup: number | null; // Speedup ratio for JIT runs (nonjit_time / jit_time)
+  hpt?: HPTData; // HPT statistical comparison data (only for JIT runs)
   benchmarks: Record<string, BenchmarkResult>;
 }
 
 export interface HistoricalResponse {
   days: number;
-  machines: Record<string, BenchmarkRun[]>;  // Grouped by machine name
+  machines: Record<string, BenchmarkRun[]>; // Grouped by machine name
 }
 
 export interface MachineInfo {
@@ -53,7 +53,12 @@ export interface ComparisonRow {
   speedup: number | null;
 }
 
-export type SortColumn = 'name' | 'nonjit_mean' | 'jit_mean' | 'diff' | 'speedup';
+export type SortColumn =
+  | 'name'
+  | 'nonjit_mean'
+  | 'jit_mean'
+  | 'diff'
+  | 'speedup';
 export type SortDirection = 'asc' | 'desc';
 
 export interface SortState {
@@ -67,7 +72,7 @@ export type DateRange = 7 | 30 | 'all';
 export type GoalLines = {
   show5: boolean;
   show10: boolean;
-  custom: number | null;  // Custom percentage value, null when disabled
+  custom: number | null; // Custom percentage value, null when disabled
 };
 
 // Goal line validation constants
@@ -76,5 +81,5 @@ export const GOAL_LINE_MAX = 20;
 
 /** Validate a custom goal line value */
 export function isValidGoalValue(num: number): boolean {
-  return !isNaN(num) && num >= GOAL_LINE_MIN && num <= GOAL_LINE_MAX;
+  return !Number.isNaN(num) && num >= GOAL_LINE_MIN && num <= GOAL_LINE_MAX;
 }
