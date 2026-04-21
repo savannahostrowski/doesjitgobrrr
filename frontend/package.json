@@ -9,6 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint src",
     "typecheck": "tsgo --noEmit",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
     "social": "node generate-social.mjs"
   },
   "dependencies": {
@@ -17,6 +19,7 @@
   },
   "devDependencies": {
     "@fontsource/sora": "^5.2.8",
+    "@playwright/test": "^1.59.1",
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^25.6.0",
     "@types/plotly.js": "^3.0.8",
