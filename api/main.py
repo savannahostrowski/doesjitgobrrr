@@ -83,7 +83,7 @@ async def get_latest_comparison(
 ) -> dict[str, Any]:
     result = await session.exec(
         select(BenchmarkRun)
-        .options(selectinload(BenchmarkRun.benchmarks))  # type: ignore[arg-type]
+        .options(selectinload(BenchmarkRun.benchmarks))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         .order_by(desc(BenchmarkRun.run_date))
         .limit(1)
     )
@@ -176,7 +176,7 @@ async def get_historical_by_date(
 
     result = await session.exec(
         select(BenchmarkRun)
-        .options(selectinload(BenchmarkRun.benchmarks))  # type: ignore[arg-type]
+        .options(selectinload(BenchmarkRun.benchmarks))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         .where(BenchmarkRun.run_date == target_date)
         .order_by(desc(BenchmarkRun.created_at))
     )
@@ -246,7 +246,7 @@ async def get_historical_comparison(
     cutoff_date = datetime.now().date() - timedelta(days=days)
     result = await session.exec(
         select(BenchmarkRun)
-        .options(selectinload(BenchmarkRun.benchmarks))  # type: ignore[arg-type]
+        .options(selectinload(BenchmarkRun.benchmarks))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         .where(BenchmarkRun.run_date >= cutoff_date)
         .order_by(desc(BenchmarkRun.run_date))
     )
@@ -314,7 +314,7 @@ async def get_benchmark_trend(
 ) -> dict[str, Any]:
     result = await session.exec(
         select(BenchmarkRun)
-        .options(selectinload(BenchmarkRun.benchmarks))  # type: ignore[arg-type]
+        .options(selectinload(BenchmarkRun.benchmarks))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         .order_by(desc(BenchmarkRun.run_date))
         .limit(days)
     )
