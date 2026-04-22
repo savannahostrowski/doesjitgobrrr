@@ -26,9 +26,9 @@ repos:
         pass_filenames: false
         files: '^frontend/package\.json$'
         stages: [pre-commit]
-      - id: pyright
-        name: pyright
-        entry: bash -c 'cd api && uv run python -m pyright .'
+      - id: ty
+        name: ty
+        entry: bash -c 'cd api && uv run ty check'
         language: system
         pass_filenames: false
         types: [python]

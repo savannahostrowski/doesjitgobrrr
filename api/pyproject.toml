@@ -18,31 +18,11 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "pyright>=1.1.407",
+    "ty>=0.0.32",
     "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",
     "ruff>=0.14.5",
 ]
-
-[tool.pyright]
-typeCheckingMode = "strict"
-
-# Test code is deliberately loose — fixtures have complex inferred types
-# (AsyncClient, AsyncSession, response objects) that pyright can't always
-# resolve without annotating every parameter. Not worth the noise.
-[[tool.pyright.executionEnvironments]]
-root = "tests"
-# api/ modules are added to sys.path at runtime by conftest.py so that
-# imports like `from hpt import ...` work. Pyright needs the equivalent
-# hint for static analysis.
-extraPaths = [".."]
-reportUnknownParameterType = "none"
-reportMissingParameterType = "none"
-reportUnknownMemberType = "none"
-reportUnknownVariableType = "none"
-reportUnknownArgumentType = "none"
-reportUnusedFunction = "none"
-reportMissingImports = "none"
 
 [tool.ruff.lint.per-file-ignores]
 # conftest.py deliberately imports after sys.path manipulation so that
