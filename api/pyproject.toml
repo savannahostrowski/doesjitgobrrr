@@ -26,3 +26,34 @@ dev = [
 
 [tool.pyright]
 typeCheckingMode = "strict"
+
+# Test code is deliberately loose — fixtures have complex inferred types
+# (AsyncClient, AsyncSession, response objects) that pyright can't always
+# resolve without annotating every parameter. Not worth the noise.
+[[tool.pyright.executionEnvironments]]
+root = "tests"
+# api/ modules are added to sys.path at runtime by conftest.py so that
+# imports like `from hpt import ...` work. Pyright needs the equivalent
+# hint for static analysis.
+extraPaths = [".."]
+reportUnknownParameterType = "none"
+reportMissingParameterType = "none"
+reportUnknownMemberType = "none"
+reportUnknownVariableType = "none"
+reportUnknownArgumentType = "none"
+reportUnusedFunction = "none"
+reportMissingImports = "none"
+
+[tool.ruff.lint.per-file-ignores]
+# conftest.py deliberately imports after sys.path manipulation so that
+# api/ modules are resolvable. E402 is the "imports not at top" rule.
+"tests/conftest.py" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# Pin fixtures and tests to the session loop. The async engine's connection
+# pool is bound to the loop it was created on; without this, per-function
+# loops blow up with "Event loop is closed".
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"

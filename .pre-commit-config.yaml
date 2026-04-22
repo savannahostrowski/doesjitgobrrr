@@ -12,13 +12,13 @@ repos:
 
   - repo: local
     hooks:
-      # - id: pytest
-      #   name: pytest
-      #   entry: bash -c 'cd api && uv run --frozen --group dev pytest'
-      #   language: system
-      #   pass_filenames: false
-      #   always_run: true
-      #   stages: [commit]
+      - id: pytest
+        name: pytest
+        entry: bash -c 'cd api && uv run --frozen --group dev pytest tests/'
+        language: system
+        pass_filenames: false
+        files: '^api/.*\.py$'
+        stages: [pre-commit]
       - id: frontend-lockfile-sync
         name: frontend lockfile sync
         entry: bash -c 'cd frontend && rm -rf node_modules package-lock.json && npm install --silent --no-fund --no-audit && git add package-lock.json'
