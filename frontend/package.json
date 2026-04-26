@@ -18,7 +18,7 @@
     "solid-js": "^1.9.10"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.12",
+    "@biomejs/biome": "2.4.13",
     "@fontsource/sora": "^5.2.8",
     "@playwright/test": "^1.59.1",
     "@resvg/resvg-js": "^2.6.2",
