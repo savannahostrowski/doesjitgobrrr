@@ -29,7 +29,6 @@ sources:
     owner_email: "diego@python.org"
     fork_filter: "python"
     machines:
-      blueberry:
       sulaco:
         description: "AmpereOne Arm v8.6, 192 cores @ 3.6GHz, 512GB RAM"
         os: "Ubuntu 24.04"
