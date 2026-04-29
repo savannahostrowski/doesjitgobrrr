@@ -342,6 +342,7 @@ function createLayout(
       xanchor: 'center' as const,
     },
     xaxis: {
+      type: 'date' as const,
       tickfont: {
         family: 'Sora, -apple-system, BlinkMacSystemFont, sans-serif',
         color: textColor,
@@ -575,11 +576,21 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
       <div class="chart-legend">
         <For each={Object.entries(machines() || {})}>
           {([machine, info]) => (
-            <div class="legend-item">
+            <div class="legend-item" tabindex="0">
               <span class="legend-color" style={{ background: info.color }} />
               <span class="legend-label">
                 {machine} ({info.arch})
               </span>
+              <div class="legend-tooltip" role="tooltip">
+                <div class="legend-tooltip-title">{machine}</div>
+                <div class="legend-tooltip-row">{info.description}</div>
+                <div class="legend-tooltip-row">
+                  <span class="legend-tooltip-key">OS:</span> {info.os}
+                </div>
+                <div class="legend-tooltip-row">
+                  <span class="legend-tooltip-key">Arch:</span> {info.arch}
+                </div>
+              </div>
             </div>
           )}
         </For>

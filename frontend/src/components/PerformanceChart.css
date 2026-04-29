@@ -282,6 +282,57 @@
   display: flex;
   align-items: center;
   gap: 0.375rem;
+  position: relative;
+  cursor: help;
+}
+
+.legend-tooltip {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(360px, 90vw);
+  padding: 0.625rem 0.75rem;
+  background: var(--bg-elevated, #1f2937);
+  color: var(--text-primary, #f9fafb);
+  border: 1px solid var(--border-primary, #374151);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease,
+    visibility 0.15s ease;
+  z-index: 10;
+  white-space: normal;
+}
+
+.legend-item:hover .legend-tooltip,
+.legend-item:focus-visible .legend-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.legend-tooltip-title {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  text-transform: capitalize;
+}
+
+.legend-tooltip-row {
+  margin-top: 0.125rem;
+  font-size: 0.6875rem;
+  text-wrap: pretty;
+}
+
+.legend-tooltip-key {
+  color: var(--text-tertiary, #9ca3af);
+  margin-right: 0.25rem;
 }
 
 .legend-color {
