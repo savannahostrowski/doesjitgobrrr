@@ -101,17 +101,23 @@ def parse_pyperf_geomean(output: str) -> float | None:
     return None
 
 
-async def get_existing_directory_names() -> set[str]:
-    """Get directory names that are fully processed in the database.
+async def get_existing_directory_names(source: str) -> set[str]:
+    """Get directory names that are fully processed for a given source repo.
 
     A directory is considered fully processed only if all its JIT runs
     have a non-null geometric_mean_speedup. Incomplete pairs are only
     retried if they are within INCOMPLETE_RETRY_DAYS to prevent an
     ever-growing backlog of re-processing attempts.
+
+    Scoped per source: different source repos can produce the same
+    directory_name with different machines' JSON inside, so existing rows
+    from one source must not block another source from being processed.
     """
     async with async_session_maker() as session:
         all_dirs_result = await session.exec(
-            select(BenchmarkRun.directory_name).distinct()
+            select(BenchmarkRun.directory_name)
+            .where(BenchmarkRun.source == source)
+            .distinct()
         )
         all_dirs = set(all_dirs_result.all())
 
@@ -121,6 +127,7 @@ async def get_existing_directory_names() -> set[str]:
             select(BenchmarkRun.directory_name)
             .distinct()
             .where(
+                BenchmarkRun.source == source,
                 BenchmarkRun.is_jit == True,  # noqa: E712
                 BenchmarkRun.geometric_mean_speedup == None,  # noqa: E711
                 BenchmarkRun.run_date >= retry_cutoff,
@@ -130,8 +137,8 @@ async def get_existing_directory_names() -> set[str]:
 
         if incomplete_dirs:
             print(
-                f"Found {len(incomplete_dirs)} recent JIT directories with missing geomean data, "
-                f"will re-process: {incomplete_dirs}"
+                f"Found {len(incomplete_dirs)} recent JIT directories with missing geomean data "
+                f"for source {source}, will re-process: {incomplete_dirs}"
             )
 
         return all_dirs - incomplete_dirs
@@ -143,6 +150,7 @@ class DataLoader:
         self._client: httpx.AsyncClient
         self._url: str = ""
         self._fork_filter: str = "python"
+        self._source_repo: str = ""
         self._dir_contents_cache: dict[str, list[dict[str, Any]]] = {}
 
     async def _get_dir_contents(self, dir_name: str) -> list[dict[str, Any]]:
@@ -174,6 +182,8 @@ class DataLoader:
                 for source in config["sources"]:
                     self._url = "https://api.github.com/repos/" + source["repo"]
                     self._fork_filter = source.get("fork_filter", "python")
+                    self._source_repo = source["repo"]
+                    self._dir_contents_cache.clear()
                     await log(f"Processing source: {source['repo']}")
                     await self._process_source(source)
 
@@ -507,8 +517,11 @@ class DataLoader:
         # Get existing directories from database to skip already-processed pairs
         existing_dirs: set[str] = set()
         if skip_existing:
-            existing_dirs = await get_existing_directory_names()
-            await log(f"Found {len(existing_dirs)} existing directories in database.")
+            existing_dirs = await get_existing_directory_names(self._source_repo)
+            await log(
+                f"Found {len(existing_dirs)} existing directories in database for "
+                f"source {self._source_repo}."
+            )
 
         response = await self._client.get(
             f"{self._url}/contents/results",
@@ -665,11 +678,14 @@ class DataLoader:
                 full_commit_hash = hash_match.group(1)
 
             async with async_session_maker() as session:
-                # Check if run already exists
+                # Check if run already exists for this (dir, machine, source).
+                # Same dir_name can exist for multiple source repos with
+                # different machines inside.
                 existing_result = await session.exec(
                     select(BenchmarkRun).where(
                         BenchmarkRun.directory_name == dir_name,
                         BenchmarkRun.machine == machine,
+                        BenchmarkRun.source == self._source_repo,
                     )
                 )
                 existing_run = existing_result.first()
@@ -702,6 +718,7 @@ class DataLoader:
                     commit_hash=full_commit_hash,
                     is_jit=is_jit,
                     machine=machine,
+                    source=self._source_repo,
                     has_tailcall=has_tailcall,
                     hpt_reliability=hpt_data.get("reliability") if hpt_data else None,
                     hpt_percentile_90=hpt_data.get("percentile_90")
