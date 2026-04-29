@@ -41,16 +41,23 @@ async def _setup_schema() -> AsyncGenerator[None, None]:
 
 @pytest_asyncio.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
-    """A real async DB session. Cleans all rows at teardown."""
+    """A real async DB session. Cleans all rows before and after each test."""
+
+    async def _truncate(session: AsyncSession) -> None:
+        # Delete children before parents.
+        for model in (ComparisonCache, Benchmark, BenchmarkRun):
+            await session.exec(delete(model))  # type: ignore[call-overload]
+        await session.commit()
+
     async with AsyncSession(engine, expire_on_commit=False) as session:
+        # Clean up-front so leftover data (e.g. from running load_data.py
+        # against the same dev DB) doesn't leak into the test.
+        await _truncate(session)
         try:
             yield session
         finally:
             await session.rollback()
-            # Delete children before parents.
-            for model in (ComparisonCache, Benchmark, BenchmarkRun):
-                await session.exec(delete(model))  # type: ignore[call-overload]
-            await session.commit()
+            await _truncate(session)
 
 
 @pytest_asyncio.fixture

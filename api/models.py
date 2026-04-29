@@ -11,9 +11,13 @@ class BenchmarkRun(SQLModel, table=True):
 
     __tablename__ = "benchmark_runs"  # pyright: ignore[reportAssignmentType]
 
-    # Composite unique constraint: same directory can have multiple machines
+    # Composite unique constraint: same (directory, machine) can come from
+    # different upstream source repos — different repos sometimes generate the
+    # same directory_name for different machines.
     __table_args__ = (  # pyright: ignore[reportAssignmentType]
-        UniqueConstraint("directory_name", "machine", name="uq_directory_machine"),
+        UniqueConstraint(
+            "directory_name", "machine", "source", name="uq_directory_machine_source"
+        ),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -23,6 +27,7 @@ class BenchmarkRun(SQLModel, table=True):
     commit_hash: str = Field(nullable=False, index=True)
     is_jit: bool = Field(nullable=False, index=True)
     machine: str = Field(nullable=False, index=True)
+    source: str | None = Field(default=None, index=True)
     has_tailcall: bool = Field(default=False, nullable=False, index=True)
     created_at: datetime = Field(default_factory=datetime.now, nullable=False)
 
