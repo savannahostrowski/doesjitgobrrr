@@ -578,9 +578,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           {([machine, info]) => (
             <div class="legend-item" tabindex="0">
               <span class="legend-color" style={{ background: info.color }} />
-              <span class="legend-label">
-                {machine} ({info.arch})
-              </span>
+              <span class="legend-label">{machine}</span>
               <div class="legend-tooltip" role="tooltip">
                 <div class="legend-tooltip-title">{machine}</div>
                 <div class="legend-tooltip-row">{info.description}</div>
