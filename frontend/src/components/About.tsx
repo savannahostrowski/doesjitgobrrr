@@ -20,9 +20,10 @@ const About: Component = () => {
             >
               pyperformance benchmark suite
             </a>
-            . The goal is to benchmark the JIT on consumer hardware — the kind
-            of machines real developers actually use — rather than server-class
-            infrastructure. It's a more JIT-focused view than the official{' '}
+            . It started as a way to benchmark the JIT on consumer hardware, but
+            has grown into a broader source for tracking JIT performance across
+            hardware of all kinds — from a Raspberry Pi to a 192-core AmpereOne
+            server. It complements the official{' '}
             <a
               href="https://speed.python.org/"
               target="_blank"
