@@ -1,6 +1,6 @@
 """Helpers for building model instances in tests."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from models import BenchmarkRun
 
@@ -20,7 +20,7 @@ def make_run(
     Composite unique constraint on (directory_name, machine) requires
     directory_name to be distinct per machine within a test.
     """
-    run_date = run_date or datetime(2026, 4, 1)
+    run_date = run_date or (datetime.now() - timedelta(days=1))
     directory_name = (
         directory_name
         or f"bm-{run_date.date().isoformat()}-{commit_hash[:7]}"
