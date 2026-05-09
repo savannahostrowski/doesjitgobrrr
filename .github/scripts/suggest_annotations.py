@@ -1,7 +1,7 @@
 """Generate candidate perf-event annotations from recent CPython JIT commits.
 
 Looks at commits to selected JIT/optimizer paths in python/cpython since
-the most-recent annotation in api/perf_events.yaml, groups them into PRs, 
+the most-recent annotation in api/perf_events.yaml, groups them into PRs,
 and prepends new candidates to the YAML.
 """
 
@@ -42,7 +42,7 @@ DEFAULT_LOOKBACK_DAYS = 14
 # Hard floor on lookback even when prior annotations exist (catches missed runs).
 MIN_LOOKBACK_DAYS = 3
 # No annotations earlier than this — there's no benchmark data before it,
-# so an annotation wouldn't have a chart row to sit on. 
+# so an annotation wouldn't have a chart row to sit on.
 EARLIEST_DATE = datetime(2025, 11, 13, tzinfo=timezone.utc)
 # CPython uses both `(#143810)` and `(GH-143810)` to mark merge commits.
 PR_NUMBER_RE = re.compile(r"\((?:#|GH-)(\d+)\)\s*$", re.MULTILINE | re.IGNORECASE)
@@ -205,7 +205,9 @@ def main() -> int:
     if anchor < EARLIEST_DATE:
         anchor = EARLIEST_DATE
 
-    print(f"Fetching commits since {anchor.isoformat()} for {len(WATCHED_PATHS)} paths…")
+    print(
+        f"Fetching commits since {anchor.isoformat()} for {len(WATCHED_PATHS)} paths…"
+    )
     commits = fetch_recent_commits(anchor, WATCHED_PATHS, token)
     print(f"  → {len(commits)} unique commits")
 

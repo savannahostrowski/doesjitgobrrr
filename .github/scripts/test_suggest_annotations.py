@@ -1,6 +1,6 @@
 """Tests for the annotation suggester. Run with:
 
-    uv run --with pyyaml pytest .github/scripts/test_suggest_annotations.py
+uv run --with pyyaml pytest .github/scripts/test_suggest_annotations.py
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from pathlib import Path
 # Make the script importable.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import suggest_annotations as sa  # noqa: E402
+import suggest_annotations as sa  # noqa: E402  # ty: ignore[unresolved-import]
 
 
 def make_commit(
@@ -31,18 +31,12 @@ def make_commit(
 class TestDerivePrUrl:
     def test_extracts_hash_pr_reference(self):
         c = make_commit(message="Fix the JIT (#143810)")
-        assert (
-            sa.derive_pr_url(c)
-            == "https://github.com/python/cpython/pull/143810"
-        )
+        assert sa.derive_pr_url(c) == "https://github.com/python/cpython/pull/143810"
 
     def test_extracts_gh_pr_reference(self):
         # Same merge format used elsewhere in CPython.
         c = make_commit(message="Fix the JIT (GH-148213)")
-        assert (
-            sa.derive_pr_url(c)
-            == "https://github.com/python/cpython/pull/148213"
-        )
+        assert sa.derive_pr_url(c) == "https://github.com/python/cpython/pull/148213"
 
     def test_falls_back_to_commit_url_without_pr_marker(self):
         c = make_commit(message="Direct commit without PR reference")
@@ -72,9 +66,7 @@ class TestTitleFrom:
         assert sa.title_from(c) == "Boolean guards"
 
     def test_uses_first_line_only(self):
-        c = make_commit(
-            message="Title here\n\nLong commit body that should be ignored"
-        )
+        c = make_commit(message="Title here\n\nLong commit body that should be ignored")
         assert sa.title_from(c) == "Title here"
 
     def test_handles_no_prefix_no_suffix(self):
@@ -126,9 +118,7 @@ class TestNewestExistingDate:
         assert sa.newest_existing_date({"events": []}) is None
 
     def test_skips_unparseable_dates(self):
-        data = {
-            "events": [{"date": "not-a-date"}, {"date": "2026-04-03"}]
-        }
+        data = {"events": [{"date": "not-a-date"}, {"date": "2026-04-03"}]}
         assert sa.newest_existing_date(data) == datetime(2026, 4, 3)
 
 

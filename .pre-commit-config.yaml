@@ -5,10 +5,10 @@ repos:
       # Run the linter
       - id: ruff
         args: [--fix]
-        files: '^api/.*\.py$'
+        files: '^(api|\.github/scripts)/.*\.py$'
       # Run the formatter
       - id: ruff-format
-        files: '^api/.*\.py$'
+        files: '^(api|\.github/scripts)/.*\.py$'
 
   - repo: local
     hooks:
@@ -28,10 +28,11 @@ repos:
         stages: [pre-commit]
       - id: ty
         name: ty
-        entry: bash -c 'cd api && uv run ty check'
+        # Check api/ as a project + the standalone scripts under .github/.
+        entry: bash -c 'cd api && uv run ty check && uv run ty check ../.github/scripts'
         language: system
         pass_filenames: false
-        types: [python]
+        files: '^(api|\.github/scripts)/.*\.py$'
         stages: [pre-commit]
       - id: frontend-typecheck
         name: frontend typecheck
