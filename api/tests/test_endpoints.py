@@ -279,3 +279,29 @@ events:
         temp_events_file("events: []\n")
         response = await client.get("/api/events")
         assert "max-age=300" in response.headers.get("cache-control", "")
+
+    async def test_drops_invalid_dates(self, client, temp_events_file):
+        # Out-of-range / garbage dates are dropped instead of being
+        # silently rolled forward by JS Date on the frontend.
+        temp_events_file(
+            """
+events:
+  - date: "2026-13-01"
+    title: Bad month (rolls to Jan 2027 if not validated)
+    link: https://example.com/bad-month
+  - date: "2026-02-30"
+    title: Bad day (rolls to Mar 2 if not validated)
+    link: https://example.com/bad-day
+  - date: "not-a-date"
+    title: Garbage
+    link: https://example.com/garbage
+  - date: 2026-04-03
+    title: Good entry
+    link: https://example.com/good
+"""
+        )
+        events = (await client.get("/api/events")).json()["events"]
+        # Only the valid date survives.
+        assert len(events) == 1
+        assert events[0]["title"] == "Good entry"
+        assert events[0]["date"] == "2026-04-03"

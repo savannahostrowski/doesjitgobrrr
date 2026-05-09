@@ -387,66 +387,6 @@
   }
 }
 
-.annotation-tooltip {
-  position: absolute;
-  pointer-events: auto;
-  z-index: 20;
-  width: max-content;
-  max-width: 240px;
-  padding: 0.4375rem 0.625rem;
-  background: var(--bg-elevated, #1f2937);
-  color: var(--text-primary, #f9fafb);
-  border: 1px solid var(--border-primary, #374151);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  font-size: 0.75rem;
-  line-height: 1.35;
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    opacity 0.1s ease,
-    visibility 0.1s ease;
-  transform: translateX(-50%);
-}
-
-.annotation-tooltip-header {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  margin-bottom: 0.1875rem;
-  font-size: 0.625rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-}
-
-.annotation-tooltip-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.annotation-tooltip-title {
-  font-weight: 600;
-  text-wrap: pretty;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.annotation-tooltip-link {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 0.375rem;
-  color: var(--text-tertiary, #a1a1aa);
-  text-decoration: none;
-  vertical-align: middle;
-  transition: color 0.15s;
-}
-
-.annotation-tooltip-link:hover {
-  color: var(--accent-primary, #8b5cf6);
-}
-
 .annotations-toggle-group {
   display: inline-flex;
   align-items: center;

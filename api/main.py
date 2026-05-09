@@ -97,12 +97,19 @@ async def get_perf_events() -> JSONResponse:
     events: list[dict[str, Any]] = []
     for raw in config.get("events") or []:
         date_value = raw.get("date")
-        # YAML parses ISO dates into datetime.date; coerce to string for JSON.
-        date_str = (
-            date_value.isoformat()
-            if hasattr(date_value, "isoformat")
-            else str(date_value)
-        )
+        # YAML parses ISO dates into datetime.date directly. Strings are
+        # parsed strictly here so malformed input (e.g. "2026-13-01" or
+        # garbage) is dropped instead of getting silently rolled forward
+        # into a wrong-day annotation by JS Date on the frontend.
+        if hasattr(date_value, "isoformat"):
+            date_str = date_value.isoformat()
+        else:
+            try:
+                date_str = (
+                    datetime.strptime(str(date_value), "%Y-%m-%d").date().isoformat()
+                )
+            except (ValueError, TypeError):
+                continue  # skip entries with invalid dates
 
         events.append(
             {
