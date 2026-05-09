@@ -17,6 +17,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 
 SOURCES_PATH = pathlib.Path(__file__).parent / "sources.yaml"
+PERF_EVENTS_PATH = pathlib.Path(__file__).parent / "perf_events.yaml"
+
+VALID_EVENT_KINDS = {"jit-change", "bug", "infra", "benchmark"}
 
 
 @asynccontextmanager
@@ -73,6 +76,56 @@ async def get_machines() -> JSONResponse:
 
     return JSONResponse(
         content={"machines": machines},
+        headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
+    )
+
+
+@app.get("/api/events")
+async def get_perf_events() -> JSONResponse:
+    """Return perf events from perf_events.yaml, sorted newest first.
+
+    Each event documents a change (JIT update, bug, infra change, etc.) that
+    helps explain visible movement in the benchmark chart.
+    """
+    if not PERF_EVENTS_PATH.exists():
+        return JSONResponse(
+            content={"events": []},
+            headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
+        )
+
+    with open(PERF_EVENTS_PATH) as f:
+        config = yaml.safe_load(f) or {}
+
+    events: list[dict[str, Any]] = []
+    for raw in config.get("events") or []:
+        kind = raw.get("kind", "jit-change")
+        if kind not in VALID_EVENT_KINDS:
+            kind = "jit-change"
+
+        date_value = raw.get("date")
+        # YAML parses ISO dates into datetime.date; coerce to string for JSON.
+        date_str = (
+            date_value.isoformat()
+            if hasattr(date_value, "isoformat")
+            else str(date_value)
+        )
+
+        events.append(
+            {
+                "id": raw.get("id", ""),
+                "date": date_str,
+                "title": raw.get("title", ""),
+                "kind": kind,
+                "machines": raw.get("machines") or ["all"],
+                "description": raw.get("description", ""),
+                "link": raw.get("link"),
+            }
+        )
+
+    events.sort(key=lambda e: e["date"], reverse=True)
+
+    return JSONResponse(
+        content={"events": events},
         headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
     )
 

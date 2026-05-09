@@ -1,0 +1,45 @@
+name: Suggest annotations
+
+on:
+  schedule:
+    # 14:00 UTC daily (after CPython contributors in US/EU have landed PRs)
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+
+jobs:
+  suggest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v3
+
+      - name: Generate candidate annotations
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          uv run --with pyyaml python .github/scripts/suggest_annotations.py
+
+      - name: Open or update PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: bot/suggest-annotations
+          delete-branch: true
+          commit-message: "🤖 Suggest perf annotations from recent CPython JIT commits"
+          title: "🤖 Suggested perf annotations"
+          body: |
+            Auto-generated candidate annotations from recent merged commits to:
+
+            - `Tools/jit/*`
+            - `Python/optimizer*`
+            - `Python/specialize.c`
+            - `Python/executor_cases.c.h`
+            - `Include/internal/pycore_{optimizer,jit,uops}*`
+
+            Review, prune, and edit titles / descriptions / `kind` / `machines` as needed before merging. Manually-authored entries below the inserted block are unaffected.
+          add-paths: |
+            api/perf_events.yaml

@@ -1,0 +1,147 @@
+## Annotations that help explain visible changes in the chart.
+##
+## Each entry shows up on the /annotations page and as a marker on the
+## chart timeline (toggleable via the "Annotations" button).
+##
+## Schema (all fields except `id`, `date`, `title`, `kind` are optional):
+##   id          short stable slug — used as the URL anchor on /annotations
+##   date        YYYY-MM-DD — date the change merged to CPython main
+##   title       short headline (≤ 80 chars)
+##   kind        one of: jit-change | bug | infra | benchmark
+##   machines    list of machine names this affected, or [all]
+##   description multi-line markdown explaining background + expected impact
+##   link        URL to a PR, issue, blog post, etc. for further reading
+##
+## Newest entries go at the top.
+
+events:
+  - id: send-specialization
+    date: 2026-05-05
+    title: "JIT: SEND specializations for generators and async generators"
+    kind: jit-change
+    machines: [all]
+    description: |
+      Adds SEND_VIRTUAL and SEND_ASYNC_GEN specializations and aligns
+      guards with FOR_ITER_VIRTUAL, extending JIT trace coverage through
+      generator and async code. Broadly neutral overall, but ~4–6% on
+      async_generators.
+    link: https://github.com/python/cpython/pull/148963
+
+  - id: fix-binary-op-subscr-dict
+    date: 2026-04-08
+    title: "JIT: fix incorrect _BINARY_OP_SUBSCR_DICT optimization"
+    kind: bug
+    machines: [all]
+    description: |
+      Correctness fix in the JIT optimizer for dict subscript. May have
+      caused subtle wrong results or extra deopts before this date — look
+      for dict-heavy benchmarks (mdp, json) to settle around early April.
+    link: https://github.com/python/cpython/pull/148213
+
+  - id: enable-windows-tailcall
+    date: 2026-04-03
+    title: "Bench: enable tail-call interpreter on Windows runs"
+    kind: infra
+    machines: [prometheus]
+    description: |
+      Updated the prometheus (windows-x86_64) runner to build CPython with
+      the tail-call interpreter enabled, matching what actually ships.
+      Numbers before this date measured a non-shipped configuration.
+    link: https://bsky.app/profile/savannah.dev/post/3mixhvdbxbc2d
+
+  - id: float-inplace-mutation
+    date: 2026-03-24
+    title: "JIT: in-place mutation of uniquely-referenced floats"
+    kind: jit-change
+    machines: [all]
+    description: |
+      Skips allocating a new float object for arithmetic when the operand
+      has refcount 1 (JIT only). A similar division PR followed on
+      2026-04-14 (#146397). Expect speedups on float-heavy benchmarks
+      (nbody, float, raytrace, scimark).
+    link: https://github.com/python/cpython/pull/146307
+
+  - id: trace-from-resume
+    date: 2026-03-16
+    title: "JIT: trace from RESUME (RESUME_CHECK_JIT)"
+    kind: jit-change
+    machines: [all]
+    description: |
+      Adds a CACHE entry to RESUME plus a new RESUME_CHECK_JIT opcode so
+      traces start at function entry rather than back-edges. PR author
+      measured ~0.5% on x86_64 Linux, ~2.5% on macOS arm64. Step-up
+      visible around 3.15.0a7, most on jones (darwin-arm64).
+    link: https://github.com/python/cpython/pull/145905
+
+  - id: jit-value-recording
+    date: 2026-02-02
+    title: "JIT: add value recording to tracing front-end"
+    kind: jit-change
+    machines: [all]
+    description: |
+      First step of value-tracking infrastructure on top of the new
+      tracing frontend; records only, not yet used for optimization.
+      Subsequent PRs (#144948 on 2026-02-19, #144122 on 2026-01-30) start
+      exploiting it. Expect a gradual upward drift on type-stable
+      benchmarks across February.
+    link: https://github.com/python/cpython/pull/144303
+
+  - id: bool-guards-bit-test
+    date: 2026-01-21
+    title: "JIT: cheaper boolean guards via single-bit test"
+    kind: jit-change
+    machines: [all]
+    description: |
+      TO_BOOL-style guards in generated JIT code now use a single-bit
+      test instead of a pointer compare. Small but pervasive speedup
+      expected on branchy code.
+    link: https://github.com/python/cpython/pull/143810
+
+  - id: fix-windows-jit-crash
+    date: 2025-12-22
+    title: "JIT: fix Windows crashes"
+    kind: bug
+    machines: [prometheus]
+    description: |
+      Fixes JIT crashes on Windows. Relevant for the prometheus
+      (windows-x86_64) runner; benchmark coverage on Windows JIT may
+      resume after this date.
+    link: https://github.com/python/cpython/pull/143021
+
+  - id: fix-trace-record-full
+    date: 2025-11-26
+    title: "JIT: fix TRACE_RECORD when buffer is full"
+    kind: bug
+    machines: [all]
+    description: |
+      Fixes a bug in the new trace-recording frontend where a full trace
+      buffer was mishandled. Mostly affects very long traces — expect
+      modest stabilization on benchmarks with large hot loops.
+    link: https://github.com/python/cpython/pull/141959
+
+  - id: tracing-jit-frontend
+    date: 2025-11-13
+    title: "JIT: new tracing frontend (replaces trace projection)"
+    kind: jit-change
+    machines: [all]
+    description: |
+      Big architectural rewrite of the JIT frontend from trace projection
+      to true trace recording, using dual dispatch via the
+      tail-calling/computed-goto interpreter. Author measured ~1.1%
+      pyperformance geomean speedup as merged (richards ~2x), with
+      ~10–15% slowdown on worst benchmarks — expect a wide reshuffle in
+      per-benchmark numbers around this date. Disables JIT on Windows
+      MSVC builds because tail-call/computed-goto is required.
+    link: https://github.com/python/cpython/pull/140310
+
+  - id: llvm-20-stencils
+    date: 2025-11-03
+    title: "Infra: JIT stencils now built with LLVM 20"
+    kind: infra
+    machines: [all]
+    description: |
+      Bumps the toolchain that generates JIT stencils from LLVM 19 to
+      LLVM 20. Different LLVM versions produce different stencil code,
+      which can cause small step changes in JIT benchmarks without any
+      functional CPython change.
+    link: https://github.com/python/cpython/pull/140329
