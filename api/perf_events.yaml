@@ -1,7 +1,8 @@
 ## Annotations that help explain visible changes in the chart.
 ##
 ## Each entry shows up as a marker on the chart timeline (toggleable via
-## the "Annotations" button) and a tooltip with title + source link.
+## the "Changes" control or `?changes=1`; legacy `?annotations=1` is also
+## supported) and a tooltip with title + source link.
 ##
 ## Schema:
 ##   date    YYYY-MM-DD — date the change merged to CPython main
