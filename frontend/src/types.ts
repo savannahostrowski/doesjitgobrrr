@@ -45,15 +45,9 @@ export interface MachineInfo {
 
 export type MachinesMap = Record<string, MachineInfo>;
 
-export type PerfEventKind = 'jit-change' | 'bug' | 'infra' | 'benchmark';
-
 export interface PerfEvent {
-  id: string;
   date: string; // YYYY-MM-DD
   title: string;
-  kind: PerfEventKind;
-  machines: string[]; // machine names, or ['all']
-  description: string; // markdown
   link: string | null;
 }
 

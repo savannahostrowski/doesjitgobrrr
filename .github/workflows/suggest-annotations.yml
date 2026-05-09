@@ -17,6 +17,11 @@ jobs:
 
       - uses: astral-sh/setup-uv@v3
 
+      - name: Test suggester script
+        run: |
+          uv run --with pyyaml --with pytest pytest \
+            .github/scripts/test_suggest_annotations.py -v
+
       - name: Generate candidate annotations
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,147 +1,735 @@
 ## Annotations that help explain visible changes in the chart.
 ##
-## Each entry shows up on the /annotations page and as a marker on the
-## chart timeline (toggleable via the "Annotations" button).
+## Each entry shows up as a marker on the chart timeline (toggleable via
+## the "Annotations" button) and a tooltip with title + source link.
 ##
-## Schema (all fields except `id`, `date`, `title`, `kind` are optional):
-##   id          short stable slug — used as the URL anchor on /annotations
-##   date        YYYY-MM-DD — date the change merged to CPython main
-##   title       short headline (≤ 80 chars)
-##   kind        one of: jit-change | bug | infra | benchmark
-##   machines    list of machine names this affected, or [all]
-##   description multi-line markdown explaining background + expected impact
-##   link        URL to a PR, issue, blog post, etc. for further reading
+## Schema:
+##   date    YYYY-MM-DD — date the change merged to CPython main
+##   title   short headline (≤ 80 chars)
+##   link    URL to the PR / source / blog post for further reading
 ##
 ## Newest entries go at the top.
 
 events:
-  - id: send-specialization
-    date: 2026-05-05
-    title: "JIT: SEND specializations for generators and async generators"
-    kind: jit-change
-    machines: [all]
-    description: |
-      Adds SEND_VIRTUAL and SEND_ASYNC_GEN specializations and aligns
-      guards with FOR_ITER_VIRTUAL, extending JIT trace coverage through
-      generator and async code. Broadly neutral overall, but ~4–6% on
-      async_generators.
-    link: https://github.com/python/cpython/pull/148963
-
-  - id: fix-binary-op-subscr-dict
-    date: 2026-04-08
-    title: "JIT: fix incorrect _BINARY_OP_SUBSCR_DICT optimization"
-    kind: bug
-    machines: [all]
-    description: |
-      Correctness fix in the JIT optimizer for dict subscript. May have
-      caused subtle wrong results or extra deopts before this date — look
-      for dict-heavy benchmarks (mdp, json) to settle around early April.
-    link: https://github.com/python/cpython/pull/148213
-
-  - id: enable-windows-tailcall
-    date: 2026-04-03
-    title: "Bench: enable tail-call interpreter on Windows runs"
-    kind: infra
-    machines: [prometheus]
-    description: |
-      Updated the prometheus (windows-x86_64) runner to build CPython with
-      the tail-call interpreter enabled, matching what actually ships.
-      Numbers before this date measured a non-shipped configuration.
-    link: https://bsky.app/profile/savannah.dev/post/3mixhvdbxbc2d
-
-  - id: float-inplace-mutation
-    date: 2026-03-24
-    title: "JIT: in-place mutation of uniquely-referenced floats"
-    kind: jit-change
-    machines: [all]
-    description: |
-      Skips allocating a new float object for arithmetic when the operand
-      has refcount 1 (JIT only). A similar division PR followed on
-      2026-04-14 (#146397). Expect speedups on float-heavy benchmarks
-      (nbody, float, raytrace, scimark).
-    link: https://github.com/python/cpython/pull/146307
-
-  - id: trace-from-resume
-    date: 2026-03-16
-    title: "JIT: trace from RESUME (RESUME_CHECK_JIT)"
-    kind: jit-change
-    machines: [all]
-    description: |
-      Adds a CACHE entry to RESUME plus a new RESUME_CHECK_JIT opcode so
-      traces start at function entry rather than back-edges. PR author
-      measured ~0.5% on x86_64 Linux, ~2.5% on macOS arm64. Step-up
-      visible around 3.15.0a7, most on jones (darwin-arm64).
-    link: https://github.com/python/cpython/pull/145905
-
-  - id: jit-value-recording
-    date: 2026-02-02
-    title: "JIT: add value recording to tracing front-end"
-    kind: jit-change
-    machines: [all]
-    description: |
-      First step of value-tracking infrastructure on top of the new
-      tracing frontend; records only, not yet used for optimization.
-      Subsequent PRs (#144948 on 2026-02-19, #144122 on 2026-01-30) start
-      exploiting it. Expect a gradual upward drift on type-stable
-      benchmarks across February.
-    link: https://github.com/python/cpython/pull/144303
-
-  - id: bool-guards-bit-test
-    date: 2026-01-21
-    title: "JIT: cheaper boolean guards via single-bit test"
-    kind: jit-change
-    machines: [all]
-    description: |
-      TO_BOOL-style guards in generated JIT code now use a single-bit
-      test instead of a pointer compare. Small but pervasive speedup
-      expected on branchy code.
-    link: https://github.com/python/cpython/pull/143810
-
-  - id: fix-windows-jit-crash
-    date: 2025-12-22
-    title: "JIT: fix Windows crashes"
-    kind: bug
-    machines: [prometheus]
-    description: |
-      Fixes JIT crashes on Windows. Relevant for the prometheus
-      (windows-x86_64) runner; benchmark coverage on Windows JIT may
-      resume after this date.
-    link: https://github.com/python/cpython/pull/143021
-
-  - id: fix-trace-record-full
-    date: 2025-11-26
-    title: "JIT: fix TRACE_RECORD when buffer is full"
-    kind: bug
-    machines: [all]
-    description: |
-      Fixes a bug in the new trace-recording frontend where a full trace
-      buffer was mishandled. Mostly affects very long traces — expect
-      modest stabilization on benchmarks with large hot loops.
-    link: https://github.com/python/cpython/pull/141959
-
-  - id: tracing-jit-frontend
-    date: 2025-11-13
-    title: "JIT: new tracing frontend (replaces trace projection)"
-    kind: jit-change
-    machines: [all]
-    description: |
-      Big architectural rewrite of the JIT frontend from trace projection
-      to true trace recording, using dual dispatch via the
-      tail-calling/computed-goto interpreter. Author measured ~1.1%
-      pyperformance geomean speedup as merged (richards ~2x), with
-      ~10–15% slowdown on worst benchmarks — expect a wide reshuffle in
-      per-benchmark numbers around this date. Disables JIT on Windows
-      MSVC builds because tail-call/computed-goto is required.
-    link: https://github.com/python/cpython/pull/140310
-
-  - id: llvm-20-stencils
-    date: 2025-11-03
-    title: "Infra: JIT stencils now built with LLVM 20"
-    kind: infra
-    machines: [all]
-    description: |
-      Bumps the toolchain that generates JIT stencils from LLVM 19 to
-      LLVM 20. Different LLVM versions produce different stencil code,
-      which can cause small step changes in JIT benchmarks without any
-      functional CPython change.
-    link: https://github.com/python/cpython/pull/140329
+- date: '2026-05-08'
+  title: Fix segfault when `_LOAD_SPECIAL` guard deoptimizes
+  link: https://github.com/python/cpython/pull/149478
+- date: '2026-05-08'
+  title: expose `sq_repeat` helpers for `BINARY_OP_EXTEND`
+  link: https://github.com/python/cpython/pull/148791
+- date: '2026-05-07'
+  title: skip `FOR_ITER` inline specialization for Python `__next__`
+  link: https://github.com/python/cpython/pull/149491
+- date: '2026-05-06'
+  title: specialize mixed int/float inplace binary ops
+  link: https://github.com/python/cpython/pull/149413
+- date: '2026-05-04'
+  title: add specialization for `FOR_ITER`
+  link: https://github.com/python/cpython/pull/148745
+- date: '2026-05-04'
+  title: allow dict subclasses to be specialized
+  link: https://github.com/python/cpython/pull/148128
+- date: '2026-05-04'
+  title: Fix YIELD_VALUE bytecode assertion
+  link: https://github.com/python/cpython/pull/149184
+- date: '2026-05-03'
+  title: Avoid adding dependencies on immutable, immortal classes in the JIT (GH149256)
+  link: https://github.com/python/cpython/commit/8a7eddaa84e1880023ec75ed8af4d1836d9b5ed2
+- date: '2026-05-02'
+  title: extend and improve `LOAD_COMMON_CONSTANT`
+  link: https://github.com/python/cpython/pull/148971
+- date: '2026-05-02'
+  title: remove all uses of `_PyType_LookupByVersion` in `optimizer_bytecodes.c`
+  link: https://github.com/python/cpython/pull/148394
+- date: '2026-05-01'
+  title: add `_RROT_3` uop to reduce stack moves
+  link: https://github.com/python/cpython/pull/149205
+- date: '2026-04-30'
+  title: Fix jit binary op stack underflow
+  link: https://github.com/python/cpython/pull/149076
+- date: '2026-04-28'
+  title: '[JIT] Preserve family-head recorder layouts for specialized opcode families'
+  link: https://github.com/python/cpython/pull/148730
+- date: '2026-04-28'
+  title: decompose `_SHUFFLE_3_LOAD_CONST_INLINE_BORROW` in JIT
+  link: https://github.com/python/cpython/pull/148816
+- date: '2026-04-23'
+  title: Build/link the JIT shim in the Python interpreter
+  link: https://github.com/python/cpython/pull/148872
+- date: '2026-04-16'
+  title: Fix AArch64 multi-instruction constants and relocations
+  link: https://github.com/python/cpython/pull/148598
+- date: '2026-04-16'
+  title: Add FOR_ITER specialization for virtual iterators. Specialize GET_ITER.
+  link: https://github.com/python/cpython/pull/147967
+- date: '2026-04-16'
+  title: Specialize more binary operations using BINARY_OP_EXTEND
+  link: https://github.com/python/cpython/pull/128956
+- date: '2026-04-16'
+  title: Allow keeping specialization enabled when specifying eval frame function
+  link: https://github.com/python/cpython/pull/146032
+- date: '2026-04-15'
+  title: change `ADD_OP(_POP_TOP, ...)` to `optimize_pop_top` in `optimizer_bytecodes.c`
+  link: https://github.com/python/cpython/pull/148619
+- date: '2026-04-15'
+  title: Fix `_ITER_CHECK_RANGE`  type in the JIT
+  link: https://github.com/python/cpython/pull/148607
+- date: '2026-04-14'
+  title: Allow multiple consecutive recording ops per macro op
+  link: https://github.com/python/cpython/pull/148496
+- date: '2026-04-14'
+  title: Use recorded type instead of instance in BINARY_OP
+  link: https://github.com/python/cpython/pull/148569
+- date: '2026-04-14'
+  title: Optimize float division operations by mutating uniquely-referenced operands in place
+    (JIT only)
+  link: https://github.com/python/cpython/pull/146397
+- date: '2026-04-14'
+  title: constant fold special method lookups in JIT
+  link: https://github.com/python/cpython/pull/148432
+- date: '2026-04-14'
+  title: 'gh-gh-131798: optimize `LOAD_ATTR_GETATTRIBUTE_OVERRIDDEN` in the JIT'
+  link: https://github.com/python/cpython/pull/148555
+- date: '2026-04-14'
+  title: Constant-fold `_CONTAINS_OP_DICT` for frozendict
+  link: https://github.com/python/cpython/pull/148548
+- date: '2026-04-14'
+  title: restore `func_version` check in `_LOAD_ATTR_PROPERTY_FRAME`
+  link: https://github.com/python/cpython/pull/148528
+- date: '2026-04-14'
+  title: make `optimizer_generator` respect multiple caches
+  link: https://github.com/python/cpython/pull/148524
+- date: '2026-04-13'
+  title: 'JIT: Optimize `_CHECK_IS_NOT_PY_CALLABLE_EX` and `_CHECK_IS_NOT_PY_CALLABLE_KW`'
+  link: https://github.com/python/cpython/pull/148494
+- date: '2026-04-13'
+  title: optimize through keyword and bound method calls in the JIT
+  link: https://github.com/python/cpython/pull/148466
+- date: '2026-04-12'
+  title: implement `_RECORD_BOUND_METHOD` in JIT
+  link: https://github.com/python/cpython/pull/148457
+- date: '2026-04-12'
+  title: Split `_CHECK_AND_ALLOCATE_OBJECT` into smaller uops
+  link: https://github.com/python/cpython/pull/148433
+- date: '2026-04-12'
+  title: 'JIT: protect against function version changes'
+  link: https://github.com/python/cpython/pull/146300
+- date: '2026-04-12'
+  title: Add `_CHECK_IS_NOT_PY_CALLABLE` to the JIT optimizer
+  link: https://github.com/python/cpython/pull/148434
+- date: '2026-04-12'
+  title: add type watcher in `_CHECK_ATTR_CLASS`
+  link: https://github.com/python/cpython/pull/148399
+- date: '2026-04-11'
+  title: do not watch immutable types in JIT
+  link: https://github.com/python/cpython/pull/148383
+- date: '2026-04-11'
+  title: Add `_IS_NONE` to the JIT optimizer
+  link: https://github.com/python/cpython/pull/148369
+- date: '2026-04-11'
+  title: Optimize object creation and method calls in the JIT by resolving __init__ at trace
+    optimization time
+  link: https://github.com/python/cpython/pull/148277
+- date: '2026-04-11'
+  title: Convert `CALL_BUILTIN_CLASS` to leave arguments on the stack
+  link: https://github.com/python/cpython/pull/148381
+- date: '2026-04-11'
+  title: decompose `_POP_TWO/_POP_CALL(_ONE/_TWO)` in JIT
+  link: https://github.com/python/cpython/pull/148377
+- date: '2026-04-11'
+  title: Convert variadic argument opcodes to leave their arguments on the stack (`CALL_BUILTIN_FAST_WITH_KEYWORDS`)
+  link: https://github.com/python/cpython/pull/148366
+- date: '2026-04-11'
+  title: convert more variadic uops to leave input on stack in JIT
+  link: https://github.com/python/cpython/pull/148361
+- date: '2026-04-11'
+  title: decompose `[_POP_TWO/_INSERT_2]_LOAD_CONST_INLINE_BORROW` in JIT
+  link: https://github.com/python/cpython/pull/148357
+- date: '2026-04-10'
+  title: split `_CALL_BUILTIN_CLASS` to smaller uops
+  link: https://github.com/python/cpython/pull/148094
+- date: '2026-04-10'
+  title: Convert CALL_BUILTIN_FAST to leave inputs on the stack for refcount elimination in
+    JIT
+  link: https://github.com/python/cpython/pull/148172
+- date: '2026-04-10'
+  title: decompose `[_POP_CALL_X/_SHUFFLE_2]_LOAD_CONST_INLINE_BORROW` in JIT
+  link: https://github.com/python/cpython/pull/148313
+- date: '2026-04-09'
+  title: decompose `_INSERT_1_LOAD_CONST_INLINE(_BORROW)` in JIT
+  link: https://github.com/python/cpython/pull/148283
+- date: '2026-04-09'
+  title: 'gh-134584 : Optimize and eliminate redundant ref-counting for  `MAKE_FUNCTION` in
+    the JIT'
+  link: https://github.com/python/cpython/pull/144963
+- date: '2026-04-09'
+  title: fold super method lookups in JIT
+  link: https://github.com/python/cpython/pull/148231
+- date: '2026-04-09'
+  title: refactor bool to explicit uops in JIT
+  link: https://github.com/python/cpython/pull/148258
+- date: '2026-04-08'
+  title: Remove no-plt for Linux AArch64
+  link: https://github.com/python/cpython/pull/148238
+- date: '2026-04-08'
+  title: Convert `_CALL_METHOD_DESCRIPTOR_NOARGS` to leave its inputs on the stack to be cleaned
+    up by _POP_TOP
+  link: https://github.com/python/cpython/pull/148227
+- date: '2026-04-08'
+  title: decompose `_POP_TOP_LOAD_CONST_INLINE(_BORROW)` in JIT
+  link: https://github.com/python/cpython/pull/148230
+- date: '2026-04-08'
+  title: remove duplicate uops `_LOAD_CONST_UNDER_INLINE(_BORROW)` in JIT
+  link: https://github.com/python/cpython/pull/148236
+- date: '2026-04-07'
+  title: Remove the buggy AArch64 "33rx" relocation
+  link: https://github.com/python/cpython/pull/146263
+- date: '2026-04-07'
+  title: specialize access to enums and fix scaling on free-threading
+  link: https://github.com/python/cpython/pull/148184
+- date: '2026-04-06'
+  title: Propagate type info through _BINARY_OP_EXTEND in tier 2
+  link: https://github.com/python/cpython/pull/148146
+- date: '2026-04-05'
+  title: Silence `unused-variable` warnings in `optimizer_cases.c.h`
+  link: https://github.com/python/cpython/pull/148127
+- date: '2026-04-04'
+  title: Prevent constant folding when lhs is container types
+  link: https://github.com/python/cpython/pull/148090
+- date: '2026-04-04'
+  title: Constant-fold _CONTAINS_OP_SET for frozenset
+  link: https://github.com/python/cpython/pull/148084
+- date: '2026-04-04'
+  title: Fix uses of sym_is_not_null in JIT optimizer
+  link: https://github.com/python/cpython/pull/148079
+- date: '2026-04-04'
+  title: split recursion check to _CHECK_RECURSION_LIMIT and combine checks
+  link: https://github.com/python/cpython/pull/148070
+- date: '2026-04-04'
+  title: relax GUARD_CALLABLE checks for self type checks
+  link: https://github.com/python/cpython/pull/148069
+- date: '2026-04-04'
+  title: JIT inline function addresses of builtin methods
+  link: https://github.com/python/cpython/pull/146906
+- date: '2026-04-03'
+  title: Fix building the jit stencils on Windows when the interpreter is built with a different
+    clang version
+  link: https://github.com/python/cpython/pull/146338
+- date: '2026-04-03'
+  title: Optimize int operations by mutating uniquely-referenced operands in place (JIT only)
+  link: https://github.com/python/cpython/pull/146641
+- date: '2026-03-30'
+  title: JIT optimize dict access for objects with known hash
+  link: https://github.com/python/cpython/pull/146559
+- date: '2026-03-29'
+  title: Do not mask KeyErrors raised during dictionary unpacking in call
+  link: https://github.com/python/cpython/pull/146472
+- date: '2026-03-28'
+  title: Constant-fold frozendict subscript lookups via REPLACE_OPCODE_IF_EVALUATES_PURE
+  link: https://github.com/python/cpython/pull/146490
+- date: '2026-03-27'
+  title: Verify that JIT stencils preserve frame pointer
+  link: https://github.com/python/cpython/pull/146524
+- date: '2026-03-27'
+  title: reserve FP on AArch64 when generating JIT stencils
+  link: https://github.com/python/cpython/pull/146520
+- date: '2026-03-27'
+  title: Convert `LIST_EXTEND` to leave its inputs on the stack to be cleaned up by `_POP_TOP`
+    be cleaned up by `_POP_TOP`
+  link: https://github.com/python/cpython/pull/146383
+- date: '2026-03-26'
+  title: 'JIT: split call method and call builtin opcodes into smaller uops'
+  link: https://github.com/python/cpython/pull/146463
+- date: '2026-03-26'
+  title: Convert `DICT_UPDATE` to leave its inputs on the stack to be cleaned up by `_POP_TOP`
+  link: https://github.com/python/cpython/pull/146190
+- date: '2026-03-26'
+  title: Convert `_CALL_INTRINSIC_2` to leave its inputs on the stack to be cleaned up by
+    `_POP_TOP`
+  link: https://github.com/python/cpython/pull/146262
+- date: '2026-03-26'
+  title: 'gh-GH-131798: optimize jit attribute loads on immutable types'
+  link: https://github.com/python/cpython/pull/146449
+- date: '2026-03-26'
+  title: Do not mask AttributeErrors raised during dictionary unpacking
+  link: https://github.com/python/cpython/pull/145906
+- date: '2026-03-24'
+  title: Allow most native profilers and debuggers to unwind through JIT frames
+  link: https://github.com/python/cpython/pull/143548
+- date: '2026-03-24'
+  title: Convert `DICT_MERGE` to leave its inputs on the stack to be cleaned up by `_POP_TOP`
+  link: https://github.com/python/cpython/pull/146329
+- date: '2026-03-22'
+  title: Implement unique reference tracking for JIT, optimize unpacking of such tuples
+  link: https://github.com/python/cpython/pull/144300
+- date: '2026-03-21'
+  title: Merge `GET_ITER` and `GET_YIELD_FROM_ITER`
+  link: https://github.com/python/cpython/pull/146120
+- date: '2026-03-20'
+  title: Optimize _GUARD_CODE_VERSION+IP via function version symbols
+  link: https://github.com/python/cpython/pull/146101
+- date: '2026-03-19'
+  title: 'JIT: optimize _LOAD_COMMON_CONSTANT'
+  link: https://github.com/python/cpython/pull/146104
+- date: '2026-03-19'
+  title: Convert `SET_UPDATE` to leave its inputs on the stack to be cleaned up by `_POP_TOP`
+  link: https://github.com/python/cpython/pull/145979
+- date: '2026-03-18'
+  title: JIT executor bloom filter wide-type optimization and function Inlining
+  link: https://github.com/python/cpython/pull/146114
+- date: '2026-03-18'
+  title: Fix error handling in _BINARY_OP_ADD_UNICODE opcode
+  link: https://github.com/python/cpython/pull/146117
+- date: '2026-03-17'
+  title: Fix _GUARD_CODE_VERSION_*
+  link: https://github.com/python/cpython/pull/146060
+- date: '2026-03-17'
+  title: Optimize `_ITER_CHECK_RANGE` and `_ITER_CHECK_LIST` in the JIT
+  link: https://github.com/python/cpython/pull/144583
+- date: '2026-03-16'
+  title: Replace bloom filter linked lists with continuous arrays to optimize executor invalidating
+    performance
+  link: https://github.com/python/cpython/pull/145873
+- date: '2026-03-16'
+  title: Disable over-aggressive optimization for _GUARD_CODE_VERSION
+  link: https://github.com/python/cpython/pull/145923
+- date: '2026-03-16'
+  title: Convert `CALL_INTRINSIC_1` to leave its inputs on the stack to be cleaned up by `_POP_TOP`.
+  link: https://github.com/python/cpython/pull/145964
+- date: '2026-03-14'
+  title: Eliminate redundant refcounting in JIT for `MATCH_CLASS`
+  link: https://github.com/python/cpython/pull/144821
+- date: '2026-03-12'
+  title: Convert DEOPT_IFs to EXIT_IFs
+  link: https://github.com/python/cpython/pull/145751
+- date: '2026-03-11'
+  title: Add _MAKE_HEAP_SAFE uop to eliminate unnecessary refcount operations in RETURN_VALUE
+    and YIELD_VALUE
+  link: https://github.com/python/cpython/pull/144414
+- date: '2026-03-10'
+  title: Fix JIT trace builder assertion failure when conditional branch jump target coincides
+    with fallthrough target
+  link: https://github.com/python/cpython/pull/144742
+- date: '2026-03-09'
+  title: Fix refleaks in JIT when optimization fails
+  link: https://github.com/python/cpython/pull/145420
+- date: '2026-03-03'
+  title: Narrow _GUARD_TOS_ANY_{SET,DICT} by using probable type
+  link: https://github.com/python/cpython/pull/145215
+- date: '2026-03-02'
+  title: Avoid creating temporary objects in `BINARY_SLICE` for list, tuple, and unicode
+  link: https://github.com/python/cpython/pull/144590
+- date: '2026-02-24'
+  title: Add _GUARD_NOS_ANY_DICT to prevent STORE_SUBSCR_DICT on frozendict
+  link: https://github.com/python/cpython/pull/145039
+- date: '2026-02-22'
+  title: Fix JIT assertion failure during CALL_ALLOC_AND_ENTER_INIT side exit
+  link: https://github.com/python/cpython/pull/145100
+- date: '2026-02-22'
+  title: Fix warnings on main
+  link: https://github.com/python/cpython/pull/145104
+- date: '2026-02-19'
+  title: Optimize the new uops added when recording values during tracing.
+  link: https://github.com/python/cpython/pull/144948
+- date: '2026-02-19'
+  title: Use ``PyFloat_AS_DOUBLE`` and `_PyLong_IsZero`` in the float / compactlong specializations
+  link: https://github.com/python/cpython/pull/144826
+- date: '2026-02-18'
+  title: Update specializer to support frozendict
+  link: https://github.com/python/cpython/pull/144949
+- date: '2026-02-14'
+  title: fix warnings in jit builds
+  link: https://github.com/python/cpython/pull/144817
+- date: '2026-02-12'
+  title: Implement PEP 810 - Explicit lazy imports
+  link: https://github.com/python/cpython/pull/142351
+- date: '2026-02-12'
+  title: Fix refcount corruption in lazy import specialization
+  link: https://github.com/python/cpython/pull/144733
+- date: '2026-02-10'
+  title: Optimize `_BINARY_OP_SUBSCR_LIST_SLICE`
+  link: https://github.com/python/cpython/pull/144659
+- date: '2026-02-09'
+  title: Fix missing output uops in optimizer debug output
+  link: https://github.com/python/cpython/pull/144617
+- date: '2026-02-08'
+  title: Optimize `_GUARD_TOS_SLICE`
+  link: https://github.com/python/cpython/pull/144470
+- date: '2026-02-07'
+  title: Bump pre-commit hooks
+  link: https://github.com/python/cpython/pull/144576
+- date: '2026-02-06'
+  title: Fix tail calling interpreter on Windows for FT
+  link: https://github.com/python/cpython/pull/144550
+- date: '2026-02-05'
+  title: Use recorded values to make optimizer more robust
+  link: https://github.com/python/cpython/pull/144437
+- date: '2026-02-02'
+  title: Replace `_CHECK_STACK_SPACE` with `_CHECK_STACK_SPACE_OPERAND` in JIT optiimizer
+  link: https://github.com/python/cpython/pull/144394
+- date: '2026-02-02'
+  title: Revert PR#144122 for performance and potential bugs.
+  link: https://github.com/python/cpython/pull/144391
+- date: '2026-02-01'
+  title: Fix unused variable 'COLORS' warning in optimizer.c
+  link: https://github.com/python/cpython/pull/144373
+- date: '2026-01-30'
+  title: Track nullness of properties in the Tier 2 JIT optimizer
+  link: https://github.com/python/cpython/pull/144122
+- date: '2026-01-29'
+  title: Add more debug info in `optimize_uops`
+  link: https://github.com/python/cpython/pull/144262
+- date: '2026-01-27'
+  title: Remove ENABLE_SPECIALIZATION_FT
+  link: https://github.com/python/cpython/pull/144290
+- date: '2026-01-25'
+  title: Eliminate redundant refcounting in the JIT from LOAD_ATTR_MODULE
+  link: https://github.com/python/cpython/pull/143996
+- date: '2026-01-24'
+  title: 'Misc: remove duplicate `instr_frame` assignment in `_PyJit_TryInitializeTracing`'
+  link: https://github.com/python/cpython/pull/144155
+- date: '2026-01-24'
+  title: Optimize len for string constants in optimizer
+  link: https://github.com/python/cpython/pull/144142
+- date: '2026-01-24'
+  title: Narrow types to constants in branches involving specialized comparisons with a constant
+  link: https://github.com/python/cpython/pull/144150
+- date: '2026-01-24'
+  title: Eliminate redundant refcounting in the JIT for BINARY_OP
+  link: https://github.com/python/cpython/pull/144011
+- date: '2026-01-24'
+  title: Fix bad stack assert in the JIT optimizer
+  link: https://github.com/python/cpython/pull/144019
+- date: '2026-01-23'
+  title: Eliminate redundant refcounting in the JIT for BINARY_OP_EXTEND
+  link: https://github.com/python/cpython/pull/144006
+- date: '2026-01-22'
+  title: Partial reworking of JIT data structures
+  link: https://github.com/python/cpython/pull/144105
+- date: '2026-01-22'
+  title: Narrowing to constants in branches involving `is` comparisons with a constant
+  link: https://github.com/python/cpython/pull/143895
+- date: '2026-01-20'
+  title: Move PYTHON_UOPS_OPTIMIZE to policy object
+  link: https://github.com/python/cpython/pull/144082
+- date: '2026-01-20'
+  title: no deferred refcount for untracked
+  link: https://github.com/python/cpython/pull/144081
+- date: '2026-01-18'
+  title: Check null binary op extend
+  link: https://github.com/python/cpython/pull/144014
+- date: '2026-01-17'
+  title: Use new buffer to save  optimized uops
+  link: https://github.com/python/cpython/pull/143682
+- date: '2026-01-17'
+  title: Show `JitOptSymbol` on abstract stack when set PYTHON_OPT_DEBUG > 4
+  link: https://github.com/python/cpython/pull/143957
+- date: '2026-01-17'
+  title: Add maybe_enable_deferred_ref_count()
+  link: https://github.com/python/cpython/pull/142843
+- date: '2026-01-17'
+  title: Export JIT functions for _testinternalcapi
+  link: https://github.com/python/cpython/pull/143958
+- date: '2026-01-16'
+  title: Conform to spec for generator expressions while supporting virtual iterators
+  link: https://github.com/python/cpython/pull/143569
+- date: '2026-01-15'
+  title: Refactor policy object into a single opt_config
+  link: https://github.com/python/cpython/pull/143644
+- date: '2026-01-14'
+  title: Make optimizer color table static
+  link: https://github.com/python/cpython/pull/143846
+- date: '2026-01-14'
+  title: Protect against recursive tracer calls/finalization
+  link: https://github.com/python/cpython/pull/143126
+- date: '2026-01-14'
+  title: Add colours and some more edges to executor visualization graph
+  link: https://github.com/python/cpython/pull/143809
+- date: '2026-01-14'
+  title: Use cold flag instead of warm flag in `MAKE_WARM`
+  link: https://github.com/python/cpython/pull/143827
+- date: '2026-01-13'
+  title: 'JIT optimizer: Support custom binary op and property frames'
+  link: https://github.com/python/cpython/pull/143735
+- date: '2026-01-12'
+  title: Eliminate redundant refcounting in TO_BOOL_INT, TO_BOOL_LIST
+  link: https://github.com/python/cpython/pull/143759
+- date: '2026-01-12'
+  title: Eliminate redundant refcounting from `_CONTAINS_{OP|OP_SET|OP_DICT}`
+  link: https://github.com/python/cpython/pull/143731
+- date: '2026-01-12'
+  title: 'JIT: Remove redundant refcount for _BINARY_OP_SUBSCR_DICT'
+  link: https://github.com/python/cpython/pull/143724
+- date: '2026-01-11'
+  title: 'JIT: Remove redundant refcounting for UNARY_{INVERT|NEGATIVE}'
+  link: https://github.com/python/cpython/pull/143704
+- date: '2026-01-10'
+  title: Hold strong reference to executor during JIT tracing
+  link: https://github.com/python/cpython/pull/143646
+- date: '2026-01-09'
+  title: Allocate all JIT state in one go
+  link: https://github.com/python/cpython/pull/143626
+- date: '2026-01-09'
+  title: Lazily allocate tracer code and opt buffers
+  link: https://github.com/python/cpython/pull/143597
+- date: '2026-01-09'
+  title: Restore REPLACE_OPCODE_IF_EVALUATES_PURE optimization for some ops
+  link: https://github.com/python/cpython/pull/143335
+- date: '2026-01-08'
+  title: Move `JitOptContext` from stack allocation to per-thread heap allocation
+  link: https://github.com/python/cpython/pull/143536
+- date: '2026-01-08'
+  title: Don't use `DK_IS_UNICODE` in interpreter
+  link: https://github.com/python/cpython/pull/142909
+- date: '2026-01-07'
+  title: Use macro to check if PEP 523 is hooked
+  link: https://github.com/python/cpython/pull/143532
+- date: '2026-01-06'
+  title: Eliminate redundant refcounting from `TO_BOOL_STR`
+  link: https://github.com/python/cpython/pull/143417
+- date: '2026-01-06'
+  title: Specialize CALL_FUNCTION_EX
+  link: https://github.com/python/cpython/pull/143391
+- date: '2026-01-06'
+  title: Support generator frames in the JIT optimizer
+  link: https://github.com/python/cpython/pull/143340
+- date: '2026-01-06'
+  title: Eliminate redundant refcounting in TO_BOOL_ALWAYS_TRUE
+  link: https://github.com/python/cpython/pull/143427
+- date: '2026-01-06'
+  title: enable `LOAD_ATTR_MODULE` specialization even if `__getattr__` is defined
+  link: https://github.com/python/cpython/pull/143470
+- date: '2026-01-06'
+  title: Allow defining any __slots__ for a class derived from tuple
+  link: https://github.com/python/cpython/pull/141763
+- date: '2026-01-04'
+  title: Add BINARY_OP_SUBSCR_USTR_INT
+  link: https://github.com/python/cpython/pull/143389
+- date: '2026-01-04'
+  title: Fix a UAF in `_BINARY_OP_INPLACE_ADD_UNICODE`
+  link: https://github.com/python/cpython/pull/143404
+- date: '2026-01-03'
+  title: Factor out tracing and optimization heuristics into a single object
+  link: https://github.com/python/cpython/pull/143381
+- date: '2026-01-02'
+  title: 'JIT: Remove redundant refcount from STORE_FAST'
+  link: https://github.com/python/cpython/pull/143336
+- date: '2026-01-02'
+  title: Add _GUARD_NOS_COMPACT_ASCII for compact ascii optimization
+  link: https://github.com/python/cpython/pull/143332
+- date: '2026-01-02'
+  title: Fix unintended bytecode specialization for non-ascii string
+  link: https://github.com/python/cpython/pull/143352
+- date: '2026-01-01'
+  title: Eliminate redundant refcounting from `_LOAD_ATTR_SLOT`
+  link: https://github.com/python/cpython/pull/143320
+- date: '2026-01-01'
+  title: Eliminate redundant refcounting from _CALL{_BUILTIN_O, _METHOD_DESCRIPTOR_O}
+  link: https://github.com/python/cpython/pull/143330
+- date: '2025-12-29'
+  title: Link trace to side exits, rather than stop
+  link: https://github.com/python/cpython/pull/143268
+- date: '2025-12-28'
+  title: Rewind stop tracing to previous target
+  link: https://github.com/python/cpython/pull/143187
+- date: '2025-12-28'
+  title: Remove bounds check when indexing into tuples with a constant index
+  link: https://github.com/python/cpython/pull/137607
+- date: '2025-12-26'
+  title: Eliminate redundant refcounting from `IS_OP`
+  link: https://github.com/python/cpython/pull/143171
+- date: '2025-12-26'
+  title: Eliminate redundant refcounting from `_COMPARE_OP_X`
+  link: https://github.com/python/cpython/pull/143186
+- date: '2025-12-24'
+  title: Make CALL_LIST_APPEND and BINARY_OP_INPLACE_ADD_UNICODE normal instructions
+  link: https://github.com/python/cpython/pull/143124
+- date: '2025-12-23'
+  title: Fix assertion error in executor management.
+  link: https://github.com/python/cpython/pull/143104
+- date: '2025-12-23'
+  title: Eliminate redundant refcounting from `_BINARY_OP_SUBSCR_TUPLE_INT`
+  link: https://github.com/python/cpython/pull/143094
+- date: '2025-12-23'
+  title: Eliminate redundant refcounting from `_CALL_TYPE_1`
+  link: https://github.com/python/cpython/pull/135818
+- date: '2025-12-23'
+  title: Eliminate redundant refcounting from `_LOAD_ATTR_WITH_HINT`
+  link: https://github.com/python/cpython/pull/143062
+- date: '2025-12-23'
+  title: 'JIT: don''t leak shim memory when shutting down the interpreter'
+  link: https://github.com/python/cpython/pull/142984
+- date: '2025-12-22'
+  title: Add terminator to JIT code when  halting due to invalid dependencies
+  link: https://github.com/python/cpython/pull/143033
+- date: '2025-12-22'
+  title: fix missing return in executor_clear
+  link: https://github.com/python/cpython/pull/143073
+- date: '2025-12-22'
+  title: Tail calling for MSVC (VS 2026)
+  link: https://github.com/python/cpython/pull/143068
+- date: '2025-12-19'
+  title: fix memory leak when creating JIT executors
+  link: https://github.com/python/cpython/pull/142492
+- date: '2025-12-19'
+  title: 'JIT: Borrow references for immortal promoted globals'
+  link: https://github.com/python/cpython/pull/142921
+- date: '2025-12-19'
+  title: Fix constant folding len(tuple) in JIT
+  link: https://github.com/python/cpython/pull/142963
+- date: '2025-12-19'
+  title: Make gi_frame_state transitions atomic in FT build
+  link: https://github.com/python/cpython/pull/142599
+- date: '2025-12-18'
+  title: Reimplement executor management
+  link: https://github.com/python/cpython/pull/142931
+- date: '2025-12-18'
+  title: Remove redundant refcount for `BINARY_OP_SUBSCR_STR_INT`
+  link: https://github.com/python/cpython/pull/142844
+- date: '2025-12-18'
+  title: Eliminate redundant refcounting from _BINARY_OP_SUBSCR_LIST_INT
+  link: https://github.com/python/cpython/pull/142926
+- date: '2025-12-18'
+  title: Remove redundant refcount from _BINARY_OP_ADD_UNICODE
+  link: https://github.com/python/cpython/pull/142825
+- date: '2025-12-18'
+  title: remove unnecessary interp parameter from dict functions and `_PyDict_NotifyEvent`
+  link: https://github.com/python/cpython/pull/142923
+- date: '2025-12-17'
+  title: Treat call specially in JIT assembly backend optimizer on x86-64 and AArch64
+  link: https://github.com/python/cpython/pull/142907
+- date: '2025-12-17'
+  title: Fix segfault in `executor_to_gv`
+  link: https://github.com/python/cpython/pull/142885
+- date: '2025-12-17'
+  title: Mark tracer functions as Py_NO_INLINE
+  link: https://github.com/python/cpython/pull/142846
+- date: '2025-12-16'
+  title: 'JIT: Fix out of bounds memory read in lltrace'
+  link: https://github.com/python/cpython/pull/142821
+- date: '2025-12-16'
+  title: Eliminate redundant refcounting from `_STORE_ATTR_WITH_HINT`
+  link: https://github.com/python/cpython/pull/142767
+- date: '2025-12-16'
+  title: Eliminate redundant refcounting from `_LOAD_ATTR_INSTANCE_VALUE`
+  link: https://github.com/python/cpython/pull/142769
+- date: '2025-12-15'
+  title: Remove redundant refcount from `_STORE_ATTR_SLOT`
+  link: https://github.com/python/cpython/pull/142729
+- date: '2025-12-15'
+  title: 'JIT: Eliminate redundant refcount ops for X_INT'
+  link: https://github.com/python/cpython/pull/142765
+- date: '2025-12-15'
+  title: Eliminate redundant refcounting from `_STORE_ATTR_INSTANCE_VALUE`
+  link: https://github.com/python/cpython/pull/142759
+- date: '2025-12-15'
+  title: Remove custom float decref ops
+  link: https://github.com/python/cpython/pull/142576
+- date: '2025-12-15'
+  title: Eliminate redundant refcounting from _STORE_SUBSCR_DICT
+  link: https://github.com/python/cpython/pull/142712
+- date: '2025-12-15'
+  title: Eliminate redundant refcounting from _CALL_LIST_APPEND
+  link: https://github.com/python/cpython/pull/142711
+- date: '2025-12-15'
+  title: 'JIT: Fix crash due to incorrect caching on side exits when exiting jitted code.'
+  link: https://github.com/python/cpython/pull/142762
+- date: '2025-12-14'
+  title: Eliminate redundant refcounting from _STORE_SUBSCR_LIST_INT
+  link: https://github.com/python/cpython/pull/142703
+- date: '2025-12-14'
+  title: Eliminate redundant refcounting from `_CALL_STR_1`
+  link: https://github.com/python/cpython/pull/136070
+- date: '2025-12-14'
+  title: Eliminate redundant refcounting from `_CALL_BUILTION_O`
+  link: https://github.com/python/cpython/pull/142695
+- date: '2025-12-13'
+  title: Cleanups for GH-135860
+  link: https://github.com/python/cpython/pull/142604
+- date: '2025-12-12'
+  title: Make `get_externals` handle fetching platform-specific release artifacts
+  link: https://github.com/python/cpython/pull/142405
+- date: '2025-12-12'
+  title: Revert partially GH-135860
+  link: https://github.com/python/cpython/pull/142620
+- date: '2025-12-11'
+  title: 'JIT: Improve machine code for loading smaller constants on AArch64.'
+  link: https://github.com/python/cpython/pull/142511
+- date: '2025-12-11'
+  title: Top of stack caching for the JIT.
+  link: https://github.com/python/cpython/pull/135465
+- date: '2025-12-11'
+  title: Eliminate redundant refcounting from ``_CALL_LEN``
+  link: https://github.com/python/cpython/pull/136104
+- date: '2025-12-11'
+  title: Eliminate redundant refcounting from `_CALL_TUPLE_1`
+  link: https://github.com/python/cpython/pull/135860
+- date: '2025-12-10'
+  title: 'JIT: Deduplicating GOT symbols in the trace'
+  link: https://github.com/python/cpython/pull/142316
+- date: '2025-12-10'
+  title: Track executor before any possible deallocations
+  link: https://github.com/python/cpython/pull/137016
+- date: '2025-12-10'
+  title: Protect against non-progressing specializations in tracing JIT
+  link: https://github.com/python/cpython/pull/141989
+- date: '2025-12-09'
+  title: Make the JIT digest more deterministic by sorting the files in Tools/jit
+  link: https://github.com/python/cpython/pull/142455
+- date: '2025-12-08'
+  title: 'JIT: Remove redundant branches to jumps in the assembly optimizer'
+  link: https://github.com/python/cpython/pull/140800
+- date: '2025-12-08'
+  title: Watch attribute loads when promoting JIT constants
+  link: https://github.com/python/cpython/pull/142303
+- date: '2025-12-04'
+  title: Check stack bounds in JIT optimizer
+  link: https://github.com/python/cpython/pull/142201
+- date: '2025-12-03'
+  title: Jit stencils on Windows contain debug data
+  link: https://github.com/python/cpython/pull/142052
+- date: '2025-12-03'
+  title: Limit size of generated machine code.
+  link: https://github.com/python/cpython/pull/142228
+- date: '2025-11-18'
+  title: Support switch/case dispatch with the tracing interpreter.
+  link: https://github.com/python/cpython/pull/141703
+- date: '2025-11-15'
+  title: JIT _EXIT_TRACE to ENTER_EXECUTOR rather than _DEOPT
+  link: https://github.com/python/cpython/pull/141573
+- date: '2025-11-14'
+  title: Use CALL_LIST_APPEND instruction only for lists, not for list subclasses
+  link: https://github.com/python/cpython/pull/141398
+- date: 2026-05-05
+  title: 'JIT: SEND specializations for generators and async generators'
+  link: https://github.com/python/cpython/pull/148963
+- date: 2026-04-08
+  title: 'JIT: fix incorrect _BINARY_OP_SUBSCR_DICT optimization'
+  link: https://github.com/python/cpython/pull/148213
+- date: 2026-04-03
+  title: 'Bench: enable tail-call interpreter on Windows runs'
+  link: https://bsky.app/profile/savannah.dev/post/3mixhvdbxbc2d
+- date: 2026-03-24
+  title: 'JIT: in-place mutation of uniquely-referenced floats'
+  link: https://github.com/python/cpython/pull/146307
+- date: 2026-03-16
+  title: 'JIT: trace from RESUME (RESUME_CHECK_JIT)'
+  link: https://github.com/python/cpython/pull/145905
+- date: 2026-02-02
+  title: 'JIT: add value recording to tracing front-end'
+  link: https://github.com/python/cpython/pull/144303
+- date: 2026-01-21
+  title: 'JIT: cheaper boolean guards via single-bit test'
+  link: https://github.com/python/cpython/pull/143810
+- date: 2025-12-22
+  title: 'JIT: fix Windows crashes'
+  link: https://github.com/python/cpython/pull/143021
+- date: 2025-11-26
+  title: 'JIT: fix TRACE_RECORD when buffer is full'
+  link: https://github.com/python/cpython/pull/141959
+- date: 2025-11-13
+  title: 'JIT: new tracing frontend (replaces trace projection)'
+  link: https://github.com/python/cpython/pull/140310
+- date: 2025-11-03
+  title: 'Infra: JIT stencils now built with LLVM 20'
+  link: https://github.com/python/cpython/pull/140329

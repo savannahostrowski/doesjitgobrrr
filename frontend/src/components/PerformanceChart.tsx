@@ -15,13 +15,7 @@ import {
 } from '../api';
 import { MOBILE_BREAKPOINT } from '../constants';
 import { useTheme } from '../ThemeContext';
-import type {
-  BenchmarkRun,
-  DateRange,
-  GoalLines,
-  PerfEvent,
-  PerfEventKind,
-} from '../types';
+import type { BenchmarkRun, DateRange, GoalLines, PerfEvent } from '../types';
 import CustomGoalInput from './CustomGoalInput';
 import './PerformanceChart.css';
 
@@ -52,19 +46,135 @@ const GOAL_LINE_COLORS = {
   custom: '#06b6d4',
 } as const;
 
-const EVENT_KIND_COLORS: Record<PerfEventKind, string> = {
-  'jit-change': '#a855f7',
-  bug: '#ef4444',
-  infra: '#3b82f6',
-  benchmark: '#10b981',
-};
+const ANNOTATION_COLOR = '#a1a1aa';
+const ANNOTATION_DOT_SIZE = 7;
 
-const EVENT_KIND_LABELS: Record<PerfEventKind, string> = {
-  'jit-change': 'JIT change',
-  bug: 'Bug',
-  infra: 'Infra',
-  benchmark: 'Benchmark',
-};
+// Cluster annotation pins within this many days when the timeline is dense.
+const CLUSTER_DAYS_ALL_TIME = 3;
+
+// Tooltip body max width — capped on small viewports too.
+const TOOLTIP_MAX_WIDTH = 340;
+
+/** Parse a YYYY-MM-DD string at UTC midnight. Returns null on invalid input. */
+function parseUtcDate(iso: string): Date | null {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
+/** Format a YYYY-MM-DD as a localized date in UTC, with optional config. */
+function formatChartDate(
+  iso: string,
+  opts: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  },
+): string {
+  const d = parseUtcDate(iso);
+  if (!d) return iso;
+  return d.toLocaleDateString(undefined, { ...opts, timeZone: 'UTC' });
+}
+
+/** Format two YYYY-MM-DD strings as a range, eliding the year on the left
+ * when both dates fall in the same year ("Apr 11 – Apr 14, 2026"). */
+function formatChartDateRange(startIso: string, endIso: string): string {
+  if (startIso === endIso) return formatChartDate(startIso);
+  const start = parseUtcDate(startIso);
+  const end = parseUtcDate(endIso);
+  if (!start || !end) return `${startIso} – ${endIso}`;
+  const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
+  const left = sameYear
+    ? formatChartDate(startIso, { month: 'short', day: 'numeric' })
+    : formatChartDate(startIso);
+  const right = formatChartDate(endIso);
+  return `${left} – ${right}`;
+}
+
+/** Escape a string for safe use as the value of an HTML attribute. */
+function escapeAttr(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/** Strip leading "gh-NNNN: " or "GH-NNNN: " issue references — when many
+ * commits target the same issue, the prefix dominates and titles look
+ * like duplicates. */
+function stripIssuePrefix(title: string): string {
+  return title.replace(/^(?:gh|GH)-+\d+:\s*/i, '');
+}
+
+/** Render markdown-style `inline code` spans as <code> tags. Other text is
+ * HTML-escaped. Safe to inject into HTML. */
+function renderInlineCode(text: string): string {
+  const parts = text.split('`');
+  return parts
+    .map((part, i) => {
+      const escaped = escapeAttr(part);
+      // Odd indices are inside backticks → wrap in <code>.
+      return i % 2 === 1
+        ? `<code class="change-tooltip-code">${escaped}</code>`
+        : escaped;
+    })
+    .join('');
+}
+
+const LINK_ICON_SVG =
+  '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />' +
+  '<polyline points="15 3 21 3 21 9" />' +
+  '<line x1="10" y1="14" x2="21" y2="3" />' +
+  '</svg>';
+
+/** Render a single change row (date prefix optional, ellipsis on overflow). */
+function renderChangeRow(e: PerfEvent, showDatePrefix: boolean): string {
+  // safeTitle is for the `title=` attribute (plain text); display goes
+  // into HTML and gets backtick → <code> conversion.
+  const safeTitle = escapeAttr(e.title.replace(/`/g, ''));
+  const display = renderInlineCode(stripIssuePrefix(e.title));
+  const linkIcon = e.link
+    ? `<a href="${escapeAttr(e.link)}" target="_blank" rel="noopener noreferrer" ` +
+      `style="flex-shrink:0;display:inline-flex;align-items:center;color:#a1a1aa;text-decoration:none" ` +
+      `title="Open source in new tab">${LINK_ICON_SVG}</a>`
+    : '';
+  const datePrefix = showDatePrefix
+    ? `<span style="flex-shrink:0;color:#71717a;font-size:11px;font-variant-numeric:tabular-nums;width:42px">` +
+      `${escapeAttr(formatChartDate(e.date, { month: 'short', day: 'numeric' }))}` +
+      `</span>`
+    : '';
+  return (
+    `<div style="display:flex;align-items:center;gap:6px;font-size:12px;line-height:1.3;padding:2px 0">` +
+    datePrefix +
+    `<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${safeTitle}">${display}</span>` +
+    linkIcon +
+    `</div>`
+  );
+}
+
+/** ECharts tooltip formatter for the annotation scatter series. */
+function formatChangeTooltip(params: unknown): string {
+  const p = params as { data: { group: PerfEvent[] } };
+  const group = p.data.group;
+  if (!group?.length) return '';
+  const sorted = [...group].sort((a, b) => a.date.localeCompare(b.date));
+  const minDate = sorted[0].date;
+  const maxDate = sorted[sorted.length - 1].date;
+  const showDatePrefix = minDate !== maxDate;
+  const formattedDate = formatChartDateRange(minDate, maxDate);
+  const header =
+    `<div style="color:#a1a1aa;font-size:11px;margin-bottom:4px">` +
+    `${formattedDate}${group.length > 1 ? ` · ${group.length} changes` : ''}` +
+    `</div>`;
+  return (
+    `<div style="max-width:${TOOLTIP_MAX_WIDTH}px;width:min(${TOOLTIP_MAX_WIDTH}px, calc(100vw - 32px))">` +
+    header +
+    sorted.map((e) => renderChangeRow(e, showDatePrefix)).join('') +
+    `</div>`
+  );
+}
 
 interface PerformanceChartProps {
   data: BenchmarkRun[];
@@ -142,7 +252,6 @@ function computeYRange(
 
 const PerformanceChart: Component<PerformanceChartProps> = (props) => {
   let chartDiv: HTMLDivElement | undefined;
-  let annotationTooltipRef: HTMLDivElement | undefined;
   let chart: echarts.ECharts | undefined;
   const { theme } = useTheme();
 
@@ -283,72 +392,62 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
       },
     );
 
-    // Annotation series: triangle-down markers at the top of the chart with
-    // their own tooltip (per-item, not axis-triggered).
-    const annotationData = events
+    // Annotation series. Two treatments to keep the timeline readable:
+    //   (1) cluster nearby dates at all-time zoom so dots don't overlap
+    //   (2) muted opacity by default, full opacity on hover
+    const clusterDays = props.dateRange === 'all' ? CLUSTER_DAYS_ALL_TIME : 0;
+
+    type Cluster = { date: string; events: PerfEvent[] };
+    const inRange = events
       .filter((e) => {
-        const t = new Date(`${e.date}T00:00:00Z`).getTime();
-        return !Number.isNaN(t) && t >= minDate && t <= maxDate;
+        const t = parseUtcDate(e.date)?.getTime();
+        return t !== undefined && t >= minDate && t <= maxDate;
       })
-      .map((e) => ({
-        value: [e.date, yRange.max],
-        event: e,
-        itemStyle: { color: EVENT_KIND_COLORS[e.kind] ?? DEFAULT_COLOR },
-      }));
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const clusters: Cluster[] = [];
+    for (const e of inRange) {
+      const last = clusters[clusters.length - 1];
+      if (last) {
+        const lastTime = parseUtcDate(last.date)?.getTime() ?? 0;
+        const eTime = parseUtcDate(e.date)?.getTime() ?? 0;
+        if ((eTime - lastTime) / 86400000 <= clusterDays) {
+          last.events.push(e);
+          continue;
+        }
+      }
+      clusters.push({ date: e.date, events: [e] });
+    }
+
+    const annotationData = clusters.map((c) => ({
+      value: [c.date, yRange.max],
+      group: c.events,
+      itemStyle: { color: ANNOTATION_COLOR, opacity: 0.85 },
+    }));
 
     if (annotationData.length > 0) {
       series.push({
         type: 'scatter',
         name: '__annotations__',
-        // Default 'pin' points down naturally (head up, point on the data
-        // value). Sits cleanly at the top of the chart at yRange.max.
-        symbol: 'pin',
-        symbolSize: 16,
+        // Small filled circle at the top edge of the chart, one per change
+        // (or one per cluster of changes within CLUSTER_DAYS_ALL_TIME).
+        symbol: 'circle',
+        symbolSize: ANNOTATION_DOT_SIZE,
+        symbolOffset: [0, '-50%'],
         z: 10,
+        emphasis: {
+          itemStyle: { opacity: 1, color: ANNOTATION_COLOR },
+          scale: 1.4,
+        },
         // Per-series tooltip with item trigger so it only shows when the
         // cursor is exactly on the marker.
         tooltip: {
           trigger: 'item',
-          formatter: (params: unknown) => {
-            const p = params as { data: { event: PerfEvent } };
-            const e = p.data.event;
-            const color = EVENT_KIND_COLORS[e.kind] ?? DEFAULT_COLOR;
-            const kind = (EVENT_KIND_LABELS[e.kind] ?? e.kind).toUpperCase();
-            const linkButton = e.link
-              ? `<a href="${e.link}" target="_blank" rel="noopener noreferrer" ` +
-                `style="display:inline-flex;align-items:center;gap:4px;margin-top:8px;` +
-                `padding:4px 8px;border-radius:6px;background:${color};color:#fff;` +
-                `text-decoration:none;font-size:11px;font-weight:600;line-height:1">` +
-                `View source ` +
-                `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">` +
-                `<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />` +
-                `<polyline points="15 3 21 3 21 9" />` +
-                `<line x1="10" y1="14" x2="21" y2="3" />` +
-                `</svg>` +
-                `</a>`
-              : '';
-            const formattedDate = (() => {
-              const [y, m, d] = e.date.split('-').map(Number);
-              if (!y || !m || !d) return e.date;
-              return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(
-                undefined,
-                {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                  timeZone: 'UTC',
-                },
-              );
-            })();
-            return (
-              `<div style="font-size:10px;font-weight:600;letter-spacing:0.06em;color:${color};margin-bottom:4px">` +
-              `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${color};margin-right:6px;vertical-align:middle"></span>${kind}` +
-              `</div>` +
-              `<div style="font-weight:600;max-width:240px;text-wrap:pretty;overflow-wrap:anywhere">${e.title.replace(/</g, '&lt;')}</div>` +
-              `<div style="margin-top:4px;color:#a1a1aa;font-size:11px">${formattedDate}</div>` +
-              linkButton
-            );
-          },
+          // Allow taps on touch devices to show the tooltip. Without this
+          // a tap fires the chart click handler (navigate) without ever
+          // showing the change details.
+          triggerOn: 'mousemove|click',
+          formatter: (params: unknown) => formatChangeTooltip(params),
           extraCssText:
             'pointer-events: auto; padding: 7px 10px; line-height: 1.35;',
           enterable: true,
@@ -364,8 +463,23 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
             rect: { x: number; y: number; width: number; height: number },
             size: { contentSize: [number, number] },
           ) => {
-            const x = rect.x + rect.width / 2 - size.contentSize[0] / 2;
-            const y = rect.y + rect.height - 4; // slight overlap with the pin
+            const [tw, th] = size.contentSize;
+            const containerWidth = chart?.getWidth() ?? window.innerWidth;
+            const containerHeight = chart?.getHeight() ?? window.innerHeight;
+            const margin = 8;
+            // Center on marker, then clamp inside the chart container so the
+            // tooltip never bleeds off the screen on narrow viewports.
+            let x = rect.x + rect.width / 2 - tw / 2;
+            if (x < margin) x = margin;
+            if (x + tw > containerWidth - margin) {
+              x = containerWidth - margin - tw;
+            }
+            // Below marker normally; flip above if it would overflow bottom.
+            let y = rect.y + rect.height - 4;
+            if (y + th > containerHeight - margin) {
+              y = rect.y - th - 4;
+              if (y < margin) y = margin;
+            }
             return [x, y];
           },
         },
@@ -453,6 +567,11 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
       // Annotation series overrides this with its own item-triggered tooltip.
       tooltip: {
         trigger: 'axis',
+        // Tap-to-show on mobile (otherwise touch users only get the chart
+        // click handler firing without ever seeing tooltip content).
+        triggerOn: 'mousemove|click',
+        // Keep tooltip inside the chart bounds — important on mobile.
+        confine: true,
         enterable: true,
         hideDelay: 300,
         axisPointer: {
@@ -488,19 +607,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           // axisValueLabel includes "00:00:00" — re-format from the raw
           // dateStr stored on each point so the header is just the date.
           const dateStr = machineRows[0].data.dateStr;
-          const headerDate = (() => {
-            const [y, m, d] = dateStr.split('-').map(Number);
-            if (!y || !m || !d) return dateStr;
-            return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(
-              undefined,
-              {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                timeZone: 'UTC',
-              },
-            );
-          })();
+          const headerDate = formatChartDate(dateStr);
           // Wrap whole tooltip body in an <a> so clicking anywhere inside
           // the tooltip navigates to /run/<date>. pointer-events: auto on
           // the wrapper picks up the click.
@@ -554,33 +661,65 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
         },
       );
 
-      zr.on('click', (e: { offsetX: number; offsetY: number }) => {
-        if (!chart) return;
-        const inGrid = chart.containPixel('grid', [e.offsetX, e.offsetY]);
-        if (!inGrid) return;
-        const value = chart.convertFromPixel({ xAxisIndex: 0 }, e.offsetX);
-        if (typeof value !== 'number' || Number.isNaN(value)) return;
-        const dateStr = new Date(value).toISOString().split('T')[0];
-        // Snap to the nearest available date in any machine's data.
-        const allDates = new Set<string>();
-        for (const r of parsedJitRuns()) allDates.add(r.dateStr);
-        const sorted = Array.from(allDates).sort();
-        if (sorted.length === 0) return;
-        let nearest = sorted[0];
-        let bestDiff = Math.abs(
-          new Date(nearest).getTime() - new Date(dateStr).getTime(),
-        );
-        for (const d of sorted) {
-          const diff = Math.abs(
-            new Date(d).getTime() - new Date(dateStr).getTime(),
-          );
-          if (diff < bestDiff) {
-            bestDiff = diff;
-            nearest = d;
+      zr.on(
+        'click',
+        (e: { offsetX: number; offsetY: number; target?: unknown }) => {
+          if (!chart) return;
+          const inGrid = chart.containPixel('grid', [e.offsetX, e.offsetY]);
+          if (!inGrid) return;
+          // If the user clicked an annotation marker (or its tooltip
+          // anchor), let the per-series tooltip take over and skip the
+          // chart-wide navigate. Important on touch where tap = both
+          // tooltip + click.
+          const t = e.target as
+            | { __ecComponentInfo?: { mainType?: string } }
+            | undefined;
+          if (t?.__ecComponentInfo?.mainType === 'series') {
+            // Could be a line-series point or annotation marker. Inspect
+            // the dataIndex/seriesIndex via dispatched action if needed.
+            // Simpler heuristic: if the cursor is near an annotation date
+            // (within marker hit-radius), skip navigation.
+            const cursorTime = chart.convertFromPixel(
+              { xAxisIndex: 0 },
+              e.offsetX,
+            );
+            if (typeof cursorTime === 'number' && perfEvents()) {
+              const HIT_PX = ANNOTATION_DOT_SIZE;
+              for (const ev of perfEvents() ?? []) {
+                const evTime = parseUtcDate(ev.date)?.getTime();
+                if (evTime === undefined) continue;
+                const evX = chart.convertToPixel({ xAxisIndex: 0 }, evTime);
+                if (
+                  typeof evX === 'number' &&
+                  Math.abs(evX - e.offsetX) <= HIT_PX
+                ) {
+                  return; // tooltip handles it
+                }
+              }
+            }
           }
-        }
-        props.onPointClick(nearest);
-      });
+
+          const value = chart.convertFromPixel({ xAxisIndex: 0 }, e.offsetX);
+          if (typeof value !== 'number' || Number.isNaN(value)) return;
+          // Snap to the nearest available date in any machine's data.
+          const target = value;
+          let nearest = '';
+          let bestDiff = Number.POSITIVE_INFINITY;
+          const seen = new Set<string>();
+          for (const r of parsedJitRuns()) {
+            if (seen.has(r.dateStr)) continue;
+            seen.add(r.dateStr);
+            const diff = Math.abs(
+              (parseUtcDate(r.dateStr)?.getTime() ?? 0) - target,
+            );
+            if (diff < bestDiff) {
+              bestDiff = diff;
+              nearest = r.dateStr;
+            }
+          }
+          if (nearest) props.onPointClick(nearest);
+        },
+      );
     }
     chart.setOption(buildOption(), true);
   };
@@ -616,10 +755,6 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
     chart?.dispose();
     chart = undefined;
   });
-
-  // Reference for unused warning suppression — annotationTooltipRef is kept
-  // for future use but not needed with ECharts native tooltip.
-  void annotationTooltipRef;
 
   return (
     <div class="chart-section">
@@ -695,21 +830,35 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           />
         </div>
         <span class="controls-divider">|</span>
-        <button
-          type="button"
-          class={`goal-line-btn ${props.showEvents ? 'active' : ''}`}
-          onClick={() => props.onShowEventsChange((v) => !v)}
-          disabled={props.isLoading}
-          title={
-            props.showEvents
-              ? 'Hide annotations on the chart timeline'
-              : 'Show annotations on the chart timeline'
-          }
-          aria-pressed={props.showEvents}
-        >
-          <Show
-            when={props.showEvents}
-            fallback={
+        <div class="annotations-toggle-group">
+          <button
+            type="button"
+            class={`goal-line-btn ${props.showEvents ? 'active' : ''}`}
+            onClick={() => props.onShowEventsChange((v) => !v)}
+            disabled={props.isLoading}
+            aria-pressed={props.showEvents}
+          >
+            <Show
+              when={props.showEvents}
+              fallback={
+                <svg
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                  <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              }
+            >
               <svg
                 viewBox="0 0 24 24"
                 width="14"
@@ -721,17 +870,22 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
                 stroke-linejoin="round"
                 aria-hidden="true"
               >
-                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
-                <line x1="1" y1="1" x2="23" y2="23" />
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
               </svg>
-            }
+            </Show>
+            Changes
+          </button>
+          <span
+            class="annotations-info"
+            tabindex="0"
+            role="img"
+            aria-label="About change dates"
           >
             <svg
               viewBox="0 0 24 24"
-              width="14"
-              height="14"
+              width="13"
+              height="13"
               fill="none"
               stroke="currentColor"
               stroke-width="2"
@@ -739,12 +893,21 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
               stroke-linejoin="round"
               aria-hidden="true"
             >
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-              <circle cx="12" cy="12" r="3" />
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
             </svg>
-          </Show>
-          Annotations
-        </button>
+            <div class="annotations-info-tooltip" role="tooltip">
+              <div class="annotations-info-title">About change dates</div>
+              <div class="annotations-info-body">
+                Each marker shows the day a JIT-relevant CPython PR merged.
+                Benchmarks pick up each day's commit at{' '}
+                <strong>11 PM UTC</strong>, so a change merged later may only
+                appear in the following night's run.
+              </div>
+            </div>
+          </span>
+        </div>
       </div>
       <div class={`chart-container ${props.isLoading ? 'chart-loading' : ''}`}>
         <div
@@ -754,6 +917,31 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           style={{ width: '100%', height: '100%', cursor: 'pointer' }}
         />
       </div>
+      {/* Screen-reader / keyboard fallback for change markers — the canvas
+          itself isn't navigable. Visually hidden by default, exposed when
+          focused so keyboard users can find it. */}
+      <Show when={props.showEvents && (perfEvents() ?? []).length > 0}>
+        <details class="changes-sr-list">
+          <summary>View all changes ({(perfEvents() ?? []).length})</summary>
+          <ul>
+            <For each={perfEvents() ?? []}>
+              {(e) => (
+                <li>
+                  <time datetime={e.date}>{formatChartDate(e.date)}</time>
+                  {' — '}
+                  {e.link ? (
+                    <a href={e.link} target="_blank" rel="noopener noreferrer">
+                      {stripIssuePrefix(e.title)}
+                    </a>
+                  ) : (
+                    stripIssuePrefix(e.title)
+                  )}
+                </li>
+              )}
+            </For>
+          </ul>
+        </details>
+      </Show>
       <div class="chart-legend">
         <For each={Object.entries(machines() || {})}>
           {([machine, info]) => (

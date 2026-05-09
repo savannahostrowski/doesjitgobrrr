@@ -19,8 +19,6 @@ from sqlalchemy.orm import selectinload
 SOURCES_PATH = pathlib.Path(__file__).parent / "sources.yaml"
 PERF_EVENTS_PATH = pathlib.Path(__file__).parent / "perf_events.yaml"
 
-VALID_EVENT_KINDS = {"jit-change", "bug", "infra", "benchmark"}
-
 
 @asynccontextmanager
 async def lifespan(app: fastapi.FastAPI) -> AsyncGenerator[None, None]:
@@ -98,10 +96,6 @@ async def get_perf_events() -> JSONResponse:
 
     events: list[dict[str, Any]] = []
     for raw in config.get("events") or []:
-        kind = raw.get("kind", "jit-change")
-        if kind not in VALID_EVENT_KINDS:
-            kind = "jit-change"
-
         date_value = raw.get("date")
         # YAML parses ISO dates into datetime.date; coerce to string for JSON.
         date_str = (
@@ -112,12 +106,8 @@ async def get_perf_events() -> JSONResponse:
 
         events.append(
             {
-                "id": raw.get("id", ""),
                 "date": date_str,
                 "title": raw.get("title", ""),
-                "kind": kind,
-                "machines": raw.get("machines") or ["all"],
-                "description": raw.get("description", ""),
                 "link": raw.get("link"),
             }
         )

@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
-import runsFixture from './fixtures/runs.json' with { type: 'json' };
+import eventsFixture from './fixtures/events.json' with { type: 'json' };
 import machinesFixture from './fixtures/machines.json' with { type: 'json' };
+import runsFixture from './fixtures/runs.json' with { type: 'json' };
 
 /**
  * Install API mocks. Must be called before any navigation so the first page load
@@ -32,5 +33,9 @@ export async function mockApi(page: Page): Promise<void> {
 
   await page.route('**/api/historical/date/**', async (route) => {
     await route.fulfill({ json: runsFixture });
+  });
+
+  await page.route('**/api/events', async (route) => {
+    await route.fulfill({ json: eventsFixture });
   });
 }

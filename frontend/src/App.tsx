@@ -18,7 +18,6 @@ import {
   fetchHistoricalSummary,
 } from './api';
 import About from './components/About';
-import Annotations from './components/Annotations';
 import DetailView from './components/DetailView';
 import ErrorState from './components/ErrorState';
 import Header from './components/Header';
@@ -34,10 +33,11 @@ const SHOW_EVENTS_STORAGE_KEY = 'showEvents';
 
 function getInitialShowEvents(): boolean {
   // URL param wins over localStorage so shared links reflect the toggle.
+  // Accept both the new `changes` and legacy `annotations` keys so old
+  // shared links still work.
   const params = new globalThis.URLSearchParams(globalThis.location.search);
-  if (params.has('annotations')) {
-    return params.get('annotations') === '1';
-  }
+  if (params.has('changes')) return params.get('changes') === '1';
+  if (params.has('annotations')) return params.get('annotations') === '1';
   try {
     return globalThis.localStorage.getItem(SHOW_EVENTS_STORAGE_KEY) === '1';
   } catch {
@@ -127,7 +127,7 @@ const ChartView: Component = () => {
 
     const params = new globalThis.URLSearchParams();
     if (goals) params.set('goals', goals);
-    if (events) params.set('annotations', '1');
+    if (events) params.set('changes', '1');
 
     const qs = params.toString();
     const cleanUrl = globalThis.location.pathname + (qs ? `?${qs}` : '');
@@ -352,7 +352,6 @@ const App: Component = () => {
           <Route path="/" component={ChartView} />
           <Route path="/run/:date" component={DetailViewRoute} />
           <Route path="/about" component={About} />
-          <Route path="/annotations" component={Annotations} />
         </Router>
       </div>
     </ThemeProvider>

@@ -1,0 +1,19 @@
+{
+  "events": [
+    {
+      "date": "2026-04-14",
+      "title": "Add `_IS_NONE` to the JIT optimizer",
+      "link": "https://github.com/python/cpython/pull/148369"
+    },
+    {
+      "date": "2026-04-03",
+      "title": "Bench: enable tail-call interpreter on Windows runs",
+      "link": "https://bsky.app/profile/savannah.dev/post/3mixhvdbxbc2d"
+    },
+    {
+      "date": "2025-11-13",
+      "title": "JIT: new tracing frontend (replaces trace projection)",
+      "link": null
+    }
+  ]
+}

@@ -52,7 +52,8 @@ MIN_LOOKBACK_DAYS = 3
 # so an annotation wouldn't have a chart row to sit on. First day of
 # tracked CPython benchmarks across the machines.
 EARLIEST_DATE = datetime(2025, 11, 13, tzinfo=timezone.utc)
-PR_NUMBER_RE = re.compile(r"\(#(\d+)\)\s*$", re.MULTILINE)
+# CPython uses both `(#143810)` and `(GH-143810)` to mark merge commits.
+PR_NUMBER_RE = re.compile(r"\((?:#|GH-)(\d+)\)\s*$", re.MULTILINE | re.IGNORECASE)
 
 
 def gh_get(path_or_url: str, token: str | None) -> object:
@@ -151,41 +152,17 @@ def derive_pr_url(commit: dict) -> str:
     return commit["url"]
 
 
+# Leading "gh-NNNN: " or "GH-NNNN: " issue references — when many commits
+# share the same issue number the prefix dominates and entries look like
+# duplicates. Strip it; the link still points back to the PR.
+ISSUE_PREFIX_RE = re.compile(r"^(?:gh|GH)-+\d+:\s*", re.IGNORECASE)
+
+
 def title_from(commit: dict) -> str:
     first = commit["message"].split("\n", 1)[0]
-    # strip trailing "(#12345)" reference
-    return PR_NUMBER_RE.sub("", first).strip()
-
-
-def description_from(commit: dict) -> str:
-    """Use the first paragraph of the commit body to give review context."""
-    parts = commit["message"].split("\n\n", 2)
-    if len(parts) < 2:
-        return "Auto-suggested from a CPython commit. Edit before merging."
-    body = parts[1].strip()
-    # Cap to a sensible length so a tooltip stays readable.
-    if len(body) > 320:
-        body = body[:320].rsplit(" ", 1)[0] + "…"
-    return body or "Auto-suggested from a CPython commit. Edit before merging."
-
-
-def slugify(text: str) -> str:
-    s = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
-    return s[:60] or "auto"
-
-
-def detect_kind(title: str) -> str:
-    low = title.lower()
-    if low.startswith("fix") or "fix " in low or "bug" in low:
-        return "bug"
-    return "jit-change"
-
-
-def detect_machines(title: str) -> list[str]:
-    low = title.lower()
-    if "windows" in low:
-        return ["prometheus"]
-    return ["all"]
+    # strip trailing "(#12345)" reference and leading "gh-NNNN:" issue ref
+    cleaned = PR_NUMBER_RE.sub("", first).strip()
+    return ISSUE_PREFIX_RE.sub("", cleaned).strip()
 
 
 def write_back(data: dict, raw_text: str | None) -> None:
@@ -263,17 +240,7 @@ def main() -> int:
         title = title_from(c)
         if not title:
             continue
-        new_events.append(
-            {
-                "id": slugify(title),
-                "date": c["date"],
-                "title": title,
-                "kind": detect_kind(title),
-                "machines": detect_machines(title),
-                "description": description_from(c),
-                "link": link,
-            }
-        )
+        new_events.append({"date": c["date"], "title": title, "link": link})
 
     new_events.sort(key=lambda e: e["date"], reverse=True)
     data["events"] = new_events + data.get("events", [])

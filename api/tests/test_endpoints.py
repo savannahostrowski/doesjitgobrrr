@@ -184,3 +184,98 @@ class TestSpaFallback:
     async def test_unknown_route_serves_index_html(self, client):
         response = await client.get("/some-frontend-only-route")
         assert response.status_code == 200
+
+
+class TestPerfEvents:
+    """Tests for /api/events. The endpoint reads from `PERF_EVENTS_PATH`, so
+    we monkeypatch that constant to point at a temp YAML file per test."""
+
+    @pytest.fixture
+    def temp_events_file(self, tmp_path, monkeypatch):
+        """Returns a callable that writes YAML to a temp file and patches
+        `main.PERF_EVENTS_PATH` to point at it."""
+        import main as main_mod
+
+        def _write(yaml_text: str) -> pathlib.Path:
+            p = tmp_path / "perf_events.yaml"
+            p.write_text(yaml_text)
+            monkeypatch.setattr(main_mod, "PERF_EVENTS_PATH", p)
+            return p
+
+        return _write
+
+    async def test_returns_empty_when_file_missing(self, client, monkeypatch, tmp_path):
+        import main as main_mod
+
+        monkeypatch.setattr(
+            main_mod, "PERF_EVENTS_PATH", tmp_path / "does-not-exist.yaml"
+        )
+        response = await client.get("/api/events")
+        assert response.status_code == 200
+        assert response.json() == {"events": []}
+
+    async def test_returns_empty_when_no_events_key(self, client, temp_events_file):
+        temp_events_file("# no events key here\n")
+        response = await client.get("/api/events")
+        assert response.json() == {"events": []}
+
+    async def test_returns_events_sorted_newest_first(self, client, temp_events_file):
+        temp_events_file(
+            """
+events:
+  - date: 2026-01-01
+    title: Older
+    link: https://example.com/old
+  - date: 2026-05-08
+    title: Newest
+    link: https://example.com/new
+  - date: 2026-03-15
+    title: Middle
+    link: https://example.com/mid
+"""
+        )
+        events = (await client.get("/api/events")).json()["events"]
+        assert [e["title"] for e in events] == ["Newest", "Middle", "Older"]
+
+    async def test_event_shape_is_minimal(self, client, temp_events_file):
+        temp_events_file(
+            """
+events:
+  - date: 2026-04-03
+    title: Bench&nbsp;tail-call
+    link: https://example.com/x
+"""
+        )
+        ev = (await client.get("/api/events")).json()["events"][0]
+        # Schema is intentionally narrow — only date / title / link.
+        assert set(ev.keys()) == {"date", "title", "link"}
+        assert ev["date"] == "2026-04-03"
+        assert ev["title"] == "Bench&nbsp;tail-call"
+        assert ev["link"] == "https://example.com/x"
+
+    async def test_missing_link_becomes_null(self, client, temp_events_file):
+        temp_events_file(
+            """
+events:
+  - date: 2026-04-03
+    title: No link here
+"""
+        )
+        ev = (await client.get("/api/events")).json()["events"][0]
+        assert ev["link"] is None
+
+    async def test_missing_title_becomes_empty_string(self, client, temp_events_file):
+        temp_events_file(
+            """
+events:
+  - date: 2026-04-03
+    link: https://example.com/x
+"""
+        )
+        ev = (await client.get("/api/events")).json()["events"][0]
+        assert ev["title"] == ""
+
+    async def test_sets_cache_headers(self, client, temp_events_file):
+        temp_events_file("events: []\n")
+        response = await client.get("/api/events")
+        assert "max-age=300" in response.headers.get("cache-control", "")
