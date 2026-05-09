@@ -45,6 +45,6 @@ jobs:
             - `Python/executor_cases.c.h`
             - `Include/internal/pycore_{optimizer,jit,uops}*`
 
-            Review, prune, and edit titles / descriptions / `kind` / `machines` as needed before merging. Manually-authored entries below the inserted block are unaffected.
+            Review, prune, and edit titles as needed before merging. The schema is just `date`, `title`, and `link`. Manually-authored entries below the inserted block are unaffected.
           add-paths: |
             api/perf_events.yaml
