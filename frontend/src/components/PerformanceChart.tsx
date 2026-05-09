@@ -55,11 +55,24 @@ const CLUSTER_DAYS_ALL_TIME = 3;
 // Tooltip body max width — capped on small viewports too.
 const TOOLTIP_MAX_WIDTH = 340;
 
-/** Parse a YYYY-MM-DD string at UTC midnight. Returns null on invalid input. */
+/** Parse a YYYY-MM-DD string at UTC midnight. Returns null on invalid input.
+ * Strict — out-of-range months/days (e.g. "2026-13-01", "2026-02-30") return
+ * null instead of being silently rolled forward by the JS Date constructor. */
 function parseUtcDate(iso: string): Date | null {
   const [y, m, d] = iso.split('-').map(Number);
   if (!y || !m || !d) return null;
-  return new Date(Date.UTC(y, m - 1, d));
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const date = new Date(Date.UTC(y, m - 1, d));
+  // JS Date silently rolls overflow (Feb 30 → Mar 2). Reject any date that
+  // doesn't round-trip the original components.
+  if (
+    date.getUTCFullYear() !== y ||
+    date.getUTCMonth() !== m - 1 ||
+    date.getUTCDate() !== d
+  ) {
+    return null;
+  }
+  return date;
 }
 
 /** Format a YYYY-MM-DD as a localized date in UTC, with optional config. */
@@ -683,7 +696,14 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
               { xAxisIndex: 0 },
               e.offsetX,
             );
-            if (typeof cursorTime === 'number' && perfEvents()) {
+            // Only consider markers when the user actually has them on —
+            // otherwise we'd silently swallow clicks near event dates even
+            // though no marker is visible to click.
+            if (
+              props.showEvents &&
+              typeof cursorTime === 'number' &&
+              perfEvents()
+            ) {
               const HIT_PX = ANNOTATION_DOT_SIZE;
               for (const ev of perfEvents() ?? []) {
                 const evTime = parseUtcDate(ev.date)?.getTime();

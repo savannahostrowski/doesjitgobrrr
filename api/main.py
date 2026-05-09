@@ -96,6 +96,8 @@ async def get_perf_events() -> JSONResponse:
 
     events: list[dict[str, Any]] = []
     for raw in config.get("events") or []:
+        if not isinstance(raw, dict):
+            continue  # skip malformed YAML entries (e.g. raw scalars)
         date_value = raw.get("date")
         # YAML parses ISO dates into datetime.date directly. Strings are
         # parsed strictly here so malformed input (e.g. "2026-13-01" or

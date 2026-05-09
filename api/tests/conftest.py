@@ -48,6 +48,13 @@ async def _ensure_test_database_exists() -> None:
     target_db = parsed.path.lstrip("/")
     if not target_db:
         return
+    # `target_db` is interpolated into a CREATE DATABASE statement below
+    # (Postgres can't parameterize identifiers). Cap the input to a safe
+    # identifier shape — postgres-style: letters, digits, underscores.
+    import re
+
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", target_db):
+        raise ValueError(f"Refusing to CREATE DATABASE with unsafe name: {target_db!r}")
 
     # Build admin URL: same host/credentials, hit `postgres` DB.
     admin = urlunparse(parsed._replace(path="/postgres", query=""))

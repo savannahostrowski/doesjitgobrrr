@@ -235,7 +235,6 @@ events:
   link: https://github.com/python/cpython/pull/146520
 - date: '2026-03-27'
   title: Convert `LIST_EXTEND` to leave its inputs on the stack to be cleaned up by `_POP_TOP`
-    be cleaned up by `_POP_TOP`
   link: https://github.com/python/cpython/pull/146383
 - date: '2026-03-26'
   title: 'JIT: split call method and call builtin opcodes into smaller uops'
@@ -365,7 +364,7 @@ events:
   title: Use recorded values to make optimizer more robust
   link: https://github.com/python/cpython/pull/144437
 - date: '2026-02-02'
-  title: Replace `_CHECK_STACK_SPACE` with `_CHECK_STACK_SPACE_OPERAND` in JIT optiimizer
+  title: Replace `_CHECK_STACK_SPACE` with `_CHECK_STACK_SPACE_OPERAND` in JIT optimizer
   link: https://github.com/python/cpython/pull/144394
 - date: '2026-02-02'
   title: Revert PR#144122 for performance and potential bugs.
