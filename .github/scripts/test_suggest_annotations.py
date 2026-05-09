@@ -48,6 +48,19 @@ class TestDerivePrUrl:
         # Falls back since the suffix marker isn't at end-of-line.
         assert sa.derive_pr_url(c) == c["url"]
 
+    def test_ignores_pr_marker_in_body(self):
+        # A `(#NNN)` at the end of a body line must not be picked up — only
+        # the subject (first line) counts. PR_NUMBER_RE is MULTILINE so this
+        # would falsely match without the explicit first-line restriction.
+        c = make_commit(
+            message=(
+                "Plain subject without marker\n"
+                "\n"
+                "Body mentions another change (#999999)"
+            )
+        )
+        assert sa.derive_pr_url(c) == c["url"]
+
 
 # ── Title cleaning ──────────────────────────────────────────────────────
 

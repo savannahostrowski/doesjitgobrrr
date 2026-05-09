@@ -137,8 +137,14 @@ def fetch_recent_commits(
 
 
 def derive_pr_url(commit: dict) -> str:
-    """Return the PR URL parsed from the commit message, else the commit URL."""
-    m = PR_NUMBER_RE.search(commit["message"])
+    """Return the PR URL parsed from the commit message, else the commit URL.
+
+    Only the first line (the subject) is checked — a PR marker like
+    `(#12345)` could otherwise appear at the end of any body line and be
+    picked up incorrectly.
+    """
+    subject = commit["message"].split("\n", 1)[0]
+    m = PR_NUMBER_RE.search(subject)
     if m:
         return f"https://github.com/{REPO}/pull/{m.group(1)}"
     return commit["url"]
