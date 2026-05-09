@@ -33,11 +33,8 @@ const SHOW_EVENTS_STORAGE_KEY = 'showEvents';
 
 function getInitialShowEvents(): boolean {
   // URL param wins over localStorage so shared links reflect the toggle.
-  // Accept both the new `changes` and legacy `annotations` keys so old
-  // shared links still work.
   const params = new globalThis.URLSearchParams(globalThis.location.search);
   if (params.has('changes')) return params.get('changes') === '1';
-  if (params.has('annotations')) return params.get('annotations') === '1';
   try {
     return globalThis.localStorage.getItem(SHOW_EVENTS_STORAGE_KEY) === '1';
   } catch {

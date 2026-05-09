@@ -1,8 +1,7 @@
-## Annotations that help explain visible changes in the chart.
-##
-## Each entry shows up as a marker on the chart timeline (toggleable via
-## the "Changes" control or `?changes=1`; legacy `?annotations=1` is also
-## supported) and a tooltip with title + source link.
+## Notable JIT-relevant changes that help explain visible movement in the
+## benchmark chart. Each entry surfaces as a marker on the timeline,
+## toggled via the "Changes" control (URL param `?changes=1`), with a
+## tooltip showing title and source link.
 ##
 ## Schema:
 ##   date    YYYY-MM-DD — date the change merged to CPython main

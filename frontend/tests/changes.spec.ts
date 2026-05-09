@@ -36,14 +36,6 @@ test('?changes=1 in URL turns the toggle on at load time', async ({ page }) => {
   await expect(toggle).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('legacy ?annotations=1 still activates the toggle (back-compat)', async ({
-  page,
-}) => {
-  await page.goto('/?annotations=1');
-  const toggle = page.getByRole('button', { name: /^Changes/ });
-  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-});
-
 test('info icon exposes the date-convention tooltip on hover', async ({
   page,
 }) => {
