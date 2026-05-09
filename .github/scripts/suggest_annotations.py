@@ -1,14 +1,8 @@
 """Generate candidate perf-event annotations from recent CPython JIT commits.
 
 Looks at commits to selected JIT/optimizer paths in python/cpython since
-the most-recent annotation in api/perf_events.yaml (with a small lookback
-floor), groups them into PRs, and prepends new candidates to the YAML so
-a PR can be opened for human review.
-
-The schema header above `events:` in the YAML file is preserved verbatim;
-only the events block is regenerated. This is intentionally lossy on the
-existing entries' formatting since safe_dump rewrites them — that's
-acceptable because the diff is reviewed in a PR before merge.
+the most-recent annotation in api/perf_events.yaml, groups them into PRs, 
+and prepends new candidates to the YAML.
 """
 
 from __future__ import annotations
@@ -22,6 +16,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -29,8 +24,6 @@ REPO = "python/cpython"
 ROOT = Path(__file__).resolve().parents[2]
 YAML_PATH = ROOT / "api" / "perf_events.yaml"
 
-# Files whose changes are most likely to cause visible JIT perf movement.
-# Add/trim as the codebase evolves.
 WATCHED_PATHS: list[str] = [
     "Tools/jit",
     "Python/optimizer.c",
@@ -49,14 +42,13 @@ DEFAULT_LOOKBACK_DAYS = 14
 # Hard floor on lookback even when prior annotations exist (catches missed runs).
 MIN_LOOKBACK_DAYS = 3
 # No annotations earlier than this — there's no benchmark data before it,
-# so an annotation wouldn't have a chart row to sit on. First day of
-# tracked CPython benchmarks across the machines.
+# so an annotation wouldn't have a chart row to sit on. 
 EARLIEST_DATE = datetime(2025, 11, 13, tzinfo=timezone.utc)
 # CPython uses both `(#143810)` and `(GH-143810)` to mark merge commits.
 PR_NUMBER_RE = re.compile(r"\((?:#|GH-)(\d+)\)\s*$", re.MULTILINE | re.IGNORECASE)
 
 
-def gh_get(path_or_url: str, token: str | None) -> object:
+def gh_get(path_or_url: str, token: str | None) -> Any:
     if path_or_url.startswith("http"):
         url = path_or_url
     else:
@@ -218,29 +210,23 @@ def main() -> int:
     print(f"  → {len(commits)} unique commits")
 
     earliest_iso = EARLIEST_DATE.date().isoformat()
-    # Group commits by PR URL — one annotation per PR.
-    by_link: dict[str, dict] = {}
+    # CPython squash-merges PRs, so each commit on main is one PR.
+    # `fetch_recent_commits` already dedupes by SHA across watched paths.
+    new_events: list[dict] = []
     for c in commits:
         if c["date"] < earliest_iso:
             continue
         link = derive_pr_url(c)
         if link in known:
             continue
-        # Keep the most recent commit per PR for the date.
-        existing = by_link.get(link)
-        if existing is None or c["date"] > existing["date"]:
-            by_link[link] = c
-
-    if not by_link:
-        print("No new annotations to suggest.")
-        return 0
-
-    new_events: list[dict] = []
-    for link, c in by_link.items():
         title = title_from(c)
         if not title:
             continue
         new_events.append({"date": c["date"], "title": title, "link": link})
+
+    if not new_events:
+        print("No new annotations to suggest.")
+        return 0
 
     new_events.sort(key=lambda e: e["date"], reverse=True)
     data["events"] = new_events + data.get("events", [])
