@@ -45,6 +45,16 @@ export interface MachineInfo {
 
 export type MachinesMap = Record<string, MachineInfo>;
 
+export interface PerfEvent {
+  date: string; // YYYY-MM-DD
+  title: string;
+  link: string | null;
+}
+
+export interface PerfEventsResponse {
+  events: PerfEvent[];
+}
+
 export interface ComparisonRow {
   name: string;
   nonjit_mean: number | null;

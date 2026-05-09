@@ -17,6 +17,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import selectinload
 
 SOURCES_PATH = pathlib.Path(__file__).parent / "sources.yaml"
+PERF_EVENTS_PATH = pathlib.Path(__file__).parent / "perf_events.yaml"
 
 
 @asynccontextmanager
@@ -73,6 +74,57 @@ async def get_machines() -> JSONResponse:
 
     return JSONResponse(
         content={"machines": machines},
+        headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
+    )
+
+
+@app.get("/api/events")
+async def get_perf_events() -> JSONResponse:
+    """Return perf events from perf_events.yaml, sorted newest first.
+
+    Each event documents a change (JIT update, bug, infra change, etc.) that
+    helps explain visible movement in the benchmark chart.
+    """
+    if not PERF_EVENTS_PATH.exists():
+        return JSONResponse(
+            content={"events": []},
+            headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
+        )
+
+    with open(PERF_EVENTS_PATH) as f:
+        config = yaml.safe_load(f) or {}
+
+    events: list[dict[str, Any]] = []
+    for raw in config.get("events") or []:
+        if not isinstance(raw, dict):
+            continue  # skip malformed YAML entries (e.g. raw scalars)
+        date_value = raw.get("date")
+        # YAML parses ISO dates into datetime.date directly. Strings are
+        # parsed strictly here so malformed input (e.g. "2026-13-01" or
+        # garbage) is dropped instead of getting silently rolled forward
+        # into a wrong-day annotation by JS Date on the frontend.
+        if hasattr(date_value, "isoformat"):
+            date_str = date_value.isoformat()
+        else:
+            try:
+                date_str = (
+                    datetime.strptime(str(date_value), "%Y-%m-%d").date().isoformat()
+                )
+            except (ValueError, TypeError):
+                continue  # skip entries with invalid dates
+
+        events.append(
+            {
+                "date": date_str,
+                "title": raw.get("title", ""),
+                "link": raw.get("link"),
+            }
+        )
+
+    events.sort(key=lambda e: e["date"], reverse=True)
+
+    return JSONResponse(
+        content={"events": events},
         headers={"Cache-Control": "public, max-age=300, s-maxage=300"},
     )
 

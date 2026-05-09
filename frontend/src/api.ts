@@ -1,7 +1,7 @@
 import type { Resource } from 'solid-js';
 import { createResource, createRoot } from 'solid-js';
 import { CACHE_TTL_MS } from './constants';
-import type { HistoricalResponse, MachinesMap } from './types';
+import type { HistoricalResponse, MachinesMap, PerfEvent } from './types';
 
 export type { Resource };
 
@@ -200,6 +200,20 @@ export async function fetchMachines(
 // names never flash "unknown" when navigating between detail pages.
 export const machinesResource: Resource<MachinesMap> = createRoot(
   () => createResource(fetchMachines)[0],
+);
+
+export async function fetchPerfEvents(): Promise<PerfEvent[]> {
+  const response = await fetch(`${API_URL}/api/events`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch perf events');
+  }
+  const json = await response.json();
+  return json.events ?? [];
+}
+
+// Singleton resource so the chart and the /changes page share one fetch.
+export const perfEventsResource: Resource<PerfEvent[]> = createRoot(
+  () => createResource(fetchPerfEvents, { initialValue: [] })[0],
 );
 
 // In-memory cache for available dates

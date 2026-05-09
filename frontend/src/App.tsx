@@ -29,6 +29,18 @@ import { isValidGoalValue } from './types';
 import './App.css';
 
 const GOAL_LINES_STORAGE_KEY = 'goalLines';
+const SHOW_EVENTS_STORAGE_KEY = 'showEvents';
+
+function getInitialShowEvents(): boolean {
+  // URL param wins over localStorage so shared links reflect the toggle.
+  const params = new globalThis.URLSearchParams(globalThis.location.search);
+  if (params.has('changes')) return params.get('changes') === '1';
+  try {
+    return globalThis.localStorage.getItem(SHOW_EVENTS_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
 
 /** Parse goal lines from a comma-separated string */
 function parseGoalLinesFromString(goals: string): GoalLines {
@@ -100,19 +112,29 @@ const ChartView: Component = () => {
     getInitialGoalLines(),
   );
 
-  // Sync goal lines to URL and localStorage
+  const [showEvents, setShowEvents] = createSignal<boolean>(
+    getInitialShowEvents(),
+  );
+
+  // Sync chart state (goal lines + annotations toggle) to URL and
+  // localStorage so users can share a link that restores both.
   createEffect(() => {
-    const serialized = serializeGoalLines(goalLines());
-    const cleanUrl =
-      globalThis.location.pathname + (serialized ? `?goals=${serialized}` : '');
+    const goals = serializeGoalLines(goalLines());
+    const events = showEvents();
+
+    const params = new globalThis.URLSearchParams();
+    if (goals) params.set('goals', goals);
+    if (events) params.set('changes', '1');
+
+    const qs = params.toString();
+    const cleanUrl = globalThis.location.pathname + (qs ? `?${qs}` : '');
     globalThis.history.replaceState(null, '', cleanUrl);
 
-    // Persist to localStorage for cross-session persistence
     try {
-      // Store 'none' explicitly when all goals are off to distinguish from "never set"
+      globalThis.localStorage.setItem(GOAL_LINES_STORAGE_KEY, goals || 'none');
       globalThis.localStorage.setItem(
-        GOAL_LINES_STORAGE_KEY,
-        serialized || 'none',
+        SHOW_EVENTS_STORAGE_KEY,
+        events ? '1' : '0',
       );
     } catch {
       // localStorage may be unavailable in private browsing mode
@@ -154,6 +176,8 @@ const ChartView: Component = () => {
             onDateRangeChange={setDateRange}
             goalLines={goalLines()}
             onGoalLinesChange={setGoalLines}
+            showEvents={showEvents()}
+            onShowEventsChange={setShowEvents}
             isLoading={historicalData.loading}
           />
         </div>
