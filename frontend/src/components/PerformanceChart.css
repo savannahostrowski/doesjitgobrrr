@@ -387,6 +387,21 @@
   }
 }
 
+/* On phones, run edge-to-edge — every pixel of width helps the chart. */
+@media (max-width: 640px) {
+  .chart-section {
+    width: 100%;
+    margin: 0.75rem 0;
+  }
+
+  .chart-container {
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+}
+
 .annotations-toggle-group {
   display: inline-flex;
   align-items: center;

@@ -357,14 +357,15 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
         lineStyle: { color: g.color, type: 'dashed' as const, width: 1.5 },
         label: {
           show: true,
-          // 'end' anchors at the right end of the line, outside the plot
-          // area, so multiple goal labels don't stack on top of each other.
-          position: 'end' as const,
+          // Desktop: anchor outside the plot at the right edge so labels
+          // don't sit on top of data. Mobile: that wastes precious width,
+          // so tuck them just inside the right end of the line instead.
+          position: isMobile ? ('insideEndTop' as const) : ('end' as const),
           formatter: g.label,
           color: g.color,
           fontSize: 10,
           fontFamily: FONT_FAMILY,
-          padding: [0, 0, 0, 6],
+          padding: isMobile ? [0, 4, 0, 0] : [0, 0, 0, 6],
         },
       });
     }
@@ -516,8 +517,10 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
       grid: {
         top: isMobile ? 56 : 68,
         bottom: 36,
-        left: isMobile ? 64 : 90,
-        right: goalLineEntries.length ? (isMobile ? 80 : 100) : 24,
+        left: isMobile ? 50 : 90,
+        // Mobile labels sit *inside* the chart, so we don't need extra
+        // right padding for them anymore.
+        right: isMobile ? 12 : goalLineEntries.length ? 100 : 16,
       },
       xAxis: {
         type: 'time',
@@ -527,11 +530,16 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           show: true,
           lineStyle: { color: COLORS.grid[mode], type: 'solid' as const },
         },
+        // Cap tick density. ECharts' auto-tick picks "nice" values that
+        // can crowd at month boundaries (e.g. Apr 29 + May 1), so we
+        // give it an explicit splitNumber budget that scales with view.
+        splitNumber: props.dateRange === 7 ? 4 : props.dateRange === 30 ? 6 : 8,
         axisLabel: {
           color: COLORS.text[mode],
           fontFamily: FONT_FAMILY,
           fontSize: isMobile ? 10 : 11,
           margin: 12,
+          hideOverlap: true,
           formatter: (value: number) => {
             const d = new Date(value);
             return d.toLocaleDateString(undefined, {
