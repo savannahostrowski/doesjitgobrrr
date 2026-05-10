@@ -32,6 +32,44 @@ test('date range filter updates active state', async ({ page }) => {
   await expect(thirtyDays).not.toHaveClass(/active/);
 });
 
+test('date range syncs to URL ?range= and stays out of URL on default', async ({
+  page,
+}) => {
+  await page.goto('/');
+
+  // Default 30 days → no `range` param.
+  await expect(page).not.toHaveURL(/[?&]range=/);
+
+  await page.getByRole('button', { name: 'Last 7 days' }).click();
+  await expect(page).toHaveURL(/[?&]range=7\b/);
+
+  await page.getByRole('button', { name: 'All time' }).click();
+  await expect(page).toHaveURL(/[?&]range=all\b/);
+
+  // Back to default — param drops out.
+  await page.getByRole('button', { name: 'Last 30 days' }).click();
+  await expect(page).not.toHaveURL(/[?&]range=/);
+});
+
+test('?range= in URL applies on initial load', async ({ page }) => {
+  await page.goto('/?range=7');
+  await expect(
+    page.getByRole('button', { name: 'Last 7 days' }),
+  ).toHaveClass(/active/);
+
+  await page.goto('/?range=all');
+  await expect(
+    page.getByRole('button', { name: 'All time' }),
+  ).toHaveClass(/active/);
+});
+
+test('invalid ?range= falls back to default 30 days', async ({ page }) => {
+  await page.goto('/?range=garbage');
+  await expect(
+    page.getByRole('button', { name: 'Last 30 days' }),
+  ).toHaveClass(/active/);
+});
+
 test('theme toggle switches between light and dark', async ({ page }) => {
   await page.goto('/');
 
