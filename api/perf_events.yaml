@@ -11,6 +11,12 @@
 ## Newest entries go at the top.
 
 events:
+- date: '2026-05-05'
+  title: Add GNU backtrace support for unwinding JIT frames
+  link: https://github.com/python/cpython/pull/149104
+- date: '2026-05-05'
+  title: Restore function entry/exit DTrace probes
+  link: https://github.com/python/cpython/pull/142397
 - date: '2026-05-08'
   title: Fix segfault when `_LOAD_SPECIAL` guard deoptimizes
   link: https://github.com/python/cpython/pull/149478
