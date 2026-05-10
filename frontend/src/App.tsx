@@ -100,9 +100,21 @@ function serializeGoalLines(goalLines: GoalLines): string | null {
   return values.length > 0 ? values.join(',') : null;
 }
 
+const DEFAULT_DATE_RANGE: DateRange = 30;
+
+function getInitialDateRange(): DateRange {
+  const params = new globalThis.URLSearchParams(globalThis.location.search);
+  const v = params.get('range');
+  if (v === '7' || v === '30') return Number(v) as DateRange;
+  if (v === 'all') return 'all';
+  return DEFAULT_DATE_RANGE;
+}
+
 const ChartView: Component = () => {
   const navigate = useNavigate();
-  const [dateRange, setDateRange] = createSignal<DateRange>(30);
+  const [dateRange, setDateRange] = createSignal<DateRange>(
+    getInitialDateRange(),
+  );
   const [historicalData, { refetch }] = createResource(dateRange, (days) =>
     fetchHistoricalSummary(days === 'all' ? 1000 : days),
   );
@@ -116,13 +128,15 @@ const ChartView: Component = () => {
     getInitialShowEvents(),
   );
 
-  // Sync chart state (goal lines + annotations toggle) to URL and
-  // localStorage so users can share a link that restores both.
+  // Sync chart state (date range + goal lines + changes toggle) to URL
+  // and localStorage so users can share a link that restores all of them.
   createEffect(() => {
     const goals = serializeGoalLines(goalLines());
     const events = showEvents();
+    const range = dateRange();
 
     const params = new globalThis.URLSearchParams();
+    if (range !== DEFAULT_DATE_RANGE) params.set('range', String(range));
     if (goals) params.set('goals', goals);
     if (events) params.set('changes', '1');
 
