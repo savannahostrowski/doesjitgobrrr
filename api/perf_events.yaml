@@ -11,6 +11,12 @@
 ## Newest entries go at the top.
 
 events:
+- date: '2026-05-12'
+  title: Fix compilation warning in `_YIELD_VALUE` uop
+  link: https://github.com/python/cpython/pull/149502
+- date: '2026-05-11'
+  title: Make dict watcher API thread-safe for free-threaded builds
+  link: https://github.com/python/cpython/pull/145233
 - date: '2026-05-05'
   title: Add GNU backtrace support for unwinding JIT frames
   link: https://github.com/python/cpython/pull/149104
