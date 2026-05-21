@@ -11,6 +11,9 @@
 ## Newest entries go at the top.
 
 events:
+- date: '2026-05-21'
+  title: Avoid JIT trace buffer asserts with overhead above `FITNESS_INITIAL`
+  link: https://github.com/python/cpython/pull/149633
 - date: '2026-05-18'
   title: Optimize len for frozen dict/set constants in optimizer
   link: https://github.com/python/cpython/pull/149969
