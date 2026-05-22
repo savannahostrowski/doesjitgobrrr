@@ -12,6 +12,9 @@
 
 events:
 - date: '2026-05-21'
+  title: Generating JIT recorder transformers and stabilizing family layouts
+  link: https://github.com/python/cpython/pull/149359
+- date: '2026-05-21'
   title: Avoid JIT trace buffer asserts with overhead above `FITNESS_INITIAL`
   link: https://github.com/python/cpython/pull/149633
 - date: '2026-05-18'
