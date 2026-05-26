@@ -460,7 +460,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           // Allow taps on touch devices to show the tooltip. Without this
           // a tap fires the chart click handler (navigate) without ever
           // showing the change details.
-          triggerOn: 'mousemove|click',
+          triggerOn: 'mousemove|click|mousewheel',
           formatter: (params: unknown) => formatChangeTooltip(params),
           extraCssText:
             'pointer-events: auto; padding: 7px 10px; line-height: 1.35;',
@@ -590,7 +590,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
         trigger: 'axis',
         // Tap-to-show on mobile (otherwise touch users only get the chart
         // click handler firing without ever seeing tooltip content).
-        triggerOn: 'mousemove|click',
+        triggerOn: 'mousemove|click|mousewheel',
         // Keep tooltip inside the chart bounds — important on mobile.
         confine: true,
         enterable: true,
