@@ -11,6 +11,9 @@
 ## Newest entries go at the top.
 
 events:
+- date: '2026-05-28'
+  title: make `LOAD_COMMON_CONSTANT` use immortal stackref borrows
+  link: https://github.com/python/cpython/pull/149625
 - date: '2026-05-23'
   title: improve performance of `PySequence_GetSlice`
   link: https://github.com/python/cpython/pull/145193
