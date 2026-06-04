@@ -11,6 +11,9 @@
 ## Newest entries go at the top.
 
 events:
+- date: '2026-06-04'
+  title: Ensure that asserts are ignored if `NDEBUG` is set
+  link: https://github.com/python/cpython/pull/150916
 - date: '2026-06-01'
   title: Reduce the size of the debug stencils to less than half.
   link: https://github.com/python/cpython/pull/150551
