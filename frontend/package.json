@@ -23,7 +23,7 @@
     "@fontsource/sora": "^5.2.8",
     "@playwright/test": "^1.60.0",
     "@resvg/resvg-js": "^2.6.2",
-    "@types/node": "^25.9.1",
+    "@types/node": "^25.9.2",
     "@typescript/native-preview": "^7.0.0-dev.20260606.1",
     "satori": "^0.26.0",
     "vite": "^8.0.16",
