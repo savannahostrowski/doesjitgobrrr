@@ -523,23 +523,49 @@ class DataLoader:
                 f"source {self._source_repo}."
             )
 
+        # Use Git Trees API instead of /contents to avoid the 1000-entry cap
+        # on /contents responses (repos like pyperf_bench grow past 1000 result
+        # subdirs and their newest entries get silently dropped).
+        root_response = await self._client.get(
+            f"{self._url}/git/trees/main",
+            headers=get_github_headers(),
+        )
+        root_response.raise_for_status()
+        root_tree = root_response.json()
+        results_entry = next(
+            (
+                e
+                for e in root_tree["tree"]
+                if e["path"] == "results" and e["type"] == "tree"
+            ),
+            None,
+        )
+        if results_entry is None:
+            await log("No results directory found, skipping.")
+            return []
+
         response = await self._client.get(
-            f"{self._url}/contents/results",
+            f"{self._url}/git/trees/{results_entry['sha']}",
             headers=get_github_headers(),
         )
         response.raise_for_status()
-        dirs = response.json()
+        tree_data = response.json()
+        dirs = tree_data["tree"]
 
         await log(f"Found {len(dirs)} entries in results directory.")
+        if tree_data.get("truncated"):
+            await log(
+                "WARNING: results tree response was truncated; some entries may be missing."
+            )
 
         groups: dict[str, dict[str, Any]] = {}
         for dir in dirs:
-            if dir["type"] != "dir":
+            if dir["type"] != "tree":
                 continue
-            match = re.match(PATTERN, dir["name"])
+            match = re.match(PATTERN, dir["path"])
             if match:
                 date, version, commit_hash, _ = match.groups()
-                is_jit, has_tailcall = parse_run_flags(dir["name"])
+                is_jit, has_tailcall = parse_run_flags(dir["path"])
 
                 # Create separate groups for tailcall vs non-tailcall runs
                 # This ensures TAILCALL pairs with JIT,TAILCALL, and plain pairs with JIT
@@ -555,9 +581,9 @@ class DataLoader:
                     }
 
                 if is_jit:
-                    groups[key]["jit"] = dir["name"]
+                    groups[key]["jit"] = dir["path"]
                 else:
-                    groups[key]["interpreter"] = dir["name"]
+                    groups[key]["interpreter"] = dir["path"]
 
         # Filter to only complete pairs from 'python' fork
         # Group by date+tailcall_type and keep only the latest pair per group
