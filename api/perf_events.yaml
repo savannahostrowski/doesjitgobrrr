@@ -11,6 +11,9 @@
 ## Newest entries go at the top.
 
 events:
+- date: '2026-06-14'
+  title: Remove unused imports from `Tools/`
+  link: https://github.com/python/cpython/pull/151442
 - date: '2026-06-11'
   title: Raise PyType_Modified for insertion into split dictionary
   link: https://github.com/python/cpython/pull/150489
