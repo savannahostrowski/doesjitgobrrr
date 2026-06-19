@@ -164,7 +164,7 @@
 }
 
 .custom-goal-input input {
-  width: 50px;
+  width: 80px;
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-radius: 6px;
@@ -399,6 +399,12 @@
     border: none;
     border-radius: 0;
     background: transparent;
+    /* On phones the wrapped controls + chart + footer overflow one viewport
+       and force a scroll. Shrink the chart's floor (the canvas fills a
+       percentage of this, so the height must stay definite — not auto). */
+    height: 50vh;
+    min-height: 320px;
+    max-height: 60vh;
   }
 }
 

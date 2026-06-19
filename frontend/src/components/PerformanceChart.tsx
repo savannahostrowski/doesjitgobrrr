@@ -266,6 +266,12 @@ function computeYRange(
 const PerformanceChart: Component<PerformanceChartProps> = (props) => {
   let chartDiv: HTMLDivElement | undefined;
   let chart: echarts.ECharts | undefined;
+  // Track the mobile/desktop state the chart was last *built* with. buildOption
+  // bakes in isMobile (title size, axis-label format, grid), so a bare
+  // chart.resize() across the breakpoint leaves desktop options on a phone-width
+  // canvas. When the breakpoint is crossed we rebuild instead of just resizing.
+  let builtMobile =
+    typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT;
   const { theme } = useTheme();
 
   const parsedJitRuns = createMemo<ParsedRun[]>(() => {
@@ -504,7 +510,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
     return {
       animation: false,
       title: {
-        text: 'JIT vs. Interpreter · Geometric Mean',
+        text: 'Benchmark Geometric Mean · JIT vs. Interpreter',
         left: 'center',
         top: isMobile ? 8 : 12,
         textStyle: {
@@ -552,7 +558,7 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
       },
       yAxis: {
         type: 'value',
-        name: 'Performance Difference',
+        name: 'Runtime difference',
         nameLocation: 'middle',
         nameGap: isMobile ? 50 : 64,
         nameTextStyle: {
@@ -577,8 +583,15 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
           margin: 12,
           formatter: (value: number) => {
             const sign = value > 0 ? '+' : '';
-            if (!isMobile && value === yRange.min) return `${value}% (faster)`;
-            if (!isMobile && value === yRange.max) return `+${value}% (slower)`;
+            // Direction cues at the axis extremes. Desktop has room for the
+            // number + word; mobile's narrow gutter shows the word alone —
+            // the interior ticks still carry the scale.
+            if (value === yRange.min) {
+              return isMobile ? 'faster' : `${value}% (faster)`;
+            }
+            if (value === yRange.max) {
+              return isMobile ? 'slower' : `+${value}% (slower)`;
+            }
             if (value === 0) return '0%';
             return `${sign}${value}%`;
           },
@@ -750,10 +763,20 @@ const PerformanceChart: Component<PerformanceChartProps> = (props) => {
       );
     }
     chart.setOption(buildOption(), true);
+    builtMobile = window.innerWidth < MOBILE_BREAKPOINT;
   };
 
-  // Resize on window resize
-  const handleResize = () => chart?.resize();
+  // Resize on window resize. Crossing the mobile breakpoint changes
+  // isMobile-dependent options, so rebuild then; otherwise just re-fit pixels.
+  const handleResize = () => {
+    if (!chart) return;
+    const nowMobile = window.innerWidth < MOBILE_BREAKPOINT;
+    if (nowMobile !== builtMobile) {
+      renderChart();
+    } else {
+      chart.resize();
+    }
+  };
 
   createEffect(
     on(
