@@ -16,6 +16,8 @@ interface MachineComparisonRow {
   speedups: Record<string, number | null>;
 }
 
+const benchmarksFor = (run: BenchmarkRun) => run.benchmarks ?? {};
+
 const DetailView: Component<DetailViewProps> = (props) => {
   // Group runs by machine - memoized to avoid recomputation
   const runsByMachine = createMemo(() => {
@@ -146,18 +148,20 @@ const DetailView: Component<DetailViewProps> = (props) => {
     const allBenchmarks = new Set<string>();
     const nonJit = runs.nonJit;
     const jit = runs.jit;
+    const nonJitBenchmarks = benchmarksFor(nonJit);
+    const jitBenchmarks = benchmarksFor(jit);
 
-    for (const name of Object.keys(nonJit.benchmarks)) {
+    for (const name of Object.keys(nonJitBenchmarks)) {
       allBenchmarks.add(name);
     }
-    for (const name of Object.keys(jit.benchmarks)) {
+    for (const name of Object.keys(jitBenchmarks)) {
       allBenchmarks.add(name);
     }
 
     return Array.from(allBenchmarks)
       .map((name) => {
-        const nonJitMean = nonJit.benchmarks[name]?.mean ?? null;
-        const jitMean = jit.benchmarks[name]?.mean ?? null;
+        const nonJitMean = nonJitBenchmarks[name]?.mean ?? null;
+        const jitMean = jitBenchmarks[name]?.mean ?? null;
 
         let diff: number | null = null;
         let speedup: number | null = null;
@@ -187,7 +191,7 @@ const DetailView: Component<DetailViewProps> = (props) => {
     machines.forEach((machine) => {
       const runs = runsByMachine().get(machine);
       if (runs) {
-        for (const name of Object.keys(runs.nonJit.benchmarks)) {
+        for (const name of Object.keys(benchmarksFor(runs.nonJit))) {
           allBenchmarkNames.add(name);
         }
       }
@@ -199,8 +203,8 @@ const DetailView: Component<DetailViewProps> = (props) => {
         machines.forEach((machine) => {
           const runs = runsByMachine().get(machine);
           if (runs) {
-            const nonJitMean = runs.nonJit.benchmarks[name]?.mean ?? null;
-            const jitMean = runs.jit.benchmarks[name]?.mean ?? null;
+            const nonJitMean = benchmarksFor(runs.nonJit)[name]?.mean ?? null;
+            const jitMean = benchmarksFor(runs.jit)[name]?.mean ?? null;
             if (nonJitMean !== null && jitMean !== null) {
               speedups[machine] = nonJitMean / jitMean;
             } else {
@@ -233,7 +237,7 @@ const DetailView: Component<DetailViewProps> = (props) => {
   const totalBenchmarksForMachine = (machine: string) => {
     const runs = runsByMachine().get(machine);
     if (!runs) return 0;
-    return Object.keys(runs.nonJit.benchmarks).length;
+    return Object.keys(benchmarksFor(runs.nonJit)).length;
   };
 
   const formatDate = (dateStr: string) => {

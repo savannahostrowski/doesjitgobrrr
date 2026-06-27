@@ -107,10 +107,10 @@ test('navigates to about page and renders its content', async ({ page }) => {
 
 test('error state retry button refetches data successfully', async ({ page }) => {
   // Clear the mockApi handler so our fail-then-succeed mock is the only one.
-  await page.unroute('**/api/historical/summary**');
+  await page.unroute('**/data/summary-*.json');
 
   let callCount = 0;
-  await page.route('**/api/historical/summary**', async (route) => {
+  await page.route('**/data/summary-*.json', async (route) => {
     callCount++;
     if (callCount === 1) {
       // Abort forces fetch() itself to reject, which unambiguously triggers

@@ -116,7 +116,7 @@ const ChartView: Component = () => {
     getInitialDateRange(),
   );
   const [historicalData, { refetch }] = createResource(dateRange, (days) =>
-    fetchHistoricalSummary(days === 'all' ? 1000 : days),
+    fetchHistoricalSummary(days),
   );
 
   // Initialize goal lines from URL

@@ -116,8 +116,8 @@ test('benchmark table is horizontally scrollable on small screens', async ({ pag
 });
 
 test('missing date shows empty state', async ({ page }) => {
-  // Override the date endpoint to return no machines for this test
-  await page.route('**/api/historical/date/**', async (route) => {
+  // Override the date data file to return no machines for this test
+  await page.route('**/data/runs/*.json', async (route) => {
     await route.fulfill({ json: { days: 0, machines: {} } });
   });
 
