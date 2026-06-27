@@ -4,13 +4,13 @@ import machinesFixture from './fixtures/machines.json' with { type: 'json' };
 import runsFixture from './fixtures/runs.json' with { type: 'json' };
 
 /**
- * Install API mocks. Must be called before any navigation so the first page load
+ * Install static data mocks. Must be called before any navigation so the first page load
  * already sees mocked responses.
  *
- * Note: the summary and date endpoints both return the same fixture. DetailViewRoute
+ * Note: the summary and date files both return the same fixture. DetailViewRoute
  * filters by latest-commit-per-machine client-side, so navigating to any /run/:date
  * URL renders the same data (the latest commit per machine from the fixture). Tests
- * that override `**\/api/historical/date/**` after calling this helper will take
+ * that override `**\/data/runs/**` after calling this helper will take
  * precedence.
  */
 export async function mockApi(page: Page): Promise<void> {
@@ -23,19 +23,33 @@ export async function mockApi(page: Page): Promise<void> {
     }
   });
 
-  await page.route('**/api/machines', async (route) => {
+  await page.route('**/data/machines.json', async (route) => {
     await route.fulfill({ json: machinesFixture });
   });
 
-  await page.route('**/api/historical/summary**', async (route) => {
+  await page.route('**/data/summary-*.json', async (route) => {
     await route.fulfill({ json: runsFixture });
   });
 
-  await page.route('**/api/historical/date/**', async (route) => {
+  await page.route('**/data/runs/*.json', async (route) => {
     await route.fulfill({ json: runsFixture });
   });
 
-  await page.route('**/api/events', async (route) => {
+  await page.route('**/data/events.json', async (route) => {
     await route.fulfill({ json: eventsFixture });
+  });
+
+  await page.route('**/data/manifest.json', async (route) => {
+    const dates = new Set<string>();
+    for (const runs of Object.values(runsFixture.machines)) {
+      for (const run of runs) {
+        dates.add(run.date.split('T')[0]);
+      }
+    }
+    await route.fulfill({
+      json: {
+        dates: Array.from(dates).sort(),
+      },
+    });
   });
 }

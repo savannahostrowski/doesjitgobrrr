@@ -21,15 +21,14 @@ export interface BenchmarkRun {
   machine: string;
   directory_name: string;
   has_tailcall: boolean;
-  created_at: string;
-  geomean: number | null;
+  created_at?: string;
   speedup: number | null; // Speedup ratio for JIT runs (nonjit_time / jit_time)
   hpt?: HPTData; // HPT statistical comparison data (only for JIT runs)
-  benchmarks: Record<string, BenchmarkResult>;
+  benchmarks?: Record<string, BenchmarkResult>;
 }
 
 export interface HistoricalResponse {
-  days: number;
+  days: number | 'all';
   machines: Record<string, BenchmarkRun[]>; // Grouped by machine name
 }
 

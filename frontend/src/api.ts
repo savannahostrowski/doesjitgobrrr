@@ -1,198 +1,81 @@
 import type { Resource } from 'solid-js';
 import { createResource, createRoot } from 'solid-js';
-import { CACHE_TTL_MS } from './constants';
 import type { HistoricalResponse, MachinesMap, PerfEvent } from './types';
 
 export type { Resource };
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000';
+const DATA_URL = import.meta.env.VITE_DATA_URL ?? '';
 
-// Cache configuration
-const CACHE_KEY_SUMMARY_PREFIX = 'historical_summary_cache_';
-const CACHE_KEY_DATE_PREFIX = 'historical_date_cache_';
-
-interface CachedData {
-  data: HistoricalResponse;
-  timestamp: number;
+interface Manifest {
+  dates: string[];
 }
 
-function getCachedData(cacheKey: string): HistoricalResponse | null {
-  try {
-    const cached = globalThis.localStorage.getItem(cacheKey);
-    if (!cached) return null;
+const dataPath = (path: string) => `${DATA_URL}/data/${path}`;
 
-    const cachedData: CachedData = JSON.parse(cached);
-    const now = Date.now();
-
-    // Check if cache is still valid
-    if (now - cachedData.timestamp < CACHE_TTL_MS) {
-      // Also validate the cache has actual data
-      const machines = cachedData.data?.machines || {};
-      const totalRuns = Object.values(machines).reduce(
-        (sum, runs) => sum + runs.length,
-        0,
-      );
-      if (totalRuns === 0) {
-        // Empty cache, remove it
-        globalThis.localStorage.removeItem(cacheKey);
-        return null;
-      }
-      return cachedData.data;
-    }
-
-    // Cache is stale, remove it
-    globalThis.localStorage.removeItem(cacheKey);
-    return null;
-  } catch {
-    // If there's any error parsing cache, just ignore it
-    try {
-      globalThis.localStorage.removeItem(cacheKey);
-    } catch {
-      // localStorage may be unavailable
-    }
-    return null;
+async function fetchJson<T>(path: string, errorMessage: string): Promise<T> {
+  const response = await fetch(dataPath(path), { cache: 'no-cache' });
+  if (!response.ok) {
+    throw new Error(errorMessage);
   }
+  return response.json();
 }
 
-function setCachedData(cacheKey: string, data: HistoricalResponse): void {
-  try {
-    const cacheData: CachedData = {
-      data,
-      timestamp: Date.now(),
-    };
-    globalThis.localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-  } catch {
-    // localStorage may be full or unavailable
-  }
-}
+// In-memory caches keep route changes fast without hiding freshly deployed
+// dashboard data after a browser refresh.
+const summaryMemoryCache = new Map<number | 'all', HistoricalResponse>();
+const dateMemoryCache = new Map<string, HistoricalResponse>();
+let machinesMemoryCache: MachinesMap | null = null;
+let availableDatesCache: string[] | null = null;
 
 /**
- * Fetch summary data for the chart (lightweight, no benchmark details)
+ * Fetch summary data for the chart (lightweight, no benchmark details).
  */
 export async function fetchHistoricalSummary(
-  days: number = 100,
-  forceRefresh = false,
+  days: number | 'all' = 30,
 ): Promise<HistoricalResponse> {
-  const cacheKey = `${CACHE_KEY_SUMMARY_PREFIX}${days}`;
-
-  // Try to get from cache first (unless force refresh is requested)
-  if (!forceRefresh) {
-    const cachedData = getCachedData(cacheKey);
-    if (cachedData) {
-      return cachedData;
-    }
+  if (summaryMemoryCache.has(days)) {
+    return summaryMemoryCache.get(days)!;
   }
 
-  // If not in cache or force refresh, fetch from API
-  const response = await fetch(
-    `${API_URL}/api/historical/summary?days=${days}`,
-    {
-      cache: 'no-cache', // Always revalidate with server
-    },
+  const data = await fetchJson<HistoricalResponse>(
+    days === 'all' ? 'summary-all.json' : `summary-${days}.json`,
+    'Failed to fetch data',
   );
-  if (!response.ok) {
-    throw new Error('Failed to fetch data');
-  }
-  const data = await response.json();
-
-  // Cache the result
-  setCachedData(cacheKey, data);
-
+  summaryMemoryCache.set(days, data);
   return data;
 }
 
 /**
- * Fetch full historical data for a specific date (for detail view)
+ * Fetch full historical data for a specific date (for detail view).
  */
 export async function fetchHistoricalByDate(
   date: string,
-  forceRefresh = false,
 ): Promise<HistoricalResponse> {
-  const cacheKey = `${CACHE_KEY_DATE_PREFIX}${date}`;
-
-  // Try to get from cache first (unless force refresh is requested)
-  if (!forceRefresh) {
-    const cachedData = getCachedData(cacheKey);
-    if (cachedData) {
-      return cachedData;
-    }
+  if (dateMemoryCache.has(date)) {
+    return dateMemoryCache.get(date)!;
   }
 
-  const response = await fetch(`${API_URL}/api/historical/date/${date}`, {
-    cache: 'no-cache',
-  });
-  if (!response.ok) {
-    throw new Error('Failed to fetch data');
-  }
-  const data = await response.json();
-
-  // Cache the result
-  setCachedData(cacheKey, data);
-
+  const data = await fetchJson<HistoricalResponse>(
+    `runs/${date}.json`,
+    'Failed to fetch data',
+  );
+  dateMemoryCache.set(date, data);
   return data;
 }
 
-const CACHE_KEY_MACHINES = 'machines_cache';
-const MACHINES_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-
-interface CachedMachines {
-  data: MachinesMap;
-  timestamp: number;
-}
-
-// In-memory cache so navigations within the same session are instant
-let machinesMemoryCache: MachinesMap | null = null;
-
 /**
- * Fetch machine metadata (colors, arch, descriptions) from the API.
- * Cached in memory (instant on route changes) and localStorage (24h persistence).
+ * Fetch machine metadata (colors, arch, descriptions).
  */
-export async function fetchMachines(
-  forceRefresh = false,
-): Promise<MachinesMap> {
-  // In-memory cache: instant return, no async overhead
-  if (!forceRefresh && machinesMemoryCache) {
+export async function fetchMachines(): Promise<MachinesMap> {
+  if (machinesMemoryCache) {
     return machinesMemoryCache;
   }
 
-  if (!forceRefresh) {
-    try {
-      const raw = globalThis.localStorage.getItem(CACHE_KEY_MACHINES);
-      if (raw) {
-        const cached: CachedMachines = JSON.parse(raw);
-        if (Date.now() - cached.timestamp < MACHINES_CACHE_TTL) {
-          machinesMemoryCache = cached.data;
-          return cached.data;
-        }
-        globalThis.localStorage.removeItem(CACHE_KEY_MACHINES);
-      }
-    } catch {
-      // fall through to fetch
-    }
-  }
-
-  const response = await fetch(`${API_URL}/api/machines`, {
-    cache: 'no-cache',
-  });
-  if (!response.ok) {
-    throw new Error('Failed to fetch machines');
-  }
-  const json = await response.json();
+  const json = await fetchJson<{ machines: MachinesMap }>(
+    'machines.json',
+    'Failed to fetch machines',
+  );
   machinesMemoryCache = json.machines;
-
-  try {
-    const cacheData: CachedMachines = {
-      data: json.machines,
-      timestamp: Date.now(),
-    };
-    globalThis.localStorage.setItem(
-      CACHE_KEY_MACHINES,
-      JSON.stringify(cacheData),
-    );
-  } catch {
-    // localStorage may be full or unavailable
-  }
-
   return json.machines;
 }
 
@@ -203,11 +86,10 @@ export const machinesResource: Resource<MachinesMap> = createRoot(
 );
 
 export async function fetchPerfEvents(): Promise<PerfEvent[]> {
-  const response = await fetch(`${API_URL}/api/events`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch perf events');
-  }
-  const json = await response.json();
+  const json = await fetchJson<{ events?: PerfEvent[] }>(
+    'events.json',
+    'Failed to fetch perf events',
+  );
   return json.events ?? [];
 }
 
@@ -216,45 +98,18 @@ export const perfEventsResource: Resource<PerfEvent[]> = createRoot(
   () => createResource(fetchPerfEvents, { initialValue: [] })[0],
 );
 
-// In-memory cache for available dates
-let availableDatesCache: string[] | null = null;
-
 /**
  * Fetch the list of all available benchmark run dates (sorted ascending).
- * Uses the lightweight summary endpoint and caches in memory.
  */
 export async function fetchAvailableDates(): Promise<string[]> {
   if (availableDatesCache) {
     return availableDatesCache;
   }
 
-  const summary = await fetchHistoricalSummary(1000);
-  const dateSet = new Set<string>();
-
-  for (const machineRuns of Object.values(summary.machines || {})) {
-    for (const run of machineRuns) {
-      const dateStr = run.date.split('T')[0];
-      dateSet.add(dateStr);
-    }
-  }
-
-  availableDatesCache = Array.from(dateSet).sort();
+  const manifest = await fetchJson<Manifest>(
+    'manifest.json',
+    'Failed to fetch available dates',
+  );
+  availableDatesCache = [...manifest.dates].sort();
   return availableDatesCache;
-}
-
-// Helper to clear the cache manually
-export function clearHistoricalDataCache(): void {
-  try {
-    const keys = Object.keys(globalThis.localStorage);
-    for (const key of keys) {
-      if (
-        key.startsWith(CACHE_KEY_SUMMARY_PREFIX) ||
-        key.startsWith(CACHE_KEY_DATE_PREFIX)
-      ) {
-        globalThis.localStorage.removeItem(key);
-      }
-    }
-  } catch {
-    // localStorage may be unavailable
-  }
 }
