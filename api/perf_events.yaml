@@ -11,6 +11,12 @@
 ## Newest entries go at the top.
 
 events:
+- date: '2026-06-26'
+  title: Revert gh-150490 and gh-152200.
+  link: https://github.com/python/cpython/pull/152232
+- date: '2026-06-25'
+  title: Fix build error if specialization is disabled
+  link: https://github.com/python/cpython/pull/148826
 - date: '2026-06-18'
   title: Reduce the work done to spill and reload the stack around calls
   link: https://github.com/python/cpython/pull/151587
