@@ -91,10 +91,6 @@ writes it to `/data/events.json` for the chart's Changes toggle. The existing
 merging one of those PRs to `main` triggers the normal FastAPI Cloud deploy,
 which rebuilds `events.json`.
 
-If the cache blob is missing or evicted, the generator can rebuild it from the
-configured GitHub source repositories; that is slower but does not require Neon
-or any other runtime database.
-
 ## Contributing
 
 Want to contribute benchmark data from your own hardware? See [CONTRIBUTING.md](CONTRIBUTING.md) for instructions on adding your machines to the dashboard.
