@@ -11,6 +11,24 @@
 ## Newest entries go at the top.
 
 events:
+- date: '2026-07-01'
+  title: Make sure that mngr.__exit__() is always called in a with statement
+  link: https://github.com/python/cpython/pull/150911
+- date: '2026-06-30'
+  title: Replace `DELETE_GLOBAL` with `PUSH_NULL; STORE_GLOBAL`
+  link: https://github.com/python/cpython/pull/146314
+- date: '2026-06-30'
+  title: Replace `DELETE_NAME` with `PUSH_NULL; STORE_NAME`
+  link: https://github.com/python/cpython/pull/146006
+- date: '2026-06-28'
+  title: Ensure non-module global/builtin namespaces are watched for lazy imports
+  link: https://github.com/python/cpython/pull/151762
+- date: '2026-06-26'
+  title: Revert gh-150490 and gh-152200.
+  link: https://github.com/python/cpython/pull/152232
+- date: '2026-06-25'
+  title: Fix build error if specialization is disabled
+  link: https://github.com/python/cpython/pull/148826
 - date: '2026-06-18'
   title: Reduce the work done to spill and reload the stack around calls
   link: https://github.com/python/cpython/pull/151587
