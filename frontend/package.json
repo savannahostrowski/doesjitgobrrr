@@ -16,7 +16,7 @@
   "dependencies": {
     "@solidjs/router": "^0.16.1",
     "echarts": "^6.1.0",
-    "solid-js": "^1.9.13"
+    "solid-js": "^1.9.14"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.1",
