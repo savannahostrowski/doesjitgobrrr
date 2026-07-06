@@ -24,7 +24,7 @@
     "@playwright/test": "^1.61.1",
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^26.0.1",
-    "@typescript/native-preview": "^7.0.0-dev.20260627.2",
+    "@typescript/native-preview": "^7.0.0-dev.20260704.1",
     "satori": "^0.26.0",
     "vite": "^8.1.0",
     "vite-plugin-solid": "^2.11.12"
