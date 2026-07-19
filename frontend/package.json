@@ -14,7 +14,7 @@
     "social": "node generate-social.mjs"
   },
   "dependencies": {
-    "@solidjs/router": "^0.16.1",
+    "@solidjs/router": "^0.16.2",
     "echarts": "^6.1.0",
     "solid-js": "^1.9.14"
   },
