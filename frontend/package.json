@@ -27,6 +27,6 @@
     "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "satori": "^0.26.0",
     "vite": "^8.1.5",
-    "vite-plugin-solid": "^2.11.12"
+    "vite-plugin-solid": "^2.11.13"
   }
 }
