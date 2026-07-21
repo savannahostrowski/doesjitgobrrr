@@ -1,12 +1,37 @@
 import json
-from datetime import datetime
+from datetime import date, datetime
 
 from generate_static_data import (
+    StaticDataLoader,
     compute_benchmark_statistics,
     load_perf_events,
     parse_pyperf_geomean,
     write_static_data,
 )
+
+
+def test_refresh_since_invalidates_cached_directories(tmp_path):
+    loader = StaticDataLoader(
+        tmp_path / "sources.yaml",
+        [
+            {
+                "_source": "owner/repo",
+                "directory_name": "bm-20260708-3.16.0a0-abc1234-JIT",
+                "is_jit": True,
+                "speedup": 1.05,
+            },
+            {
+                "_source": "owner/repo",
+                "directory_name": "bm-20260709-3.16.0a0-def5678-JIT",
+                "is_jit": True,
+                "speedup": 1.06,
+            },
+        ],
+        refresh_since=date(2026, 7, 9),
+    )
+    loader._source_repo = "owner/repo"
+
+    assert loader._processed_dirs() == {"bm-20260708-3.16.0a0-abc1234-JIT"}
 
 
 def test_compute_benchmark_statistics_flattens_values():

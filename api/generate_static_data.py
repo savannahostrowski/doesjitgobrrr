@@ -181,11 +181,13 @@ class StaticDataLoader:
         cached_runs: list[dict[str, Any]],
         cache_path: Path | None = None,
         max_pairs: int | None = None,
+        refresh_since: date | None = None,
     ):
         self._sources_path = sources_path
         self._runs = cached_runs
         self._cache_path = cache_path
         self._max_pairs = max_pairs
+        self._refresh_since = refresh_since
         self._client: httpx.AsyncClient
         self._url = ""
         self._fork_filter = "python"
@@ -220,6 +222,14 @@ class StaticDataLoader:
 
         processed: set[str] = set()
         for dir_name, runs in runs_by_dir.items():
+            match = re.match(PATTERN, dir_name)
+            if (
+                self._refresh_since is not None
+                and match is not None
+                and datetime.strptime(match.group(1), "%Y%m%d").date()
+                >= self._refresh_since
+            ):
+                continue
             jit_runs = [run for run in runs if run.get("is_jit")]
             if not jit_runs or all(run.get("speedup") is not None for run in jit_runs):
                 processed.add(dir_name)
@@ -782,6 +792,12 @@ async def main() -> None:
         help="Process only the newest N missing benchmark pairs. Useful for local smoke runs.",
     )
     parser.add_argument(
+        "--refresh-since",
+        type=date.fromisoformat,
+        default=None,
+        help="Reprocess cached benchmark directories on or after YYYY-MM-DD.",
+    )
+    parser.add_argument(
         "--skip-fetch",
         action="store_true",
         help="Only rewrite public static JSON from the existing cache blob.",
@@ -798,6 +814,7 @@ async def main() -> None:
             cached_runs,
             cache_path=args.cache,
             max_pairs=args.max_pairs,
+            refresh_since=args.refresh_since,
         )
         runs = await loader.run()
 

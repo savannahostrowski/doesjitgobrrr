@@ -4,6 +4,11 @@ on:
   repository_dispatch:
     types: [benchmark_completed]
   workflow_dispatch:
+    inputs:
+      refresh_since:
+        description: Reprocess cached benchmark directories on or after this date
+        required: false
+        type: string
 
 concurrency:
   group: dashboard-data-refresh
@@ -41,7 +46,16 @@ jobs:
           PYTHONUNBUFFERED: "1"
         # Appends newly discovered benchmark runs to .static-data-cache.json,
         # then rewrites the public /data JSON files for the static frontend.
-        run: uv run python generate_static_data.py --cache .static-data-cache.json --out ../frontend/public/data
+        run: |
+          refresh_since="${{ github.event.client_payload.refresh_since || inputs.refresh_since }}"
+          refresh_args=()
+          if [[ -n "$refresh_since" ]]; then
+            refresh_args+=(--refresh-since "$refresh_since")
+          fi
+          uv run python generate_static_data.py \
+            --cache .static-data-cache.json \
+            --out ../frontend/public/data \
+            "${refresh_args[@]}"
 
       - name: Build frontend
         working-directory: frontend
