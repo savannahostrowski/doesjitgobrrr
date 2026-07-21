@@ -1,5 +1,7 @@
 import json
 from datetime import date, datetime
+from pathlib import Path
+from typing import Any, cast
 
 from generate_static_data import (
     StaticDataLoader,
@@ -8,6 +10,59 @@ from generate_static_data import (
     parse_pyperf_geomean,
     write_static_data,
 )
+
+
+class FakeResponse:
+    def __init__(self, data: dict[str, Any]):
+        self._data = data
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        return self._data
+
+
+class FakeTreeClient:
+    def __init__(self, entries: list[dict[str, str]]):
+        self._entries = entries
+
+    async def get(self, url: str, headers: dict[str, str]):
+        if url.endswith("/git/trees/main"):
+            return FakeResponse(
+                {"tree": [{"path": "results", "type": "tree", "sha": "results"}]}
+            )
+        if url.endswith("/git/trees/results"):
+            return FakeResponse({"tree": self._entries, "truncated": False})
+        raise AssertionError(f"Unexpected URL: {url}")
+
+
+async def test_fetch_pairs_keeps_multiple_commits_from_same_day(monkeypatch):
+    directories = [
+        "bm-20260710-3.16.0a0-1b41c7b-TAILCALL",
+        "bm-20260710-3.16.0a0-1b41c7b-JIT,TAILCALL",
+        "bm-20260710-3.16.0a0-c22e9c9-TAILCALL",
+        "bm-20260710-3.16.0a0-c22e9c9-JIT,TAILCALL",
+    ]
+    loader = StaticDataLoader(Path("sources.yaml"), [])
+    loader._source_repo = "owner/repo"
+    loader._url = "https://api.github.com/repos/owner/repo"
+    loader._client = cast(
+        Any,
+        FakeTreeClient(
+            [{"path": directory, "type": "tree"} for directory in directories]
+        ),
+    )
+
+    async def python_fork(_directory: str):
+        return "python"
+
+    monkeypatch.setattr(loader, "_get_fork_from_directory", python_fork)
+
+    assert await loader._fetch_all_benchmark_pairs() == [
+        (directories[0], directories[1]),
+        (directories[2], directories[3]),
+    ]
 
 
 def test_refresh_since_invalidates_cached_directories(tmp_path):

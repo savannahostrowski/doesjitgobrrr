@@ -327,20 +327,10 @@ class StaticDataLoader:
             )
             groups[key]["jit" if is_jit else "interpreter"] = entry["path"]
 
-        pairs_by_date_and_type: dict[str, dict[str, Any]] = {}
+        pairs_to_check: list[dict[str, Any]] = []
         for group in groups.values():
             if not group["interpreter"] or not group["jit"]:
                 continue
-            tailcall_type = "tailcall" if group["has_tailcall"] else "standard"
-            key = f"{group['date']}-{tailcall_type}"
-            if (
-                key not in pairs_by_date_and_type
-                or group["jit"] > pairs_by_date_and_type[key]["jit"]
-            ):
-                pairs_by_date_and_type[key] = group
-
-        pairs_to_check: list[dict[str, Any]] = []
-        for group in pairs_by_date_and_type.values():
             if group["interpreter"] in existing_dirs and group["jit"] in existing_dirs:
                 continue
             pairs_to_check.append(group)
