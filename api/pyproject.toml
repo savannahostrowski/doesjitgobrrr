@@ -9,6 +9,9 @@ dependencies = [
     "fastapi[standard]>=0.138.1",
     "httpx>=0.27.0",
     "numpy>=2.0.0",
+    "opentelemetry-exporter-otlp-proto-http",
+    "opentelemetry-instrumentation-fastapi>=0.64b0",
+    "opentelemetry-sdk",
     "pyperf>=2.7.0",
     "pyyaml>=6.0.3",
 ]

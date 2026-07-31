@@ -4,8 +4,19 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.metrics import set_meter_provider
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+
+
+set_meter_provider(
+    MeterProvider(metric_readers=[PeriodicExportingMetricReader(OTLPMetricExporter())])
+)
 
 app = FastAPI()
+FastAPIInstrumentor.instrument_app(app)
 
 
 @app.get("/health")
