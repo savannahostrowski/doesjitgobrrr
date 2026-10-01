@@ -11,6 +11,24 @@
 ## Newest entries go at the top.
 
 events:
+- date: '2026-10-01'
+  title: Validate correct builtins used under JIT
+  link: https://github.com/python/cpython/pull/157766
+- date: '2026-10-01'
+  title: Simplify lazy import resolution
+  link: https://github.com/python/cpython/pull/158282
+- date: '2026-10-01'
+  title: Fix stale stack on _SEND_VIRTUAL_TIER_TWO exhausted exit
+  link: https://github.com/python/cpython/pull/155844
+- date: '2026-09-30'
+  title: Fix specialized C calls with additional method flags
+  link: https://github.com/python/cpython/pull/157834
+- date: '2026-09-30'
+  title: Fix the stack operand used by JIT dict access guards
+  link: https://github.com/python/cpython/pull/158381
+- date: '2026-09-22'
+  title: Call `__instancecheck__` and `__subclasscheck__` without creating a bound method
+  link: https://github.com/python/cpython/pull/157670
 - date: '2026-06-18'
   title: Reduce the work done to spill and reload the stack around calls
   link: https://github.com/python/cpython/pull/151587
