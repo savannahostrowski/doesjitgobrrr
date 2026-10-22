@@ -86,10 +86,9 @@ then writes public static JSON:
 
 Change annotations remain authored in `api/perf_events.yaml`. The static data
 generator validates and sorts that YAML on every data refresh or deploy, then
-writes it to `/data/events.json` for the chart's Changes toggle. The existing
-`Suggest annotations` workflow still opens PRs against `api/perf_events.yaml`;
-merging one of those PRs to `main` triggers the normal FastAPI Cloud deploy,
-which rebuilds `events.json`.
+writes it to `/data/events.json` for the chart's Changes toggle. Annotations are
+maintained manually; merging changes to `api/perf_events.yaml` into `main`
+triggers the normal FastAPI Cloud deploy, which rebuilds `events.json`.
 
 ## Contributing
 
